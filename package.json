@@ -1,11 +1,11 @@
-﻿{
+{
   "name": "focusos",
   "private": true,
   "scripts": {
     "dev:web": "npm --prefix web run dev",
     "build:web": "npm --prefix web run build",
     "start:web": "npm --prefix web run start",
-    "dev:api": ".venv/Scripts/python.exe -m uvicorn focusos_api.main:app --app-dir backend/src --reload"
+    "dev:api": ".venv/Scripts/python.exe -m uvicorn focusos_api.main:app --app-dir backend/src --reload",
+    "test:web": "npm --prefix web run test"
   }
 }
-

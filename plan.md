@@ -1,6 +1,6 @@
 # FocusOS Implementation Plan
 
-Planning status: **no architecture option has been selected and no application has been implemented**. This document is the only deliverable of this session. Repository inspection found an empty repository apart from Git metadata. Future paths, schemas, commands, and examples below are specifications, not existing implementation.
+Planning status: **D1 and D2 are selected; Phase 1 increments 1.1 through 1.3 are implemented.** Remaining decisions and increments are still open.
 
 ## 1. Product Goal
 
@@ -10,12 +10,12 @@ The principal Day-7 demonstration is: sync a selected Gmail message; extract and
 
 ## Architecture Decisions Requiring User Input
 
-All entries are **OPEN**. The option descriptions appear at the point of use below. No option is ranked. Agree on choices before their gates; choices due later do not block independent earlier increments. Product scope limits and safety invariants are distinguished from these architectural choices.
+D1 and D2 are selected; D3 through D13 remain open until their gates. The option descriptions appear at the point of use below. No option is ranked. Agree on choices before their gates; choices due later do not block independent earlier increments. Product scope limits and safety invariants are distinguished from these architectural choices.
 
 | ID | Decision | Decide before | Dependent work | Can proceed beforehand |
 |---|---|---|---|---|
-| D1 | Next.js backend or Python backend; repository and hosting shape | 1.1 | All backend paths, deployment, validation/test tools | Planning and account readiness checks |
-| D2 | Application identity and Google account connection | 1.4 | Sessions, RLS identity, OAuth callbacks, reconnect | 1.1–1.3 |
+| D1 | **SELECTED: Next.js UI + Python API; hosting remains open** | 1.1 | All backend paths, deployment, validation/test tools | Planning and account readiness checks |
+| D2 | **SELECTED: Supabase Auth Google sign-in** | 1.4 | Sessions, RLS identity, OAuth callbacks, reconnect | 1.1–1.3 |
 | D3 | Direct Supabase access or ORM/SQL access | 1.5 | Repositories, transactions, migrations, RLS context | 1.1–1.4 |
 | D4 | Encrypted OAuth credentials: application encryption or database Vault | 2.1 | Token storage, refresh, scheduled sync | Step 1 |
 | D5 | Store normalized email bodies or only metadata/evidence | 4.1 | Sources, reprocessing, retention, Gmail normalization | Steps 1–3 |
@@ -66,6 +66,8 @@ MVP includes manual tasks, basic projects, Gmail text extraction, task/event can
 
 ### DECISION D1 — Backend runtime and repository shape
 
+**SELECTED: Option B — Next.js UI with Python API. Hosting is undecided and remains a later deployment choice.**
+
 **CONDITION**: Next.js can implement the whole web application; Python may better suit the desired AI engineering experience. A second runtime introduces deployment and contract work within a fixed week.
 
 **OPTION A — One Next.js application**
@@ -89,6 +91,8 @@ MVP includes manual tasks, basic projects, Gmail text extraction, task/event can
 **IMPLICATIONS**: Translate backend paths to `backend/app/` and Zod server schemas to Pydantic. Use pytest/httpx instead of TypeScript backend tests. Preserve the same increments, API contracts, and database. Add 3–5 hours of contingency by cutting optional UI; if deployment fails, explicitly choose local presentation or revisit D1. Do not quietly assume a paid Python host.
 
 ### DECISION D2 — Application sign-in versus Google authorization
+
+**SELECTED: Option A — Supabase Auth Google sign-in, with Google service scopes and credential storage handled at their later decision gates.**
 
 **CONDITION**: An application session identifies the FocusOS user; a Google grant authorizes Gmail/Calendar. These are different credentials with different expiry and revocation behavior.
 
@@ -263,6 +267,8 @@ Deletion semantics: disconnect stops sync, revokes/deletes credentials, and expi
 
 ### DECISION D11 — Conversation persistence
 
+**SELECTED: Option B — Next.js UI with Python API. Hosting is undecided and remains a later deployment choice.**
+
 **CONDITION**: A run must survive an approval pause; that does not necessarily require permanent chat history.
 
 **OPTION A — Per-run context with bounded retention**
@@ -327,6 +333,8 @@ Provider Gmail draft creation is an external write and would require approval pl
 ## 10. Structured LLM Outputs
 
 ### DECISION D12 — Model and embedding contract
+
+**SELECTED: Option B — Next.js UI with Python API. Hosting is undecided and remains a later deployment choice.**
 
 **CONDITION**: Existing LLM access is unspecified. Native schema support, tool calling, data-use terms, latency, and embedding availability cannot be assumed.
 
@@ -417,6 +425,8 @@ Introduce one schema family when its feature appears. Do not create all contract
 **IMPLICATIONS**: Verify availability and exact access behavior in the selected project before 2.2. Only a narrow server function/role can access decrypted values; browser roles cannot. If unavailable, revisit D4 instead of storing plaintext. [Supabase Vault](https://supabase.com/docs/guides/database/vault)
 
 ### DECISION D13 — Consent timing and Calendar scope
+
+**SELECTED: Option B — Next.js UI with Python API. Hosting is undecided and remains a later deployment choice.**
 
 **CONDITION**: Gmail is needed for extraction, while Calendar writes arrive later. OAuth permission can be broader than the application's tool policy, and consent timing affects the early risk test.
 
@@ -571,6 +581,8 @@ Search: apply owner and project constraints in the database, discard superseded/
 ## 14. Approval and Permission System
 
 ### DECISION D10 — Approval unit
+
+**SELECTED: Option B — Next.js UI with Python API. Hosting is undecided and remains a later deployment choice.**
 
 **CONDITION**: A three-hour plan may contain several events. Approval granularity affects review effort and partial failures.
 
@@ -1879,11 +1891,13 @@ Codex must state:
 7. KNOWN LIMITATIONS
 8. NEXT INCREMENT
 
+Before stopping, append the completed increment to `docs/implementation-log.md` with its purpose, files, changes and reasons, verification results, manual checks, limitations, and next gated increment. Keep this history current after every step.
+
 **Then STOP. Do not automatically implement the next increment. Wait for the user unless they explicitly authorized continued increments.** An unfinished check must be reported as unfinished, not a pass. Test mocks and live provider verification must be distinguished.
 
 Practical teaching: explain runtime validation when introduced despite TypeScript; explain access versus refresh tokens at 2.2; explain tool request -> validation -> execution at 7.2; explain what a memory vector represents at 7.5; explain approval and stable external IDs at Step 8. Keep explanations connected to the current change rather than giving a broad tutorial.
 
-Never generate the whole application, thousands of lines in one step, every API/table/tool/screen at once, or unrelated refactors. Do not create empty future directories. No application code, dependency installation, scaffolding, provider setup or Increment 1.1 is authorized by the current planning-only request.
+Never generate the whole application, thousands of lines in one step, every API/table/tool/screen at once, or unrelated refactors. Do not create empty future directories. The planning-only phase has been superseded by explicit implementation authorization. Follow this protocol for each subsequent increment.
 
 ## 27. Final Implementation Checklist
 
@@ -1892,15 +1906,16 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 ### Phase 0 — Planning and prerequisite decisions
 
 - [x] Create only root `plan.md` containing the technical blueprint.
-- [ ] Record D1 backend/repository/hosting choice before 1.1.
-- [ ] Record D2 identity and D3 database access choices before 1.4/1.5.
+- [x] Record D1 runtime choice (Next.js UI + Python API); hosting remains open.
+- [x] Record D2 identity choice before 1.4.
+- [ ] Record D3 database access choice before 1.5.
 - [ ] Confirm access to required free accounts and existing model API; do not store credentials in the plan.
 
 ### Phase 1 — Foundation
 
-- [ ] 1.1 Initialize only minimal selected runtime(s); root page and build work.
-- [ ] 1.2 Validate environment boundaries; ignore private files; no secret output.
-- [ ] 1.3 Add focused verification harness; environment test passes.
+- [x] 1.1 Initialize only minimal selected runtime(s); root page and build work.
+- [x] 1.2 Validate environment boundaries; ignore private files; no secret output.
+- [x] 1.3 Add focused verification harness; environment test passes.
 - [ ] 1.4 Complete selected login/callback/logout; verify session server-side.
 - [ ] 1.5 Prove restricted database connectivity and identity propagation.
 - [ ] 1.6 Add profiles only; persist timezone/hours; pass two-user isolation test.
