@@ -1,0 +1,33 @@
+:root {
+  color-scheme: light;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #17212b;
+  background: #f6f7f9;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+}
+
+main {
+  display: grid;
+  min-height: 100vh;
+  place-content: center;
+  gap: 0.5rem;
+  padding: 2rem;
+}
+
+h1,
+p {
+  margin: 0;
+}
+
+p {
+  color: #586575;
+  line-height: 1.6;
+}
