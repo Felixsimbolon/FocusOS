@@ -1,6 +1,6 @@
 # FocusOS Implementation Plan
 
-Planning status: **D1 and D2 are selected; Phase 1 increments 1.1 through 1.3 are implemented.** Remaining decisions and increments are still open.
+Planning status: **D1, D2, and D3 are selected; Phase 1 increments 1.1 through 1.3 are verified.** Code for 1.4 and 1.5 is in place; their live Supabase checks remain pending. Remaining decisions and increments are still open.
 
 ## 1. Product Goal
 
@@ -10,13 +10,13 @@ The principal Day-7 demonstration is: sync a selected Gmail message; extract and
 
 ## Architecture Decisions Requiring User Input
 
-D1 and D2 are selected; D3 through D13 remain open until their gates. The option descriptions appear at the point of use below. No option is ranked. Agree on choices before their gates; choices due later do not block independent earlier increments. Product scope limits and safety invariants are distinguished from these architectural choices.
+D1, D2, and D3 are selected; D4 through D13 remain open until their gates. The option descriptions appear at the point of use below. No option is ranked. Agree on choices before their gates; choices due later do not block independent earlier increments. Product scope limits and safety invariants are distinguished from these architectural choices.
 
 | ID | Decision | Decide before | Dependent work | Can proceed beforehand |
 |---|---|---|---|---|
 | D1 | **SELECTED: Next.js UI + Python API; hosting remains open** | 1.1 | All backend paths, deployment, validation/test tools | Planning and account readiness checks |
 | D2 | **SELECTED: Supabase Auth Google sign-in** | 1.4 | Sessions, RLS identity, OAuth callbacks, reconnect | 1.1–1.3 |
-| D3 | Direct Supabase access or ORM/SQL access | 1.5 | Repositories, transactions, migrations, RLS context | 1.1–1.4 |
+| D3 | **SELECTED: Supabase client + versioned SQL migrations** | 1.5 | Repositories, transactions, migrations, RLS context | 1.1–1.4 |
 | D4 | Encrypted OAuth credentials: application encryption or database Vault | 2.1 | Token storage, refresh, scheduled sync | Step 1 |
 | D5 | Store normalized email bodies or only metadata/evidence | 4.1 | Sources, reprocessing, retention, Gmail normalization | Steps 1–3 |
 | D6 | Bounded tool loop or fixed workflow with model tool selection | 7.1 | Agent states, continuation, tests | Steps 1–6, including extraction |
@@ -127,6 +127,8 @@ MVP includes manual tasks, basic projects, Gmail text extraction, task/event can
 **IMPLICATIONS**: Add users/session storage in 1.4, with library-managed session verification. Before 1.5, explicitly implement a restricted database role with transaction-local user identity/RLS, or server-only repositories with browser database access denied and tested owner predicates. A service-role key alone is not user isolation. Budget 2–3 additional hours or revisit the scope.
 
 ### DECISION D3 — Database access and migrations
+
+**SELECTED: Option A — Supabase client and versioned SQL migrations.** Ordinary API requests use the verified user access token; ordered SQL files own the schema. No service-role key is used for ordinary requests.
 
 **CONDITION**: Supabase supports an HTTP database client and Postgres connections. Transactional claims and ownership checks are needed; a full ORM is not required by the product.
 
@@ -1908,7 +1910,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] Create only root `plan.md` containing the technical blueprint.
 - [x] Record D1 runtime choice (Next.js UI + Python API); hosting remains open.
 - [x] Record D2 identity choice before 1.4.
-- [ ] Record D3 database access choice before 1.5.
+- [x] Record D3 database access choice before 1.5.
 - [ ] Confirm access to required free accounts and existing model API; do not store credentials in the plan.
 
 ### Phase 1 — Foundation

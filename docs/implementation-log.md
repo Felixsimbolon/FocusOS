@@ -6,7 +6,7 @@ This log records what was implemented and why, one increment at a time. The deta
 
 ## Current state
 
-The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). The implementation code is in place through Increment 1.4. The real Google login smoke check is still pending Supabase and Google provider configuration. The next planned work is Increment 1.5, after choosing D3 for database access.
+The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.5. The live Google login check for 1.4 and the live migration/database identity check for 1.5 remain pending project credentials and provider setup. Increment 1.6 is next after those checks pass.
 
 ## Step 0 — Product and architecture plan
 
@@ -48,7 +48,7 @@ The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, 
 
 ## Decision D2 — Supabase Auth with Google sign-in
 
-**Choice:** Option A, selected by the user: Supabase Auth manages the application session and Google is the sign-in provider. D3 and later choices remain open.
+**Choice:** Option A, selected by the user: Supabase Auth manages the application session and Google is the sign-in provider. D3 is now selected separately below; D4 and later choices remain open.
 
 **Why:** Supabase Auth gives the app a verified identity that maps naturally to `auth.users` and later row-level security. One Google sign-in flow is a small first authentication slice. Application identity and Gmail/Calendar authorization remain separate concerns: this increment does not request Gmail or Calendar scopes or store Google service tokens.
 
@@ -70,6 +70,28 @@ The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, 
 **Manual verification still needed:** Create/configure a Supabase project and Google provider, set the values from `.env.example` in `web/.env.local`, add `http://localhost:3000/auth/callback` to Supabase's allowed redirects, run `npm.cmd run dev:web`, then complete Google sign-in and sign-out. No live OAuth credentials were available during implementation, so the login round trip has not been claimed as tested.
 
 **Current boundary:** FastAPI still exposes only its initial health route; protected API identity propagation is later work. Gmail and Calendar scopes, Google token storage, and database access are also not implemented here.
+
+## Decision D3 — Supabase client and versioned SQL migrations
+
+**Choice:** Option A, selected by the user. SQL files are the single migration history, and ordinary API queries use the Supabase client with a verified user's access token. No ORM or service-role key is introduced for ordinary requests.
+
+**Why:** This fits Supabase Auth and later row-level security while avoiding a pooled Postgres connection in the Python API. Narrow SQL functions can provide atomic operations when later increments need them. Restricting function execution and keeping requests user-scoped make the identity boundary visible.
+
+## Increment 1.5 — Database access boundary (2026-09-25)
+
+**Purpose:** Establish the database client and migration workflow, then probe whether Supabase Auth and PostgREST receive the same caller identity before adding domain tables.
+
+**Files changed:** `backend/pyproject.toml`, `backend/src/focusos_api/database.py`, `backend/src/focusos_api/main.py`, `backend/tests/test_database.py`, root `package.json` and `package-lock.json`, `supabase/config.toml`, `supabase/migrations/20260925103118_verify_session_context.sql`, `web/src/app/api/db-check/route.ts`, `web/next.config.js`, `.env.example`, `README.md`, and `plan.md`. The editable Python install also refreshed tracked package metadata in `backend/src/focusos_api.egg-info/`.
+
+**What was built and why:** The project-local Supabase CLI creates ordered SQL migrations. The first migration adds only `focusos_session_uid()`, a read-only `security invoker` function that returns `auth.uid()` with a fixed empty search path; only the `authenticated` role is granted execution. The FastAPI `GET /health/database` route rejects missing credentials, verifies a supplied access token through Supabase Auth, sends the same token to PostgREST, and compares the database user ID with the verified user ID. A fresh client and HTTP transport are used per request, and only a publishable key is accepted. Next.js `GET /api/db-check` checks the server session and forwards its token to FastAPI from the server, returning a small success/error response without disclosing the token. `web/next.config.js` fixes the web Turbopack root after adding a root CLI lockfile. Environment and run instructions now cover both processes and migration application.
+
+**Verification:** `npm.cmd run test:api` passed 8 tests covering JWT propagation, identity mismatch, missing/invalid sessions, secret-key rejection, generic database failure handling, and minimal success output. These tests mock Supabase responses. `npm.cmd run build:web` passed TypeScript and the production build, including `/api/db-check`. The Supabase CLI initialized the local config and generated the migration file. No remote migration or live database query was run.
+
+**Manual verification still needed:** Configure a Supabase project and Google sign-in as described in the README, set `web/.env.local` and the API process variables, link the project, run `npm.cmd run db:push`, and complete real sign-in/sign-out. Signed in, `http://localhost:3000/api/db-check` should return `{"status":"ok"}`; signed out, it should return 401. The direct API route without a bearer token should also return 401. Confirm the SQL function executes for an authenticated user and rejects anonymous access. These live checks are required before checking 1.4 and 1.5 off in the plan.
+
+**Known limitations:** No Supabase project values or Google provider credentials were present in the workspace, so cloud identity propagation, function grants, and migration application remain unverified. This read-only probe does not prove table row isolation; that begins with the profile table and two-user test in 1.6. No domain table exists yet.
+
+**Next gated increment:** 1.6, owned profile and scheduling preferences, after the pending 1.4/1.5 live checks are completed.
 
 ## How this log will be maintained
 

@@ -5,7 +5,12 @@
     "dev:web": "npm --prefix web run dev",
     "build:web": "npm --prefix web run build",
     "start:web": "npm --prefix web run start",
-    "dev:api": ".venv/Scripts/python.exe -m uvicorn focusos_api.main:app --app-dir backend/src --reload",
-    "test:web": "npm --prefix web run test"
+    "dev:api": ".\\.venv\\Scripts\\python.exe -m uvicorn focusos_api.main:app --app-dir backend/src --reload",
+    "test:web": "npm --prefix web run test",
+    "db:push": "supabase db push --linked",
+    "test:api": ".\\.venv\\Scripts\\python.exe -m unittest discover -s backend/tests -v"
+  },
+  "devDependencies": {
+    "supabase": "2.117.0"
   }
 }
