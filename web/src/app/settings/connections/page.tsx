@@ -2,11 +2,13 @@ import { redirect } from "next/navigation";
 import { getServerAccessToken, getServerUser } from "@/server/auth/session";
 import { requireServerEnv } from "@/server/env";
 import { GmailMessageProbe } from "./gmail-message-probe";
+import { CalendarPageProbe } from "./calendar-page-probe";
 
 export const dynamic = "force-dynamic";
 
 const messages: Record<string, string> = {
   connected: "Google is connected. Granted access is shown below.",
+  calendar_write_granted: "Google Calendar write permission is enabled. FocusOS will still require approval before any event changes.",
   exchange_failed: "Google consent returned, but FocusOS could not complete the secure connection. Try again.",
   cancelled: "Google consent was cancelled. No connection was created.",
   invalid_state: "The Google authorization response was invalid or expired. Start again.",
@@ -62,9 +64,13 @@ export default async function ConnectionsSettings({
           <ul>
             {connection.granted_scopes.includes("https://www.googleapis.com/auth/gmail.readonly") ? <li>Gmail read access</li> : null}
             {connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned.readonly") ? <li>Read events on calendars you own</li> : null}
-            {connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned") ? <li>Calendar event write access</li> : null}
+            {connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned") ? <li>Calendar event write access (FocusOS requires approval for writes and does not delete events)</li> : null}
           </ul>
+          {!connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned") ? (
+            <p><a href="/api/integrations/google/calendar-write/start">Enable Calendar event writes</a></p>
+          ) : null}
           <GmailMessageProbe />
+          <CalendarPageProbe />
         </section>
       ) : connection?.status === "reconnect_required" ? (
         <p role="status">Google needs to be connected or reauthorized.</p>

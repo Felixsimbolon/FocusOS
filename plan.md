@@ -1,6 +1,6 @@
 # FocusOS Implementation Plan
 
-Planning status: D1-D4 and D13 are selected; Phase 1 increments 1.1-1.8 and Phase 2 increments 2.1-2.2 are verified. Phase 1 is complete; Phase 2 continues at 2.3.
+Planning status: D1-D4 and D13 are selected; Phase 1 is complete. Phase 2 implementation through 2.6 is complete, with live Google consent and provider acceptance still pending.
 
 ## 1. Product Goal
 
@@ -440,7 +440,7 @@ Introduce one schema family when its feature appears. Do not create all contract
 
 **CONS**: A second consent interaction; scope upgrade must be tested early rather than left until Day 6.
 
-**IMPLICATIONS**: Initial consent uses gmail.readonly and calendar.events.owned.readonly with the known primary calendar ID; it does not request calendar-list access. A later consent upgrade requests calendar.events.owned. 2.6 verifies that write-capable grant without creating an event. The application still requires approval for each event write in 8.6.
+**IMPLICATIONS**: Initial consent uses gmail.readonly and calendar.events.owned.readonly with the known primary calendar ID; it does not request calendar-list access. A later consent upgrade requests calendar.events.owned. 2.6 verifies that write-capable grant without creating an event. The application disallows event deletion and requires approval for each event write in 8.6.
 
 **OPTION B — Combined consent for Gmail read and owned Calendar events**
 
@@ -1933,7 +1933,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [ ] 2.3 Configure Google test-user consent and APIs; implement session-bound consent start. Code is implemented; Google Cloud redirect configuration and live consent verification remain pending.
 - [ ] 2.4 Validate callback/state; store encrypted tokens; display granted connection capabilities. Code and mocked verification are implemented, and the migration/RPC grants are verified; live OAuth acceptance remains pending.
 - [ ] 2.5 Read one real selected synthetic Gmail message through the backend. Code and mocked tests pass; live test-account message verification remains pending.
-- [ ] 2.6 Read one Calendar page; verify the final write-grant consent path without a write.
+- [ ] 2.6 Read one Calendar page; verify the final write-grant consent path without a write. Code, mocked tests, build, and RPC grants pass; live Calendar/consent verification remains pending.
 
 ### Phase 3 — Task vertical slice
 

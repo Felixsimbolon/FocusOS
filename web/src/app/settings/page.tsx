@@ -59,6 +59,7 @@ export default async function Settings({
     <main className="settings-page">
       <a href="/">← Home</a>
       <h1>Scheduling preferences</h1>
+      <p><a href="/settings/connections">Google connections</a></p>
       <p>Set the timezone and local hours used for future focus blocks.</p>
       <p>Signed in{user.email ? ` as ${user.email}` : ""}.</p>
       {message ? <p role="status">{message}</p> : null}

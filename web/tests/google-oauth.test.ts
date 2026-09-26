@@ -5,6 +5,8 @@ import {
   GOOGLE_READ_SCOPES,
   googleAuthorizationUrl,
   googleRedirectUri,
+  GOOGLE_CALENDAR_UPGRADE_SCOPES,
+  readGoogleOAuthContext,
   verifyGoogleOAuthState,
 } from "../src/server/google/oauth";
 import { getServerAccessToken, getServerUser } from "../src/server/auth/session";
@@ -36,6 +38,16 @@ describe("Google consent configuration", () => {
     expect(url.searchParams.get("scope")).not.toContain("calendar.events.owned ");
   });
 
+  it("requests only the Calendar write upgrade while retaining already granted scopes", () => {
+    const url = new URL(googleAuthorizationUrl({
+      clientId: "client-id", redirectUri: "https://focusos.example/api/integrations/google/callback",
+      state: "upgrade-state", codeChallenge: "challenge", scopes: GOOGLE_CALENDAR_UPGRADE_SCOPES,
+    }));
+    expect(url.searchParams.get("scope")?.split(" ")).toEqual([...GOOGLE_CALENDAR_UPGRADE_SCOPES]);
+    expect(url.searchParams.get("scope")).not.toContain("gmail.readonly");
+    expect(url.searchParams.get("include_granted_scopes")).toBe("true");
+  });
+
   it("uses the fixed callback path and rejects insecure hosted origins", () => {
     expect(googleRedirectUri("http://localhost:3000")).toBe(
       "http://localhost:3000/api/integrations/google/callback",
@@ -47,6 +59,8 @@ describe("Google consent configuration", () => {
     const now = 1_800_000_000_000;
     const created = createGoogleOAuthState("a4e0ce3a-c955-4b30-9d67-f47859cd38af", now);
     expect(created.cookieValue).not.toContain(created.codeVerifier);
+    const upgradeState = createGoogleOAuthState("a4e0ce3a-c955-4b30-9d67-f47859cd38af", now, "calendar_write");
+    expect(readGoogleOAuthContext(upgradeState.cookieValue, upgradeState.state, "a4e0ce3a-c955-4b30-9d67-f47859cd38af", now)?.flow).toBe("calendar_write");
     expect(
       verifyGoogleOAuthState(
         created.cookieValue,
@@ -102,6 +116,40 @@ describe("Google consent routes", () => {
     expect(cookie?.httpOnly).toBe(true);
     expect(cookie?.path).toBe("/api/integrations/google/callback");
     expect(cookie?.sameSite).toBe("lax");
+  });
+
+  it("starts a signed-in write-scope upgrade and stores its purpose in protected state", async () => {
+    vi.mocked(getServerUser).mockResolvedValue({ id: "a4e0ce3a-c955-4b30-9d67-f47859cd38af", email: null });
+    vi.stubEnv("FOCUSOS_APP_URL", "http://localhost:3000");
+    vi.stubEnv("FOCUSOS_GOOGLE_CLIENT_ID", "client-id");
+    const { GET } = await import("../src/app/api/integrations/google/calendar-write/start/route");
+    const response = await GET(new NextRequest("http://localhost:3000/api/integrations/google/calendar-write/start"));
+    const authorizationUrl = new URL(response.headers.get("location")!);
+    expect(authorizationUrl.searchParams.get("scope")?.split(" ")).toEqual([...GOOGLE_CALENDAR_UPGRADE_SCOPES]);
+    const cookie = response.cookies.get("focusos_google_oauth_state")?.value;
+    expect(readGoogleOAuthContext(cookie, authorizationUrl.searchParams.get("state"), "a4e0ce3a-c955-4b30-9d67-f47859cd38af")?.flow).toBe("calendar_write");
+  });
+
+  it("sends the write upgrade callback to its dedicated FastAPI endpoint", async () => {
+    const userId = "a4e0ce3a-c955-4b30-9d67-f47859cd38af";
+    vi.mocked(getServerUser).mockResolvedValue({ id: userId, email: null });
+    vi.mocked(getServerAccessToken).mockResolvedValue("supabase-session-token");
+    vi.stubEnv("FOCUSOS_API_URL", "http://127.0.0.1:8000");
+    vi.stubEnv("FOCUSOS_APP_URL", "http://localhost:3000");
+    const fetchSpy = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchSpy);
+    const state = createGoogleOAuthState(userId, Date.now(), "calendar_write");
+    const url = new URL("http://localhost:3000/api/integrations/google/callback");
+    url.searchParams.set("state", state.state);
+    url.searchParams.set("code", "calendar-upgrade-code");
+    const request = new NextRequest(url, { headers: { cookie: "focusos_google_oauth_state=" + state.cookieValue } });
+    const { GET } = await import("../src/app/api/integrations/google/callback/route");
+    const response = await GET(request);
+    expect(response.headers.get("location")).toContain("google=calendar_write_granted");
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/connections/google/calendar-write/authorize",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 
   it("validates callback state, drops the one-use cookie and never forwards the code", async () => {
@@ -172,5 +220,28 @@ describe("Gmail diagnostic proxy", () => {
     expect(payload).toHaveProperty("text_body_bytes", 21);
     expect(payload).not.toHaveProperty("body");
     expect(payload).not.toHaveProperty("snippet");
+  });
+});
+
+
+describe("Calendar diagnostic proxy", () => {
+  it("returns only the bounded-page summary from FastAPI", async () => {
+    vi.mocked(getServerAccessToken).mockResolvedValue("supabase-session-token");
+    vi.stubEnv("FOCUSOS_API_URL", "http://127.0.0.1:8000");
+    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      calendar: "primary", window_start: "2026-09-26T00:00:00Z", window_end: "2026-10-03T00:00:00Z",
+      event_count: 2, page_has_more: false,
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchSpy);
+    const { GET } = await import("../src/app/api/integrations/google/calendar/probe/route");
+    const response = await GET();
+    const payload = await response.json();
+    expect(response.status).toBe(200);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/connections/google/calendar/probe",
+      expect.objectContaining({ cache: "no-store" }),
+    );
+    expect(payload).toHaveProperty("event_count", 2);
+    expect(payload).not.toHaveProperty("events");
   });
 });

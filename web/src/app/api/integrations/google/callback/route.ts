@@ -4,7 +4,7 @@ import { requireServerEnv } from "@/server/env";
 import {
   GOOGLE_STATE_COOKIE,
   googleRedirectUri,
-  readGoogleOAuthCodeVerifier,
+  readGoogleOAuthContext,
 } from "@/server/google/oauth";
 
 export async function GET(request: NextRequest) {
@@ -13,8 +13,8 @@ export async function GET(request: NextRequest) {
   const parameters = request.nextUrl.searchParams;
   const state = parameters.get("state");
   const signedState = request.cookies.get(GOOGLE_STATE_COOKIE)?.value;
-  const codeVerifier = readGoogleOAuthCodeVerifier(signedState, state, user?.id ?? null);
-  const validState = codeVerifier !== null;
+  const oauthContext = readGoogleOAuthContext(signedState, state, user?.id ?? null);
+  const validState = oauthContext !== null;
 
   let outcome: string;
   if (!validState) {
@@ -24,12 +24,16 @@ export async function GET(request: NextRequest) {
   } else {
     const code = parameters.get("code");
     const accessToken = await getServerAccessToken();
-    if (!code || !accessToken || !codeVerifier) {
+    if (!code || !accessToken || !oauthContext) {
       outcome = "exchange_failed";
     } else {
       try {
         const apiUrl = requireServerEnv("FOCUSOS_API_URL").replace(/\/$/, "");
-        const apiResponse = await fetch(apiUrl + "/connections/google/authorize", {
+        const calendarWriteUpgrade = oauthContext.flow === "calendar_write";
+        const apiPath = calendarWriteUpgrade
+          ? "/connections/google/calendar-write/authorize"
+          : "/connections/google/authorize";
+        const apiResponse = await fetch(apiUrl + apiPath, {
           method: "POST",
           headers: {
             "Authorization": "Bearer " + accessToken,
@@ -37,12 +41,12 @@ export async function GET(request: NextRequest) {
           },
           body: JSON.stringify({
             code,
-            code_verifier: codeVerifier,
+            code_verifier: oauthContext.codeVerifier,
             redirect_uri: googleRedirectUri(appUrl),
           }),
           cache: "no-store",
         });
-        outcome = apiResponse.ok ? "connected" : "exchange_failed";
+        outcome = apiResponse.ok ? (calendarWriteUpgrade ? "calendar_write_granted" : "connected") : "exchange_failed";
       } catch {
         outcome = "exchange_failed";
       }

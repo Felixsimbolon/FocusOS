@@ -38,7 +38,7 @@ The separate Google integration consent flow returns to Next.js; it does not use
 - http://localhost:3000/api/integrations/google/callback
 - https://focusos-web-five.vercel.app/api/integrations/google/callback
 
-Enable the Gmail API and Google Calendar API in that project and add the account you will test with to the OAuth audience's test users. The first consent requests openid/email/profile, Gmail read-only, and read-only events on calendars you own. It does not request Calendar write access yet. The current probe assumes the primary Calendar ID, so it does not request permission to list every calendar. Google classifies gmail.readonly as a restricted scope; this phase is a controlled test-user integration, not public verified onboarding.
+Enable the Gmail API and Google Calendar API in that project and add the account you will test with to the OAuth audience's test users. The first consent requests openid/email/profile, Gmail read-only, and read-only events on calendars you own. A separate button requests the owned-calendar event-write scope only when the user chooses to enable it; that consent flow does not create or change events. Google defines this scope as allowing users to see, create, change, and delete events on calendars they own ([scope details](https://developers.google.com/workspace/calendar/api/auth)); FocusOS will require approval for event writes and will not expose event deletion. The current probe assumes the primary Calendar ID, so it does not request permission to list every calendar. Google classifies gmail.readonly as a restricted scope; this phase is a controlled test-user integration, not public verified onboarding.
 
 Set FOCUSOS_GOOGLE_CLIENT_ID and FOCUSOS_GOOGLE_STATE_SECRET in web/.env.local. The client ID is not a secret; the state secret must be a separately generated 32-byte Base64 key and stays server-side. Generate one with .\.venv\Scripts\python.exe -c "import base64,secrets; print(base64.b64encode(secrets.token_bytes(32)).decode())". Do not reuse the AES encryption key as the state-protection key. Keep the Google client secret in the FastAPI environment only.
 
@@ -58,7 +58,9 @@ Generate a key locally with .\.venv\Scripts\python.exe -c "import base64,secrets
 
 
 
-After Google is connected, the Connections page can probe one synthetic test email. Obtain its message ID with Gmail's [`users.messages.list` API](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/list), then enter that ID. The probe uses `users.messages.get` with `format=full` on the server, computes a body byte count in memory, and returns only the message ID/date/label count/body size. It does not persist or return the message body. Use only a test email for this probe.
+After Google is connected, the Connections page can read a bounded page from the primary Calendar for the next seven days. Calendar titles and details are not displayed or saved. The write-scope upgrade can be verified from the same page without creating or changing an event.
+
+The Connections page can also probe one synthetic test email. Obtain its message ID with Gmail's [`users.messages.list` API](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/list), then enter that ID. The probe uses `users.messages.get` with `format=full` on the server, computes a body byte count in memory, and returns only the message ID/date/label count/body size. It does not persist or return the message body. Use only a test email for this probe.
 
 ## Database migration and identity check
 

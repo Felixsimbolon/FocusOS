@@ -7,6 +7,13 @@ from focusos_api.database import (
     InvalidSession,
     check_database_identity,
 )
+from focusos_api.google_calendar import (
+    CalendarPageProbe,
+    CalendarProbeError,
+    CalendarProbeUnavailable,
+    CalendarReconnectRequired,
+    read_primary_calendar_page,
+)
 from focusos_api.google_gmail import (
     GmailProbeError,
     GmailProbeUnavailable,
@@ -18,6 +25,7 @@ from focusos_api.google_oauth import (
     GoogleAuthorizationInput,
     GoogleOAuthError,
     GoogleOAuthUnavailable,
+    complete_calendar_write_upgrade,
     complete_google_authorization,
 )
 from focusos_api.profiles import (
@@ -125,3 +133,39 @@ def google_gmail_message_probe(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Gmail probe unavailable") from exc
+
+
+@app.post("/connections/google/calendar-write/authorize", response_model=GoogleConnectionEnvelope)
+def google_calendar_write_authorize(
+    request: GoogleAuthorizationInput,
+    access_token: str = Depends(require_access_token),
+) -> GoogleConnectionEnvelope:
+    try:
+        connection = complete_calendar_write_upgrade(access_token, request)
+        return GoogleConnectionEnvelope(connection=connection)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except GoogleOAuthUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except GoogleOAuthError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Google connection unavailable") from exc
+
+
+@app.get("/connections/google/calendar/probe", response_model=CalendarPageProbe)
+def google_calendar_page_probe(
+    access_token: str = Depends(require_access_token),
+) -> CalendarPageProbe:
+    try:
+        return read_primary_calendar_page(access_token)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except CalendarReconnectRequired as exc:
+        raise HTTPException(status_code=409, detail="Google connection needs authorization") from exc
+    except CalendarProbeUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except CalendarProbeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Calendar probe unavailable") from exc

@@ -13,16 +13,24 @@ export const GOOGLE_READ_SCOPES = [
 ] as const;
 export const GOOGLE_CALENDAR_WRITE_SCOPE =
   "https://www.googleapis.com/auth/calendar.events.owned";
+export const GOOGLE_CALENDAR_UPGRADE_SCOPES = [
+  "openid",
+  "email",
+  "profile",
+  GOOGLE_CALENDAR_WRITE_SCOPE,
+] as const;
+export type GoogleOAuthFlow = "connect" | "calendar_write";
 
 type OAuthStatePayload = {
   version: 1;
   userId: string;
   state: string;
   codeVerifier: string;
+  flow: GoogleOAuthFlow;
   issuedAt: number;
 };
 
-export function createGoogleOAuthState(userId: string, now = Date.now()) {
+export function createGoogleOAuthState(userId: string, now = Date.now(), flow: GoogleOAuthFlow = "connect") {
   const state = randomBytes(32).toString("base64url");
   const codeVerifier = randomBytes(32).toString("base64url");
   const payload: OAuthStatePayload = {
@@ -30,6 +38,7 @@ export function createGoogleOAuthState(userId: string, now = Date.now()) {
     userId,
     state,
     codeVerifier,
+    flow,
     issuedAt: now,
   };
   const iv = randomBytes(12);
@@ -51,12 +60,12 @@ export function createGoogleOAuthState(userId: string, now = Date.now()) {
   };
 }
 
-export function readGoogleOAuthCodeVerifier(
+export function readGoogleOAuthContext(
   cookieValue: string | undefined,
   expectedState: string | null,
   userId: string | null,
   now = Date.now(),
-): string | null {
+): { codeVerifier: string; flow: GoogleOAuthFlow } | null {
   if (!cookieValue || cookieValue.length > 4096 || !expectedState || !userId) return null;
   const parts = cookieValue.split(".");
   if (parts.length !== 3) return null;
@@ -82,7 +91,16 @@ export function readGoogleOAuthCodeVerifier(
   if (payload.userId !== userId) return null;
   if (payload.issuedAt > now + 30_000) return null;
   if (now - payload.issuedAt > GOOGLE_STATE_TTL_SECONDS * 1000) return null;
-  return payload.codeVerifier;
+  return { codeVerifier: payload.codeVerifier, flow: payload.flow };
+}
+
+export function readGoogleOAuthCodeVerifier(
+  cookieValue: string | undefined,
+  expectedState: string | null,
+  userId: string | null,
+  now = Date.now(),
+): string | null {
+  return readGoogleOAuthContext(cookieValue, expectedState, userId, now)?.codeVerifier ?? null;
 }
 
 export function verifyGoogleOAuthState(
@@ -120,6 +138,7 @@ function isOAuthStatePayload(value: unknown): value is OAuthStatePayload {
     /^[A-Za-z0-9_-]{43}$/.test(payload.state) &&
     typeof payload.codeVerifier === "string" &&
     /^[A-Za-z0-9_-]{43}$/.test(payload.codeVerifier) &&
+    (payload.flow === "connect" || payload.flow === "calendar_write") &&
     typeof payload.issuedAt === "number" &&
     Number.isSafeInteger(payload.issuedAt)
   );
@@ -139,12 +158,13 @@ export function googleAuthorizationUrl(options: {
   redirectUri: string;
   state: string;
   codeChallenge: string;
+  scopes?: readonly string[];
 }): string {
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", options.clientId);
   url.searchParams.set("redirect_uri", options.redirectUri);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", GOOGLE_READ_SCOPES.join(" "));
+  url.searchParams.set("scope", (options.scopes ?? GOOGLE_READ_SCOPES).join(" "));
   url.searchParams.set("state", options.state);
   url.searchParams.set("code_challenge", options.codeChallenge);
   url.searchParams.set("code_challenge_method", "S256");
