@@ -380,3 +380,11 @@ Keputusan D9: opsi A, sinkronisasi manual satu halaman per request. Tidak ada cr
 **Mengapa:** Identitas provider, bukan kesamaan teks, adalah dasar deduplikasi: dua pesan yang kebetulan sama harus tetap dua sumber. Hasil ekstraksi dipisah berdasarkan hash, sehingga konten berubah tidak diam-diam mengganti hasil review lama.
 
 **Verifikasi:** Migration 20260927060000 dan perbaikan 20260927061000 diterapkan. Probe SQL rollback-only menegaskan replay ID sama, konten berubah menjadi versi 2, dua pesan berbeda tetap dua sumber, dan pengguna asing melihat nol baris. Tes repository/route lulus.
+
+### Increment 5.5 - Handoff satu sumber Gmail ke review
+
+**Yang dibuat:** RPC memilih satu sumber Gmail milik pengguna dengan teks aktif dan tanpa hasil ekstraksi siap/claim aktif untuk hash/versi sekarang. Endpoint process-one memanggil service ekstraksi Phase 4, sehingga run log, dedup, lease, bukti, dan UI review tetap satu jalur. Sumber tanpa isi (misalnya lampiran saja) tidak dikirim ke model.
+
+**Mengapa:** Ingest dan ekstraksi adalah dua status berbeda. Menyimpan sumber sebelum memanggil model memungkinkan retry setelah crash tanpa kehilangan asalnya; klaim Phase 4 menangani dua tab yang memproses sumber sama.
+
+**Verifikasi:** Migration 20260927070000_gmail_handoff.sql diterapkan. Tes memastikan tidak ada panggilan model saat antrean kosong, handoff memakai service yang sama, dan route anonim ditolak. Uji provider nyata menunggu OAuth/API key.

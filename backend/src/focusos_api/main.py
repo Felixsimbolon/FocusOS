@@ -16,6 +16,7 @@ from focusos_api.google_calendar import (
     CalendarReconnectRequired,
     read_primary_calendar_page,
 )
+from focusos_api.gmail_processing import (GmailProcessOne, process_one_gmail_source)
 from focusos_api.gmail_sources import (GmailIngestEnvelope, ingest_selected_messages)
 from focusos_api.gmail_normalize import GmailNormalizationError
 from focusos_api.gmail_fetch import (SelectedFetchInput, SelectedFetchEnvelope, fetch_selected_status)
@@ -468,3 +469,17 @@ def gmail_selected_ingest_post(
         raise HTTPException(status_code=422, detail="Selected Gmail message could not be imported") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Gmail import unavailable") from exc
+
+
+@app.post("/connections/google/gmail/process-one", response_model=GmailProcessOne)
+def gmail_process_one_post(access_token: str = Depends(require_access_token)) -> GmailProcessOne:
+    try:
+        return process_one_gmail_source(access_token)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except ExtractionRateLimited as exc:
+        raise HTTPException(status_code=429, detail="Extraction limit reached") from exc
+    except (ExtractionNotFound, ExtractionSourceExpired) as exc:
+        raise HTTPException(status_code=409, detail="Pending source changed; retry") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Gmail processing unavailable") from exc
