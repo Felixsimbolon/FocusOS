@@ -6,7 +6,7 @@ This log records what was implemented and why, one increment at a time. The deta
 
 ## Current state
 
-The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.7. Google sign-in/sign-out, database identity, and profile save/read were verified against the linked Supabase project. The profile isolation check used a synthetic second identity in a rolled-back database transaction. Increment 1.7 is verified locally; Increment 1.8 is next.
+The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.8. Google sign-in/sign-out, database identity, and profile save/read were verified against the linked Supabase project. The profile isolation check used a synthetic second identity in a rolled-back database transaction. Increments 1.1–1.8 are verified; Phase 1 is complete. The hosted web and API run on two Vercel Hobby projects. Phase 2 begins only after its credential-protection decision gate.
 
 ## Step 0 — Product and architecture plan
 
@@ -121,6 +121,23 @@ The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, 
 **Limitations:** The authenticated route succeeded locally; hosted behavior remains for 1.8. There is no task dashboard or integration data.
 
 **Next gated increment:** 1.8, deploy the small authenticated slice after the hosting branch and account are confirmed.
+
+
+## Increment 1.8 — Early hosted deployment probe (2026-09-26)
+
+**Purpose:** Expose serverless/runtime and OAuth configuration problems while the application is still a small authenticated slice.
+
+**Files changed:** `backend/src/index.py`, `backend/.python-version`, `backend/vercel.json`, `web/vercel.json`, `docs/deployment.md`, `README.md`, `.gitignore`, `plan.md`, and this log.
+
+**What was built and why:** Two Vercel projects were created under the user's Hobby team: `focusos-api` for FastAPI and `focusos-web` for Next.js. Each has its own Production environment values and stable domain. The Python entrypoint exports the existing FastAPI app, Python is pinned to 3.12, and both `vercel.json` files select the correct framework. The initial API deployment returned 404 because Vercel chose the generic Other preset; the web initially built as Other and looked for a nonexistent `public` output directory. Explicit framework presets fixed both. The actual web alias was `focusos-web-five.vercel.app`, so `FOCUSOS_APP_URL` was corrected and the web project redeployed. The Supabase OAuth redirect allowlist was extended to this domain.
+
+**Hosted URLs:** Web: https://focusos-web-five.vercel.app ; API: https://focusos-api.vercel.app . They are CLI deployments from `web/` and `backend/`. Git-triggered deployment is not configured yet; `docs/deployment.md` gives the commands and explains how to connect the repository later.
+
+**Verification:** The Vercel team list reports Hobby. API `GET /health` returned 200 with `{"status":"ok"}`; anonymous `GET /profile` and `GET /health/database` returned 401. The hosted web root returned 200, anonymous `GET /api/me` returned 401 with `Cache-Control: no-store`, and anonymous `/settings` redirected to the root. After the redirect allowlist update, the user completed hosted Google login and confirmed `/api/me` returned 200 with `user` and `profile`. The user confirmed that hosted settings persisted after reload, and `/api/me` returned 401 after sign-out. All required hosted smoke checks passed.
+
+**Limitations:** Python runtime is beta, the two project deployments are currently issued through the CLI, and Git pushes do not auto-update them. No background execution or public Gmail/Calendar grant is claimed.
+
+**Next gated increment:** 2.1 after the Phase 2 credential-storage decision gate.
 
 ## How this log will be maintained
 
