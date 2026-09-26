@@ -1977,8 +1977,8 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 
 ### Phase 7 â€” Read/planning agent and memory
 
-- [ ] Resolve D6 orchestration and D11 conversation persistence before 7.1.
-- [ ] 7.1 Add typed registry/request boundary and owned tool execution ledger.
+- [x] Resolve D6-B bounded stages and D11-A per-run context before 7.1.
+- [x] 7.1 Add typed registry/request boundary and owned tool execution ledger.
 - [ ] 7.2 Complete one tasks.list model-tool-result round trip.
 - [ ] 7.3 Add existing Calendar read/slot tool bindings and bounded persisted continuation.
 - [ ] 7.4 Persist small confirmed source-backed memories.

@@ -460,3 +460,15 @@ Tidak perlu akun baru. Phase ini memakai project OAuth/Calendar yang sama dan iz
 **Verifikasi:** Tes API fixture profil/kejadian, kegagalan provider tanpa jadwal parsial, penolakan anonim; tes proxy validasi input/token/error aman; seluruh suite backend dan web serta build Next.js. Perbandingan Calendar nyata menunggu secret OAuth dan koneksi Google produksi yang belum dikonfigurasi.
 
 **Deployment Phase 6 (2026-09-27):** API dpl_EiVrDfB5Be6aztCYcxCTHtbeiyGh dan web dpl_3NTeTRy8nyKWSCZoDXdSn7v4caT6 mencapai READY di alias production yang sama. Smoke test: API /health 200, web Today 200, endpoint Calendar window/availability API dan proxy web tanpa session semuanya 401. Tes backend 160, tes web 46, dan build web lulus. Uji perbandingan dengan Calendar nyata belum dapat dilakukan karena secret OAuth/token production masih belum tersedia; tidak ada klaim bahwa event nyata telah terbaca.
+
+## Phase 7: agen baca/perencanaan dan memori terpilih
+
+Keputusan rekomendasi: D6-B alur bertahap yang dibatasi backend; D11-A konteks per-run tanpa chat permanen; D8-A embed satu memori setelah konfirmasi melalui request terpisah; D12 embedding `text-embedding-3-small` 256 dimensi. Akun baru tidak diperlukan bila OpenAI Platform lama aktif, tetapi API key dengan kuota dan secret OAuth Google produksi belum terpasang; panggilan model/embedding/Calendar langsung akan dinyatakan belum teruji sampai konfigurasi itu ada.
+
+### Increment 7.1 - Batas tool dan ledger run
+
+**Yang dibuat:** Kontrak tool request ketat dengan allowlist awal `tasks.list`, batas argumen dan larangan identity/risk dari model. Tabel command_runs menyimpan status/checkpoint/counter per pengguna; agent_tool_calls hanya menyimpan nama, hash argumen, status, dan kode aman. RPC memulai run secara idempoten, menyimpan checkpoint dengan version compare-and-swap, dan mencatat tool milik pemilik.
+
+**Mengapa:** Model tidak dapat memberi hak baru hanya dengan menulis argumen; setiap eksekusi harus melewati validasi aplikasi. Run per perintah lebih kecil dan mudah dibatasi daripada percakapan permanen. Ledger membuktikan tool yang benar-benar dipanggil tanpa menyimpan token atau isi sensitif.
+
+**Verifikasi:** Tes unknown tool, user_id palsu, limit berlebih, dan hash kanonik; migration serta pemeriksaan owner/versi akan diverifikasi di database.
