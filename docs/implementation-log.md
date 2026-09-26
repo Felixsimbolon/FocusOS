@@ -334,3 +334,11 @@ Keputusan D12 untuk generasi: opsi A, OpenAI Responses API dengan Structured Out
 **Mengapa:** Kandidat AI tidak boleh langsung menjadi tugas. Pengguna menegaskan judul, prioritas, proyek, estimasi, dan tanggal; bukti tetap ditautkan ke sumber. Pemeriksaan hash sumber dan kepemilikan mencegah konfirmasi hasil yang usang atau milik pengguna lain.
 
 **Verifikasi:** Migration 20260927040000_confirm_extraction.sql diterapkan. Tes API menolak sesi anonim, tanggal tidak valid, dan mengembalikan konflik yang aman. Tes browser autentikasi dan panggilan model nyata masih menunggu key/sesi pengguna.
+
+### Increment 4.7 - UI review dan koreksi
+
+**Yang dibuat:** Halaman `/activity` untuk menempel sumber manual, membaca sumber tersimpan, menjalankan ekstraksi, melihat kutipan bukti serta ketidakpastian, mengoreksi judul/prioritas/tanggal/estimasi/proyek, lalu mengonfirmasi atau mengabaikan kandidat. Keputusan ignore dapat dibatalkan dan disimpan di database. Proxy Next.js meneruskan JWT hanya dari sesi server, membatasi path dan ukuran request, serta menutupi detail error backend. Today menautkan tugas hasil review ke sumbernya.
+
+**Mengapa:** Confidence model bukan persetujuan pengguna. Tampilan bukti membuat usulan dapat diperiksa; tanggal ambigu dibuka sebagai tanpa tenggat sampai pengguna mengoreksinya. Pemisahan source, ekstraksi, dan konfirmasi mencegah satu klik model langsung membuat tugas.
+
+**Verifikasi:** Migration 20260927050000_extraction_ignore.sql diterapkan. 38 tes web dan 113 tes API lulus; production build Next.js lulus. Probe Supabase rollback-only berhasil melewati source -> claim -> run -> result -> confirm -> replay, membuktikan tugas open tanpa tenggat eligible di Today dan RLS menyembunyikan source/task dari subjek lain. Uji browser end-to-end dan satu panggilan model nyata tetap menunggu key OpenAI dan sesi pengguna.

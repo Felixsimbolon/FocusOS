@@ -14,6 +14,7 @@ type Task = {
   due_timezone: string | null;
   estimate_minutes: number | null;
   project_id: string | null;
+  source_id?: string | null;
   version: number;
 };
 
@@ -329,6 +330,7 @@ export function TaskBoard() {
                   Project: {projects.find((project) => project.id === task.project_id)?.name ?? "Project"}
                 </p>
               ) : null}
+              {task.source_id ? <a href={"/activity?source=" + task.source_id}>View source evidence</a> : null}
               <div className="task-meta">
                 {readableDue(task) ? <span>Due {readableDue(task)}</span> : null}
                 {task.estimate_minutes ? <span>{task.estimate_minutes} min estimate</span> : null}

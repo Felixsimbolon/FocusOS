@@ -4,7 +4,7 @@ from typing import Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from focusos_api.database import DatabaseUnavailable, scoped_client
 from focusos_api.extractor import ExtractionFailure, MODEL, PROMPT_VERSION, SCHEMA_VERSION
@@ -13,7 +13,7 @@ from focusos_api.runs import recorded_extraction
 from focusos_api.sources import get_source
 
 SELECT = ("id,source_id,content_hash,schema_version,prompt_version,model_version,"
-          "status,validated_payload,safe_error,run_id,created_at,updated_at,reviewed_at")
+          "status,validated_payload,safe_error,ignored_item_keys,run_id,created_at,updated_at,reviewed_at")
 
 
 class ExtractionNotFound(Exception):
@@ -39,6 +39,7 @@ class ExtractionRecord(BaseModel):
     status: Literal["processing", "ready", "failed"]
     validated_payload: dict | None
     safe_error: str | None
+    ignored_item_keys: list[str] = Field(default_factory=list)
     run_id: UUID | None
     created_at: datetime
     updated_at: datetime
@@ -119,3 +120,23 @@ def process_extraction(access_token: str, source_id: UUID) -> ExtractionEnvelope
     if finished is not True:
         raise DatabaseUnavailable("Extraction claim expired before completion")
     return ExtractionEnvelopeResponse(extraction=_read_result(access_token, result_id), replayed=False)
+
+
+class IgnoreInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    local_ref: str
+    ignored: bool
+
+
+def set_extraction_ignored(access_token: str, extraction_id: UUID, request: IgnoreInput) -> ExtractionRecord:
+    if not request.local_ref or len(request.local_ref) > 80:
+        raise ExtractionNotFound()
+    with scoped_client(access_token) as (_, client):
+        changed = client.rpc("focusos_set_extraction_ignored", {
+            "p_extraction_id": str(extraction_id),
+            "p_local_ref": request.local_ref,
+            "p_ignored": request.ignored,
+        }).execute().data
+    if changed is not True:
+        raise ExtractionNotFound()
+    return _read_result(access_token, extraction_id)

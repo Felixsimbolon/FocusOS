@@ -1954,7 +1954,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 4.4 Persist a redacted extraction run with real latency/available usage.
 - [x] 4.5 Persist deduplicated extraction review results and recoverable processing claims.
 - [x] 4.6 Confirm one reviewed candidate into an idempotent source-backed task.
-- [ ] 4.7 Add review/correction UI and prove task appears on Today.
+- [ ] 4.7 Add review/correction UI and prove task appears on Today. (UI and rollback-only DB probe done; authenticated browser proof pending.)
 
 ### Phase 5 â€” Gmail synchronization
 

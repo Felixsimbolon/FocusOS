@@ -36,7 +36,7 @@ from focusos_api.profiles import (
     read_profile,
     save_profile,
 )
-from focusos_api.extractions import (ExtractionEnvelopeResponse, ExtractionNotFound, ExtractionSourceExpired, ExtractionRateLimited, process_extraction, read_extraction)
+from focusos_api.extractions import (ExtractionEnvelopeResponse, ExtractionNotFound, ExtractionSourceExpired, ExtractionRateLimited, IgnoreInput, ExtractionRecord, process_extraction, read_extraction, set_extraction_ignored)
 from focusos_api.sources import (ManualSourceInput, SourceConflict, SourceEnvelope, SourceListEnvelope, create_manual_source, list_sources, get_source)
 from focusos_api.tasks import (
     TaskCreate,
@@ -385,3 +385,19 @@ def extraction_confirm_post(
         raise HTTPException(status_code=404, detail="Project not found") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Confirmation unavailable") from exc
+
+
+@app.post("/extractions/{extraction_id}/ignore", response_model=ExtractionRecord)
+def extraction_ignore_post(
+    extraction_id: UUID,
+    request: IgnoreInput,
+    access_token: str = Depends(require_access_token),
+) -> ExtractionRecord:
+    try:
+        return set_extraction_ignored(access_token, extraction_id, request)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except ExtractionNotFound as exc:
+        raise HTTPException(status_code=404, detail="Candidate not found") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Review unavailable") from exc

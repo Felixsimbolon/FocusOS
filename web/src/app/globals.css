@@ -291,3 +291,22 @@ main.home-page {
   flex-wrap: wrap;
   gap: 0.6rem;
 }
+
+main.activity-page { width: min(100%, 64rem); margin-inline: auto; place-content: start; padding-block: 3rem; }
+.source-review { display: grid; gap: 1rem; width: 100%; }
+.review-panel, .review-card { display: grid; gap: .85rem; padding: 1.25rem; border: 1px solid #d8dee6; border-radius: .8rem; background: #fff; }
+.review-card { border-color: #b5c9e4; }
+.review-panel h2, .review-card h3 { margin: 0; }
+.review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.review-evidence { border-left: .25rem solid #3264a1; padding-left: .8rem; }
+.review-evidence blockquote { margin: .5rem 0; white-space: pre-wrap; }
+.review-uncertainty { padding: .8rem; border-radius: .5rem; background: #fff5df; }
+.review-uncertainty ul { margin: .5rem 0 0; }
+.source-text { max-height: 20rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 1rem; border-radius: .5rem; background: #f2f5f8; }
+.source-list { display: flex; flex-wrap: wrap; gap: .5rem; padding: 0; list-style: none; }
+.source-list button, .source-review button { cursor: pointer; }
+.source-review button { justify-self: start; padding: .65rem .9rem; border: 0; border-radius: .4rem; color: white; background: #2158a5; font: inherit; }
+.source-review .secondary-button { color: #2158a5; background: #e8eef7; }
+.source-review .selected-source { background: #143d76; }
+.source-review button:disabled { opacity: .6; cursor: wait; }
+@media (max-width: 36rem) { .review-grid { grid-template-columns: 1fr; } main.activity-page { padding: 1.5rem 1rem; } }
