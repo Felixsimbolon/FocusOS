@@ -1,5 +1,6 @@
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from uuid import UUID
 
 from focusos_api.connections import GoogleConnectionEnvelope, read_google_connection
 from focusos_api.database import (
@@ -33,6 +34,15 @@ from focusos_api.profiles import (
     ProfileInput,
     read_profile,
     save_profile,
+)
+from focusos_api.tasks import (
+    TaskCreate,
+    TaskCreateEnvelope,
+    TaskListEnvelope,
+    TaskRequestConflict,
+    TaskStatus,
+    create_task,
+    list_tasks,
 )
 
 app = FastAPI(title="FocusOS API", version="0.1.0")
@@ -169,3 +179,36 @@ def google_calendar_page_probe(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Calendar probe unavailable") from exc
+
+
+@app.get("/tasks", response_model=TaskListEnvelope)
+def tasks_get(
+    status: TaskStatus | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=100),
+    access_token: str = Depends(require_access_token),
+) -> TaskListEnvelope:
+    try:
+        return list_tasks(access_token, status=status, limit=limit)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Task list unavailable") from exc
+
+
+@app.post("/tasks", response_model=TaskCreateEnvelope)
+def tasks_post(
+    task: TaskCreate,
+    request_id: UUID = Header(alias="Idempotency-Key"),
+    access_token: str = Depends(require_access_token),
+) -> TaskCreateEnvelope:
+    try:
+        return create_task(access_token, request_id, task)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except TaskRequestConflict as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Idempotency key was already used with a different task",
+        ) from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Task could not be saved") from exc

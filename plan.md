@@ -1939,7 +1939,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 
 - [x] 3.1 Add owned task table/date constraints/indexes and isolation tests.
 - [x] 3.2 Add runtime task payload validation and boundary cases.
-- [ ] 3.3 Add authenticated task create/list API with create replay handling.
+- [x] 3.3 Add authenticated task create/list API with create replay handling.
 - [ ] 3.4 Add minimal task form/list; create and reload persisted task.
 - [ ] Resolve D7 knowledge representation before 3.5.
 - [ ] 3.5 Add minimal projects/owned task association; reject cross-owner references.

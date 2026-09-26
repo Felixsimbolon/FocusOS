@@ -1,14 +1,25 @@
-﻿"""Task request schemas with explicit date-only and zoned-deadline semantics."""
+﻿"""Validated task schemas and owner-scoped persistence."""
 
 from datetime import date, datetime
+import hashlib
+import json
 import re
 from typing import Literal
+from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from focusos_api.database import DatabaseUnavailable, scoped_client
+
 Priority = Literal["low", "normal", "high"]
 DueKind = Literal["none", "date", "datetime"]
+TaskStatus = Literal["open", "done", "archived"]
+
+_TASK_SELECT = (
+    "id,title,description,status,priority,due_kind,due_date,due_at,due_timezone,"
+    "estimate_minutes,estimate_origin,version,created_at,updated_at"
+)
 
 
 class TaskCreate(BaseModel):
@@ -75,3 +86,117 @@ class TaskCreate(BaseModel):
         if local_time.replace(tzinfo=None) != self.due_at.replace(tzinfo=None):
             raise ValueError("The timestamp offset does not match due_timezone")
         return self
+
+
+class TaskRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    title: str
+    description: str | None
+    status: TaskStatus
+    priority: Priority
+    due_kind: DueKind
+    due_date: date | None
+    due_at: datetime | None
+    due_timezone: str | None
+    estimate_minutes: int | None
+    estimate_origin: Literal["explicit", "suggested", "unknown"] | None
+    version: int = Field(ge=1)
+    created_at: datetime
+    updated_at: datetime
+
+
+class TaskListEnvelope(BaseModel):
+    tasks: list[TaskRecord]
+    truncated: bool
+
+
+class TaskCreateEnvelope(BaseModel):
+    task: TaskRecord
+    replayed: bool
+
+
+class TaskRequestConflict(Exception):
+    """An idempotency key was reused for a different task payload."""
+
+
+def _payload_hash(task: TaskCreate) -> str:
+    canonical = json.dumps(
+        task.model_dump(mode="json"),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def list_tasks(
+    access_token: str,
+    *,
+    status: TaskStatus | None = None,
+    limit: int = 100,
+) -> TaskListEnvelope:
+    with scoped_client(access_token) as (user_id, supabase):
+        query = (
+            supabase.table("tasks")
+            .select(_TASK_SELECT)
+            .eq("user_id", user_id)
+        )
+        if status is not None:
+            query = query.eq("status", status)
+        rows = (
+            query.order("created_at", desc=True)
+            .order("id", desc=True)
+            .limit(limit + 1)
+            .execute()
+            .data
+        )
+
+    if not isinstance(rows, list):
+        raise DatabaseUnavailable("Unexpected task list response")
+    return TaskListEnvelope(
+        tasks=[TaskRecord.model_validate(row) for row in rows[:limit]],
+        truncated=len(rows) > limit,
+    )
+
+
+def create_task(
+    access_token: str,
+    request_id: UUID,
+    task: TaskCreate,
+) -> TaskCreateEnvelope:
+    payload_hash = _payload_hash(task)
+    with scoped_client(access_token) as (_, supabase):
+        rows = (
+            supabase.rpc(
+                "focusos_create_task",
+                {
+                    "p_create_request_id": str(request_id),
+                    "p_create_request_hash": payload_hash,
+                    "p_title": task.title,
+                    "p_description": task.description,
+                    "p_priority": task.priority,
+                    "p_due_kind": task.due_kind,
+                    "p_due_date": task.due_date.isoformat() if task.due_date else None,
+                    "p_due_at": task.due_at.isoformat() if task.due_at else None,
+                    "p_due_timezone": task.due_timezone,
+                    "p_estimate_minutes": task.estimate_minutes,
+                },
+            )
+            .execute()
+            .data
+        )
+
+    if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict):
+        raise DatabaseUnavailable("Unexpected task create response")
+    row = rows[0]
+    if row.get("stored_request_hash") != payload_hash:
+        raise TaskRequestConflict()
+    task_data = row.get("task")
+    if not isinstance(task_data, dict):
+        raise DatabaseUnavailable("Unexpected task create response")
+    return TaskCreateEnvelope(
+        task=TaskRecord.model_validate(task_data),
+        replayed=row.get("replayed") is True,
+    )

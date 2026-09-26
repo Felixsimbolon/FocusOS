@@ -240,3 +240,13 @@ After each future increment, append a dated section with the increment number, p
 **Verification:** The complete backend unittest suite passes: 63 tests, including 9 task-payload tests for required field shapes, impossible/ambiguous dates, time-zone and offset mismatches, enum/extra-field rejection, and input boundaries.
 
 **Next:** Increment 3.3 adds authenticated, owner-scoped task create/list endpoints and replay-safe creation.
+
+## Increment 3.3 - Authenticated task create and list API
+
+**What changed:** Added GET /tasks with an optional status filter and a bounded 100-row page, plus POST /tasks requiring a UUID Idempotency-Key. Both use the verified Supabase session and owner-scoped database access. Creation goes through a narrowly granted RPC that derives ownership from auth.uid(), stores a SHA-256 fingerprint of normalized input, and atomically returns the existing row for a retry. Reusing a key with different input returns HTTP 409. Internal hashes and owner IDs stay out of API responses.
+
+**Why:** A request can reach the server and still lose its response; the stable key prevents a client retry from creating duplicate tasks. Comparing the stored fingerprint prevents one key from silently representing two different user actions. The authenticated endpoint and database policy provide independent checks for access and ownership.
+
+**Verification:** Applied the replay RPC and its strict hash-pair constraint to linked Supabase. Ran a rollback-only SQL probe through the deployed RPC: first request created one row, an identical replay returned that same ID, and different input returned the original row/hash for API conflict handling. The transaction rolled back. The complete backend suite passes (71 tests), including anonymous denial, owner filters, bounded results, replay conflicts, validation, and token-free response checks.
+
+**Next:** Increment 3.4 adds the authenticated task form/list in the web app and verifies persisted reload behavior.
