@@ -426,3 +426,11 @@ Tidak perlu akun baru. Phase ini memakai project OAuth/Calendar yang sama dan iz
 **Mengapa:** Payload Google tidak langsung menjadi interval jadwal. Kontrak ini menolak bentuk campuran atau waktu ambigu sebelum algoritma ketersediaan menerima data.
 
 **Verifikasi:** Tes menerima dua bentuk valid dan menolak offset hilang, durasi nol, tanggal akhir salah, zona invalid, serta field campuran.
+
+### Increment 6.2 - Ambil semua halaman Calendar
+
+**Yang dibuat:** Service membaca jendela maksimal 14 hari pada primary Calendar dengan `singleEvents=true` (recurrence diekspansi Google), urutan startTime, maksimal 100 kejadian per halaman, 5 halaman/500 kejadian. Semua halaman memakai filter identik dan nextPageToken; token berulang, timezone berubah, halaman invalid, atau gagal pada halaman kedua membuat seluruh jendela ditolak. Endpoint awal hanya mengembalikan hitungan dan cap waktu, tanpa detail kejadian.
+
+**Mengapa:** Satu halaman tidak membuktikan kalender kosong pada halaman berikutnya. Batas ketat menjaga runtime serverless dan mencegah hasil parsial diperlakukan sebagai waktu bebas.
+
+**Verifikasi:** Tes dua halaman, parameter sama, halaman kedua gagal, cursor berulang, jendela terlalu panjang, dan route anonim ditolak.

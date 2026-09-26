@@ -1,6 +1,7 @@
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from uuid import UUID
+from datetime import datetime
 
 from focusos_api.confirmation import (ConfirmInput, ConfirmNotFound, ConfirmStale, ConfirmConflict, ConfirmProjectNotFound, confirm_candidate)
 from focusos_api.connections import GoogleConnectionEnvelope, read_google_connection
@@ -9,6 +10,7 @@ from focusos_api.database import (
     InvalidSession,
     check_database_identity,
 )
+from focusos_api.calendar_fetch import (CalendarFetchError, CalendarFetchUnavailable, CalendarWindowStatus, calendar_window_status, fetch_calendar_window)
 from focusos_api.google_calendar import (
     CalendarPageProbe,
     CalendarProbeError,
@@ -183,6 +185,25 @@ def google_calendar_write_authorize(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Google connection unavailable") from exc
+
+
+@app.get("/connections/google/calendar/window", response_model=CalendarWindowStatus)
+def google_calendar_window_get(
+    start: datetime = Query(...), end: datetime = Query(...),
+    access_token: str = Depends(require_access_token),
+) -> CalendarWindowStatus:
+    try:
+        return calendar_window_status(fetch_calendar_window(access_token, start, end))
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except CalendarReconnectRequired as exc:
+        raise HTTPException(status_code=409, detail="Reconnect Google with Calendar read access") from exc
+    except CalendarFetchUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Calendar window unavailable") from exc
+    except CalendarFetchError as exc:
+        raise HTTPException(status_code=422, detail="Calendar window incomplete or invalid") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Calendar window unavailable") from exc
 
 
 @app.get("/connections/google/calendar/probe", response_model=CalendarPageProbe)

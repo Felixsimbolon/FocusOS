@@ -1970,7 +1970,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 ### Phase 6 â€” Calendar availability
 
 - [x] 6.1 Define timed/all-day Calendar event DTO and validators.
-- [ ] 6.2 Fetch every page of bounded event window; reject incomplete availability.
+- [x] 6.2 Fetch every page of bounded event window; reject incomplete availability.
 - [ ] 6.3 Normalize zones, all-day bounds, recurring exceptions and busy status.
 - [ ] 6.4 Implement/test deterministic free-time and duration/shortfall calculation.
 - [ ] 6.5 Show real Today schedule and read-only availability preview.
