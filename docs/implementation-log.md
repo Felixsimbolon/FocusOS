@@ -512,3 +512,7 @@ Keputusan rekomendasi: D6-B alur bertahap yang dibatasi backend; D11-A konteks p
 **Mengapa:** Similarity tidak boleh melewati batas kepemilikan atau menghidupkan lagi fakta dari sumber yang dihapus/berubah. Pada dataset kecil exact scan lebih mudah dipastikan lengkap daripada index perkiraan. Fallback leksikal menjaga alur baca tetap berguna ketika API key belum tersedia tanpa mengaku sebagai semantic search.
 
 **Verifikasi:** Migration 20260927130000 dan perbaikan 20260927131000 diterapkan. Probe SQL rollback-only membuktikan hasil lexical, semantic dengan vector cocok, nol hasil milik pengguna asing, dan nol setelah source dihapus. Tes service menguji mode fallback, vector, filter project, dan limit.
+
+### Increment 7.7 — kontrak rencana yang bisa diverifikasi
+
+Backend sekarang menerima PlanningResponse v1 yang ketat. Model hanya boleh menunjuk task-N dan slot-N dari snapshot milik server; backend menyelesaikan ID serta waktu blok sendiri, mengecek durasi total, tumpang tindih, tenggat, bukti, dan bentuk klarifikasi/shortfall. Ini mencegah teks model atau handle buatan berubah menjadi rencana yang tampak bisa dijalankan. Semua hasil tetap proposal (`actionable: false`); belum ada penulisan kalender. Tes unit mencakup rencana sah serta slot, total, deadline, overlap dan bukti palsu.
