@@ -7,10 +7,10 @@ import {
   googleRedirectUri,
   verifyGoogleOAuthState,
 } from "../src/server/google/oauth";
-import { getServerUser } from "../src/server/auth/session";
+import { getServerAccessToken, getServerUser } from "../src/server/auth/session";
 
 vi.mock("server-only", () => ({}));
-vi.mock("../src/server/auth/session", () => ({ getServerUser: vi.fn() }));
+vi.mock("../src/server/auth/session", () => ({ getServerUser: vi.fn(), getServerAccessToken: vi.fn() }));
 
 const secret = Buffer.alloc(32, 7).toString("base64");
 
@@ -67,7 +67,7 @@ describe("Google consent configuration", () => {
     expect(verifyGoogleOAuthState(created.cookieValue, created.state, "a4e0ce3a-c955-4b30-9d67-f47859cd38af", now + 601_000)).toBe(false);
     expect(
       verifyGoogleOAuthState(
-        created.cookieValue.slice(0, -1) + "x",
+        (created.cookieValue[0] === "A" ? "B" : "A") + created.cookieValue.slice(1),
         created.state,
         "a4e0ce3a-c955-4b30-9d67-f47859cd38af",
         now,
@@ -107,7 +107,11 @@ describe("Google consent routes", () => {
   it("validates callback state, drops the one-use cookie and never forwards the code", async () => {
     const userId = "a4e0ce3a-c955-4b30-9d67-f47859cd38af";
     vi.mocked(getServerUser).mockResolvedValue({ id: userId, email: null });
+    vi.mocked(getServerAccessToken).mockResolvedValue("supabase-session-token");
+    vi.stubEnv("FOCUSOS_API_URL", "http://127.0.0.1:8000");
     vi.stubEnv("FOCUSOS_APP_URL", "http://localhost:3000");
+    const fetchSpy = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchSpy);
     const oauth = await import("../src/server/google/oauth");
     const state = oauth.createGoogleOAuthState(userId);
     const url = new URL("http://localhost:3000/api/integrations/google/callback");
@@ -119,7 +123,15 @@ describe("Google consent routes", () => {
     const { GET } = await import("../src/app/api/integrations/google/callback/route");
     const response = await GET(request);
     expect(response.headers.get("location")).toBe(
-      "http://localhost:3000/settings/connections?google=consent_returned",
+      "http://localhost:3000/settings/connections?google=connected",
+    );
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/connections/google/authorize",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer supabase-session-token" }),
+        body: expect.stringContaining("code_verifier"),
+      }),
     );
     expect(response.headers.get("location")).not.toContain("authorization-code-must-not-be-forwarded");
     expect(response.cookies.get("focusos_google_oauth_state")?.maxAge).toBe(0);

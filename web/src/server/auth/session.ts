@@ -23,3 +23,20 @@ export async function getServerUser(): Promise<ServerUser | null> {
     return null;
   }
 }
+
+
+/** Return the verified user's current Supabase access token for a server-to-server API call. */
+export async function getServerAccessToken(): Promise<string | null> {
+  try {
+    const supabase = await createClient();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) return null;
+
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !sessionData.session) return null;
+    if (sessionData.session.user.id !== userData.user.id) return null;
+    return sessionData.session.access_token;
+  } catch {
+    return null;
+  }
+}

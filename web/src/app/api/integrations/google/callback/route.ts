@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerUser } from "@/server/auth/session";
+import { getServerAccessToken, getServerUser } from "@/server/auth/session";
 import { requireServerEnv } from "@/server/env";
 import {
   GOOGLE_STATE_COOKIE,
-  verifyGoogleOAuthState,
+  googleRedirectUri,
+  readGoogleOAuthCodeVerifier,
 } from "@/server/google/oauth";
 
 export async function GET(request: NextRequest) {
@@ -12,16 +13,41 @@ export async function GET(request: NextRequest) {
   const parameters = request.nextUrl.searchParams;
   const state = parameters.get("state");
   const signedState = request.cookies.get(GOOGLE_STATE_COOKIE)?.value;
-  const validState = verifyGoogleOAuthState(signedState, state, user?.id ?? null);
+  const codeVerifier = readGoogleOAuthCodeVerifier(signedState, state, user?.id ?? null);
+  const validState = codeVerifier !== null;
 
-  const outcome =
-    !validState
-      ? "invalid_state"
-      : parameters.has("error")
-        ? "cancelled"
-        : parameters.get("code")
-          ? "consent_returned"
-          : "invalid_state";
+  let outcome: string;
+  if (!validState) {
+    outcome = "invalid_state";
+  } else if (parameters.has("error")) {
+    outcome = "cancelled";
+  } else {
+    const code = parameters.get("code");
+    const accessToken = await getServerAccessToken();
+    if (!code || !accessToken || !codeVerifier) {
+      outcome = "exchange_failed";
+    } else {
+      try {
+        const apiUrl = requireServerEnv("FOCUSOS_API_URL").replace(/\/$/, "");
+        const apiResponse = await fetch(apiUrl + "/connections/google/authorize", {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + accessToken,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            code,
+            code_verifier: codeVerifier,
+            redirect_uri: googleRedirectUri(appUrl),
+          }),
+          cache: "no-store",
+        });
+        outcome = apiResponse.ok ? "connected" : "exchange_failed";
+      } catch {
+        outcome = "exchange_failed";
+      }
+    }
+  }
 
   const response = NextResponse.redirect(
     new URL("/settings/connections?google=" + outcome, appUrl),

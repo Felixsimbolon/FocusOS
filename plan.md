@@ -1931,7 +1931,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 2.1 Add connection metadata and private credential storage with denied browser access.
 - [x] 2.2 Implement/test protection, refresh, token preservation, concurrency and reconnect state.
 - [ ] 2.3 Configure Google test-user consent and APIs; implement session-bound consent start. Code is implemented; Google Cloud redirect configuration and live consent verification remain pending.
-- [ ] 2.4 Validate callback/state; store encrypted tokens; display granted connection capabilities.
+- [ ] 2.4 Validate callback/state; store encrypted tokens; display granted connection capabilities. Code and mocked verification are implemented, and the migration/RPC grants are verified; live OAuth acceptance remains pending.
 - [ ] 2.5 Read one real selected synthetic Gmail message through the backend.
 - [ ] 2.6 Read one Calendar page; verify the final write-grant consent path without a write.
 

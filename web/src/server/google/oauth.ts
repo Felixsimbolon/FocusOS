@@ -51,37 +51,47 @@ export function createGoogleOAuthState(userId: string, now = Date.now()) {
   };
 }
 
+export function readGoogleOAuthCodeVerifier(
+  cookieValue: string | undefined,
+  expectedState: string | null,
+  userId: string | null,
+  now = Date.now(),
+): string | null {
+  if (!cookieValue || cookieValue.length > 4096 || !expectedState || !userId) return null;
+  const parts = cookieValue.split(".");
+  if (parts.length !== 3) return null;
+
+  let payload: OAuthStatePayload;
+  try {
+    const [iv, ciphertext, authTag] = parts.map((part) => Buffer.from(part, "base64url"));
+    if (iv.length !== 12 || authTag.length !== 16 || ciphertext.length > 2048) return null;
+    const decipher = createDecipheriv("aes-256-gcm", stateEncryptionKey(), iv);
+    decipher.setAAD(Buffer.from("focusos-google-oauth-state-v1"));
+    decipher.setAuthTag(authTag);
+    const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    const decoded = JSON.parse(plaintext.toString("utf8"));
+    if (!isOAuthStatePayload(decoded)) return null;
+    payload = decoded;
+  } catch {
+    return null;
+  }
+
+  const stateA = Buffer.from(payload.state);
+  const stateB = Buffer.from(expectedState);
+  if (stateA.length !== stateB.length || !timingSafeEqual(stateA, stateB)) return null;
+  if (payload.userId !== userId) return null;
+  if (payload.issuedAt > now + 30_000) return null;
+  if (now - payload.issuedAt > GOOGLE_STATE_TTL_SECONDS * 1000) return null;
+  return payload.codeVerifier;
+}
+
 export function verifyGoogleOAuthState(
   cookieValue: string | undefined,
   expectedState: string | null,
   userId: string | null,
   now = Date.now(),
 ): boolean {
-  if (!cookieValue || cookieValue.length > 4096 || !expectedState || !userId) return false;
-  const parts = cookieValue.split(".");
-  if (parts.length !== 3) return false;
-
-  let payload: OAuthStatePayload;
-  try {
-    const [iv, ciphertext, authTag] = parts.map((part) => Buffer.from(part, "base64url"));
-    if (iv.length !== 12 || authTag.length !== 16 || ciphertext.length > 2048) return false;
-    const decipher = createDecipheriv("aes-256-gcm", stateEncryptionKey(), iv);
-    decipher.setAAD(Buffer.from("focusos-google-oauth-state-v1"));
-    decipher.setAuthTag(authTag);
-    const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-    const decoded = JSON.parse(plaintext.toString("utf8"));
-    if (!isOAuthStatePayload(decoded)) return false;
-    payload = decoded;
-  } catch {
-    return false;
-  }
-
-  const stateA = Buffer.from(payload.state);
-  const stateB = Buffer.from(expectedState);
-  if (stateA.length !== stateB.length || !timingSafeEqual(stateA, stateB)) return false;
-  if (payload.userId !== userId) return false;
-  if (payload.issuedAt > now + 30_000) return false;
-  return now - payload.issuedAt <= GOOGLE_STATE_TTL_SECONDS * 1000;
+  return readGoogleOAuthCodeVerifier(cookieValue, expectedState, userId, now) !== null;
 }
 
 function stateEncryptionKey(): Buffer {

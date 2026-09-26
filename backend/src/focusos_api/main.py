@@ -7,6 +7,12 @@ from focusos_api.database import (
     InvalidSession,
     check_database_identity,
 )
+from focusos_api.google_oauth import (
+    GoogleAuthorizationInput,
+    GoogleOAuthError,
+    GoogleOAuthUnavailable,
+    complete_google_authorization,
+)
 from focusos_api.profiles import (
     ProfileEnvelope,
     ProfileInput,
@@ -75,3 +81,21 @@ def google_connection_get(
         raise HTTPException(status_code=401, detail="Invalid session") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Connection unavailable") from exc
+
+
+@app.post("/connections/google/authorize", response_model=GoogleConnectionEnvelope)
+def google_connection_authorize(
+    request: GoogleAuthorizationInput,
+    access_token: str = Depends(require_access_token),
+) -> GoogleConnectionEnvelope:
+    try:
+        connection = complete_google_authorization(access_token, request)
+        return GoogleConnectionEnvelope(connection=connection)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except GoogleOAuthUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except GoogleOAuthError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Google connection unavailable") from exc
