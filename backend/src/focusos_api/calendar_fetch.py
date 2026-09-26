@@ -1,4 +1,4 @@
-﻿"""Complete bounded read of the user's primary Google Calendar."""
+"""Complete bounded read of the user's primary Google Calendar."""
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -40,6 +40,7 @@ class CalendarWindow:
     calendar_id: str
     calendar_timezone: str
     events: tuple[dict[str, Any], ...]
+    complete: bool = True
 
 
 class CalendarWindowStatus(BaseModel):
@@ -154,3 +155,4 @@ def calendar_window_status(window: CalendarWindow) -> CalendarWindowStatus:
     return CalendarWindowStatus(calendar=window.calendar_id, timezone=window.calendar_timezone,
         window_start=window.start, window_end=window.end, fetched_at=window.fetched_at,
         event_count=len(window.events))
+

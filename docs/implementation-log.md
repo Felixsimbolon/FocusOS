@@ -442,3 +442,11 @@ Tidak perlu akun baru. Phase ini memakai project OAuth/Calendar yang sama dan iz
 **Mengapa:** Hari all-day tidak selalu 24 jam saat DST. Menggunakan tanggal dan zona aslinya menjaga batas interval; penolakan waktu ambigu lebih aman daripada mengarang satu jam yang mungkin salah.
 
 **Verifikasi:** Fixture all-day, timed, cross-midnight, recurrence exception, filter nonbusy, perubahan DST, offset salah, dan bentuk campuran lulus.
+
+### Increment 6.4 - Kalkulator waktu kosong murni
+
+**Yang dibuat:** Fungsi menyusun interval jam kerja berdasarkan hari/zona profil, memotongnya pada jendela/deadline, menggabungkan busy interval yang bersentuhan/bertumpuk, lalu mengurangkannya. Mode kontigu memilih slot pertama yang cukup; mode split mengambil bagian berurutan. Hasil memuat kapasitas, alokasi, dan kekurangan menit. Window incomplete, deadline hanya tanggal, serta batas jam kerja yang ambigu saat DST ditolak.
+
+**Mengapa:** Aritmetika jadwal lebih dapat diuji sebagai fungsi deterministik daripada didelegasikan ke model. Kekurangan durasi ditampilkan eksplisit, bukan dibuat seolah tersedia; deadline tanpa jam tidak diam-diam diasumsikan akhir hari.
+
+**Verifikasi:** Tes touching intervals, hari sibuk penuh, kalender kosong, split versus kontigu, deadline, incomplete window, dan batas DST lulus.
