@@ -220,3 +220,13 @@ After each future increment, append a dated section with the increment number, p
 **Verification:** Backend tests pass (54 total), including wrong-account denial, partial-scope denial, refresh-token preservation/key rotation, bounded primary-calendar query, scope denial, and no event-detail response. Web tests pass (20 total), including separate consent scope, authenticated callback routing, and metadata-only proxy. Production build passes. The migration was applied; rollback probe verified matching-subject update, mismatched-subject no-op, and no persistent test data. Live Calendar read and Google consent upgrade remain pending private provider configuration. No event was created, changed, or deleted. FocusOS will not expose event deletion even though Google?s owned-events write scope allows it at the provider level.
 
 **Next:** Phase 2 implementation is complete. Live acceptance remains: configure Google/FastAPI environment values, connect a test account, read one synthetic Gmail message, read a primary Calendar page, and grant the Calendar write scope through the upgrade screen.
+
+## Increment 3.1 - Owned task storage
+
+**What changed:** Added the owner-scoped tasks table, title/description/status/priority and estimate constraints, separate date-only and timestamp deadlines, due-timezone validation, version metadata, and indexes for open work ordered by either deadline kind. RLS exposes only a user's own task rows. Added a rollback-only SQL probe for owner and non-owner reads. Selected D7 Option A: projects, tasks, sources, and memories stay relational, with ordinary foreign keys and typed records.
+
+**Why:** PostgreSQL constraints keep invalid deadline combinations out even if a caller bypasses API validation. Separate DATE and timestamptz fields preserve the distinction between a calendar date and a precise instant. Row Level Security provides database-enforced isolation in addition to the verified session boundary. The relational design is sufficient for the MVP's known relationships and keeps same-owner references enforceable.
+
+**Verification:** Applied migration 20260926200000_owned_tasks.sql to the linked Supabase project. Ran supabase db query --linked --file supabase/tests/20260926200000_tasks_rls.sql; the owner saw the temporary task, a different Auth subject saw no row, and the transaction rolled back. No task data remains from the probe.
+
+**Next:** Increment 3.2 adds strict runtime payload validation and boundary tests.

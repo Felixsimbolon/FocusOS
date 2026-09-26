@@ -1,6 +1,6 @@
 # FocusOS Implementation Plan
 
-Planning status: D1-D4 and D13 are selected; Phase 1 is complete. Phase 2 implementation through 2.6 is complete, with live Google consent and provider acceptance still pending.
+Planning status: D1-D4, D7 Option A, and D13 are selected; Phase 1 is complete. Phase 2 implementation through 2.6 is complete, with live Google consent and provider acceptance still pending.
 
 ## 1. Product Goal
 
@@ -10,7 +10,7 @@ The principal Day-7 demonstration is: sync a selected Gmail message; extract and
 
 ## Architecture Decisions Requiring User Input
 
-D1, D2, D3, D4, and D13 are selected; D5 through D12 remain open until their gates. The option descriptions appear at the point of use below. No option is ranked. Agree on choices before their gates; choices due later do not block independent earlier increments. Product scope limits and safety invariants are distinguished from these architectural choices.
+D1, D2, D3, D4, D7 Option A, and D13 are selected; D5 through D12 remain open until their gates. The option descriptions appear at the point of use below. No option is ranked. Agree on choices before their gates; choices due later do not block independent earlier increments. Product scope limits and safety invariants are distinguished from these architectural choices.
 
 | ID | Decision | Decide before | Dependent work | Can proceed beforehand |
 |---|---|---|---|---|
@@ -20,7 +20,7 @@ D1, D2, D3, D4, and D13 are selected; D5 through D12 remain open until their gat
 | D4 | **SELECTED: Option A - FastAPI application encryption into a private table** | 2.1 | Token storage, refresh, scheduled sync | Step 1 |
 | D5 | Store normalized email bodies or only metadata/evidence | 4.1 | Sources, reprocessing, retention, Gmail normalization | Steps 1–3 |
 | D6 | Bounded tool loop or fixed workflow with model tool selection | 7.1 | Agent states, continuation, tests | Steps 1–6, including extraction |
-| D7 | Relational project memory or explicit relational entity/edge memory | 3.5 | Project association, memory queries | 3.1–3.4 |
+| D7 | **SELECTED: Option A - Relational projects, tasks, sources, and memories** | 3.5 | Project association, memory queries | 3.1-3.4 |
 | D8 | Embed on confirmation or in a resumable batch | 7.5 | Embedding status, retrieval latency, sync load | Through 7.4 |
 | D9 | User-triggered sync only or user-triggered plus daily schedule | 5.7 | Scheduler authentication, job triggers, settings | Through 5.6 |
 | D10 | Per-event approvals or approval of a fixed multi-event batch | 8.1 | Approval payload, partial execution, UI | Steps 1–7 |
@@ -1937,7 +1937,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 
 ### Phase 3 — Task vertical slice
 
-- [ ] 3.1 Add owned task table/date constraints/indexes and isolation tests.
+- [x] 3.1 Add owned task table/date constraints/indexes and isolation tests.
 - [ ] 3.2 Add runtime task payload validation and boundary cases.
 - [ ] 3.3 Add authenticated task create/list API with create replay handling.
 - [ ] 3.4 Add minimal task form/list; create and reload persisted task.
