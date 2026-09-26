@@ -414,3 +414,15 @@ Keputusan D9: opsi A, sinkronisasi manual satu halaman per request. Tidak ada cr
 **Verifikasi:** Migration `20260927090000_gmail_sync_status.sql` diterapkan. Tes backend memeriksa status tanpa koneksi, RPC terscope pemilik, dan penolakan anonim; tes web memeriksa proxy, token tetap di server, error aman, dan penolakan anonim. Build Next.js lulus. Uji Gmail langsung masih menunggu konfigurasi OAuth dan token di production; uji ekstraksi langsung menunggu OpenAI API key.
 
 **Deployment Phase 5 (2026-09-27):** API deployment dpl_7WCoo4LbtZ1Y1tCgL57J6kkcajz6 and web deployment dpl_9dDTw1iwzSEYAR5xwAjF2kGu2cZD reached READY on the existing aliases. Production smoke checks: API /health 200, web /activity 200, and anonymous Gmail sync status, sync POST, and process-one POST all 401. Vercel environment-name audit found only Supabase URL/publishable key on the API and base app/API/Supabase variables on web; the Google OAuth, token encryption, service-role, and OpenAI keys listed in docs/deployment.md are absent. No live Gmail consent, selected-label sync, or model extraction was performed.
+
+## Phase 6: ketersediaan Google Calendar deterministik
+
+Tidak perlu akun baru. Phase ini memakai project OAuth/Calendar yang sama dan izin baca primary Calendar yang sudah dirancang di Phase 2. Uji provider nyata tetap memerlukan secret OAuth dan koneksi Google yang belum dipasang di Vercel; tes fixture dan endpoint anonim tetap bisa dijalankan tanpa nilai rahasia.
+
+### Increment 6.1 - Kontrak kejadian Calendar
+
+**Yang dibuat:** DTO kejadian timed dan all-day terpisah, membawa ID provider, kalender, judul, status sibuk/transparan, respons diri pada undangan, referensi recurrence, dan waktu observasi. Timed harus memiliki offset UTC dan durasi positif. All-day memakai tanggal akhir eksklusif dan zona IANA yang valid.
+
+**Mengapa:** Payload Google tidak langsung menjadi interval jadwal. Kontrak ini menolak bentuk campuran atau waktu ambigu sebelum algoritma ketersediaan menerima data.
+
+**Verifikasi:** Tes menerima dua bentuk valid dan menolak offset hilang, durasi nol, tanggal akhir salah, zona invalid, serta field campuran.
