@@ -16,6 +16,7 @@ from focusos_api.google_calendar import (
     CalendarReconnectRequired,
     read_primary_calendar_page,
 )
+from focusos_api.gmail_status import (GmailSyncStatus, read_gmail_sync_status)
 from focusos_api.gmail_sync import (GmailSyncStep, run_one_sync_page)
 from focusos_api.gmail_processing import (GmailProcessOne, process_one_gmail_source)
 from focusos_api.gmail_sources import (GmailIngestEnvelope, ingest_selected_messages)
@@ -502,3 +503,13 @@ def gmail_sync_post(access_token: str = Depends(require_access_token)) -> GmailS
         raise HTTPException(status_code=502, detail="Gmail sync stopped on an invalid source") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Gmail sync unavailable") from exc
+
+
+@app.get("/connections/google/gmail/sync/status", response_model=GmailSyncStatus)
+def gmail_sync_status_get(access_token: str = Depends(require_access_token)) -> GmailSyncStatus:
+    try:
+        return read_gmail_sync_status(access_token)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Gmail sync status unavailable") from exc

@@ -22,7 +22,7 @@ D1-D5, D7 Option A, D12 Option A for generation, and D13 are selected. D12 embed
 | D6 | Bounded tool loop or fixed workflow with model tool selection | 7.1 | Agent states, continuation, tests | Steps 1â€“6, including extraction |
 | D7 | **SELECTED: Option A - Relational projects, tasks, sources, and memories** | 3.5 | Project association, memory queries | 3.1-3.4 |
 | D8 | Embed on confirmation or in a resumable batch | 7.5 | Embedding status, retrieval latency, sync load | Through 7.4 |
-| D9 | User-triggered sync only or user-triggered plus daily schedule | 5.7 | Scheduler authentication, job triggers, settings | Through 5.6 |
+| D9 | Chosen A: user-triggered bounded sync only | 5.7 | Manual Sync Now/Continue and one-source processing; no cron | Resolved |
 | D10 | Per-event approvals or approval of a fixed multi-event batch | 8.1 | Approval payload, partial execution, UI | Steps 1â€“7 |
 | D11 | Per-run context or persistent conversations | 7.1 | Message retention, follow-up commands, UI | Steps 1â€“6 |
 | D12 | **SELECTED for generation: Option A - OpenAI Responses API, gpt-4.1-mini; embeddings pending 7.5** | 4.3; embedding part by 7.5 | SDK, schema compatibility, eval, vector dimension | Through 4.2 |
@@ -1964,8 +1964,8 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 5.4 Upsert Gmail sources by provider identity; test concurrent dedupe.
 - [x] 5.5 Process one pending Gmail source through existing extraction/review.
 - [x] 5.6 Add durable initial/history cursor, atomic lease/checkpoints and rescan/retry recovery.
-- [ ] Resolve D9 sync triggers before 5.7.
-- [ ] 5.7 Add Sync Now/status/resume UI; secure optional daily trigger if selected.
+- [x] Resolve D9 sync triggers before 5.7: option A, user-triggered bounded sync.
+- [x] 5.7 Add Sync Now/status/resume UI; D9-A selects no daily trigger. (Live Google acceptance pending production credentials.)
 
 ### Phase 6 â€” Calendar availability
 

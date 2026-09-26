@@ -179,6 +179,20 @@ export function SourceReview() {
     return () => window.clearTimeout(timer);
   }, [selected, extraction]);
 
+  useEffect(() => {
+    async function reloadSources() {
+      try {
+        const data = await readJson<{ sources: Source[] }>(await fetch("/api/sources", { cache: "no-store" }));
+        setSources(data.sources);
+        if (selected) {
+          const updated = data.sources.find((item) => item.id === selected.id);
+          if (updated) await selectSource(updated);
+        }
+      } catch { setMessage("Could not refresh saved sources."); }
+    }
+    window.addEventListener("focusos:sources-changed", reloadSources);
+    return () => window.removeEventListener("focusos:sources-changed", reloadSources);
+  }, [selected, selectSource]);
   async function createSource(event: FormEvent) {
     event.preventDefault(); setBusy(true); setMessage("");
     const payload = JSON.stringify({ title: title.trim(), text });

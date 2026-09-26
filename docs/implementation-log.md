@@ -404,3 +404,11 @@ Keputusan D9: opsi A, sinkronisasi manual satu halaman per request. Tidak ada cr
 **Mengapa:** Satu halaman history dapat menyebut lebih banyak ID daripada aman diproses dalam satu fungsi. Staging membuat progress durable, sedangkan replay aman karena upsert sumber idempoten. Reset 404 mengikuti kontrak Gmail ketika history ID kedaluwarsa.
 
 **Verifikasi:** Fixture menguji dedup messageAdded/labelsAdded, staging sebelum pengambilan body, 404 rescan, retry 429, dan checkpoint setelah upsert. Probe SQL 5.6a menegaskan lease, pending, serta RLS. Uji Gmail nyata masih menunggu konfigurasi provider.
+
+### Increment 5.7 - Status dan kontrol sinkronisasi manual
+
+**Yang dibuat:** RPC status membaca koneksi dan checkpoint milik pengguna serta menghitung sumber tersimpan, hasil siap, gagal, dan yang menunggu ekstraksi. FastAPI menyediakan status terautentikasi. Next.js menyediakan proxy server-only dan panel Activity berisi Sync Now/Continue serta Process one source. Setiap klik menjalankan tepat satu halaman sinkronisasi atau satu ekstraksi. Daftar sumber dan status disegarkan setelah operasi, tanpa mengirim token Google ke browser. D9 diputuskan A: tidak ada scheduler/cron.
+
+**Mengapa:** Status dalam database tetap dapat dibaca setelah tab ditutup atau fungsi Vercel selesai. Batas satu unit per request sesuai runtime serverless dan membuat retry, lease, serta partial progress jujur di UI. Pemrosesan model dipisah dari ingest agar kegagalan atau biaya model tidak membatalkan checkpoint Gmail. Browser hanya memanggil proxy terautentikasi; kegagalan provider ditampilkan dengan pesan aman.
+
+**Verifikasi:** Migration `20260927090000_gmail_sync_status.sql` diterapkan. Tes backend memeriksa status tanpa koneksi, RPC terscope pemilik, dan penolakan anonim; tes web memeriksa proxy, token tetap di server, error aman, dan penolakan anonim. Build Next.js lulus. Uji Gmail langsung masih menunggu konfigurasi OAuth dan token di production; uji ekstraksi langsung menunggu OpenAI API key.

@@ -310,3 +310,8 @@ main.activity-page { width: min(100%, 64rem); margin-inline: auto; place-content
 .source-review .selected-source { background: #143d76; }
 .source-review button:disabled { opacity: .6; cursor: wait; }
 @media (max-width: 36rem) { .review-grid { grid-template-columns: 1fr; } main.activity-page { padding: 1.5rem 1rem; } }
+.gmail-sync-panel { margin-bottom: 1rem; }
+.gmail-sync-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+.gmail-sync-actions button { cursor: pointer; padding: .65rem .9rem; border: 0; border-radius: .4rem; color: white; background: #2158a5; font: inherit; }
+.gmail-sync-actions .secondary-button { color: #2158a5; background: #e8eef7; }
+.gmail-sync-actions button:disabled { opacity: .6; cursor: wait; }
