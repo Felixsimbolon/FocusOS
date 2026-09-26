@@ -1987,7 +1987,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 7.6 Expose owned filtered semantic/SQL memory retrieval and its tool. (Live query embedding pending API key.)
 - [x] 7.7 Validate planning schema, known slot refs and scheduling invariants.
 - [x] 7.8 Produce grounded plan/clarification/shortfall through the selected orchestrator.
-- [ ] 7.9 Add command/run UI showing actual tools, context counts and outcomes.
+- [x] 7.9 Add command/run UI showing actual tools, context counts and outcomes.
 
 ### Phase 8 â€” Approved external action
 

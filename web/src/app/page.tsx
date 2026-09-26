@@ -43,6 +43,7 @@ export default async function Home({
             <p>Set your scheduling preferences to get started.</p>
           )}
           {me.kind === "ok" ? <><TaskBoard /><CalendarAvailability /></> : null}
+          <a href="/agent">Planning agent</a>
           <a href="/activity">Review extracted sources</a>
           <a href="/settings">Scheduling preferences</a>
           <form action={signOut}>

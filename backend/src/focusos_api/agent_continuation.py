@@ -220,3 +220,16 @@ def continue_staged_run(access_token: str, run_id: UUID) -> AgentRunState:
                        checkpoint, None, run.model_turns, count):
         raise DatabaseUnavailable("Run checkpoint was updated elsewhere")
     return load_command_run(access_token, run.id)
+
+
+def list_run_tools(access_token: str, run_id: UUID) -> list[dict]:
+    # The run lookup enforces owner visibility even when its ledger is empty.
+    load_command_run(access_token, run_id)
+    with scoped_client(access_token) as (user_id, client):
+        rows = (client.table("agent_tool_calls")
+                .select("ordinal,name,status,safe_code,created_at")
+                .eq("user_id", user_id).eq("run_id", str(run_id))
+                .order("ordinal").limit(8).execute().data)
+    if not isinstance(rows, list):
+        raise DatabaseUnavailable("Tool history unavailable")
+    return rows

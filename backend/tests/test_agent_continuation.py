@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
-from focusos_api.agent_continuation import AgentRunState, continue_staged_run
+from focusos_api.agent_continuation import AgentRunState, continue_staged_run, list_run_tools
 from focusos_api.main import app
 
 
@@ -47,12 +47,20 @@ class ContinuationTests(unittest.TestCase):
             self.assertEqual(continue_staged_run("session", run.id), run)
         plan.assert_called_once()
 
+    def test_tool_trace_requires_owned_run_before_query(self):
+        run = state()
+        with patch("focusos_api.agent_continuation.load_command_run", side_effect=__import__("focusos_api.database", fromlist=["DatabaseUnavailable"]).DatabaseUnavailable("missing")), \
+             patch("focusos_api.agent_continuation.scoped_client") as scoped:
+            with self.assertRaises(Exception): list_run_tools("session", run.id)
+        scoped.assert_not_called()
+
     def test_anonymous_run_routes(self):
         client = TestClient(app)
         run_id = uuid4()
         self.assertEqual(client.post("/agent/runs", json={"request_key": str(uuid4()), "command": "Plan"}).status_code, 401)
         self.assertEqual(client.get(f"/agent/runs/{run_id}").status_code, 401)
         self.assertEqual(client.post(f"/agent/runs/{run_id}/continue").status_code, 401)
+        self.assertEqual(client.get(f"/agent/runs/{run_id}/tools").status_code, 401)
 
 
 if __name__ == "__main__":

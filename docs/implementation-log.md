@@ -520,3 +520,7 @@ Backend sekarang menerima PlanningResponse v1 yang ketat. Model hanya boleh menu
 ### Increment 7.8 — tahap perencanaan berbasis konteks
 
 Tahap terakhir run menyusun konteks terbatas dari task, slot kalender yang dihitung server, dan maksimal lima memori. Adapter Responses memakai Structured Outputs, `store: false`, tanpa tool tulis. Teks task/memori diperlakukan sebagai data yang tidak dipercaya. Model hanya memilih handle; validator 7.7 menyelesaikan waktu dan ID asli. Hasil `proposed`, klarifikasi, atau waktu tidak cukup disimpan dalam checkpoint terminal. Tahap model memakai CAS lease untuk mencegah panggilan serentak; kegagalan model atau proposal palsu menjadi error aman tanpa blok usulan. Tes mock memeriksa payload, proposal, dan penolakan output palsu. Uji provider langsung menunggu API key runtime.
+
+### Increment 7.9 — halaman perintah dan inspeksi run
+
+Halaman `/agent` menerima perintah, durasi, dan pilihan pembagian blok. Setiap lanjut menjalankan satu tahap sehingga checkpoint dapat direload lewat URL `/agent/{runId}`. Panel memperlihatkan status, jumlah task/event/slot/memori, hasil proposal atau klarifikasi, serta ledger empat tool baca. Route Next.js memproksi request dengan sesi server dan whitelist path; endpoint backend memeriksa kepemilikan run sebelum membaca ledger melalui RLS. Tidak ada tombol approve atau penulisan Google Calendar pada fase ini. Tes mencakup sesi anonim, path, kegagalan upstream, dan akses ledger tanpa run milik pengguna.

@@ -3,7 +3,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from uuid import UUID
 from datetime import datetime
 
-from focusos_api.agent_continuation import (AgentRunInput, AgentRunState, continue_staged_run, load_command_run, start_staged_run)
+from focusos_api.agent_continuation import (AgentRunInput, AgentRunState, continue_staged_run, load_command_run, list_run_tools, start_staged_run)
 from focusos_api.agent_model import AgentModelError
 from focusos_api.agent_tools import ToolValidationError
 from focusos_api.agent_tasks import CommandInput, CommandResult, run_tasks_command
@@ -153,6 +153,16 @@ def agent_run_get(run_id: UUID,
                   access_token: str = Depends(require_access_token)) -> AgentRunState:
     try:
         return load_command_run(access_token, run_id)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=404, detail="Run not found") from exc
+
+
+@app.get("/agent/runs/{run_id}/tools")
+def agent_run_tools_get(run_id: UUID, access_token: str = Depends(require_access_token)) -> list[dict]:
+    try:
+        return list_run_tools(access_token, run_id)
     except InvalidSession as exc:
         raise HTTPException(status_code=401, detail="Invalid session") from exc
     except DatabaseUnavailable as exc:
