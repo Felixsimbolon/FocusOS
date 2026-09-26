@@ -280,3 +280,17 @@ After each future increment, append a dated section with the increment number, p
 **Verification:** Applied migration 20260926230000_task_versions_today.sql. The rollback-only Supabase probe verified a version-1 update to version 2, rejection of a second version-1 edit with the latest row returned, and no task visibility/update for another Auth subject; all probe data rolled back. Backend tests pass (92 total), web tests pass (34 across 7 files), and the production Next.js build/TypeScript check passes. Live Google provider acceptance from Phase 2 remains separate.
 
 **Deployment:** On 2026-09-27, deployed API commit 2b116cb to https://focusos-api.vercel.app and web commit 2b116cb to https://focusos-web-five.vercel.app. Both Vercel production deployments reached READY. Smoke checks returned API /health 200, anonymous /api/me 401, anonymous /api/tasks/today 401, anonymous /api/projects 401, and anonymous task POST 401 without creating data. The authenticated browser task create/reload/edit/complete lifecycle still needs a signed-in browser session.
+
+## Phase 4: ekstraksi terstruktur
+
+Keputusan D5: opsi A. FocusOS menyimpan teks sumber manual yang dinormalisasi maksimal 20 KB selama 30 hari. Teks ini memungkinkan pemeriksaan kutipan bukti dan ekstraksi ulang tanpa bergantung pada pesan Gmail yang mungkin berubah atau hilang. Pembersihan maksimal 100 sumber kadaluarsa dijalankan pada request sumber milik pengguna; metadata dan hash tetap tersedia untuk jejak asal. Input manual tidak mengambil URL atau gambar dari internet.
+
+Keputusan D12 untuk generasi: opsi A, OpenAI Responses API dengan Structured Outputs dan validasi Pydantic tambahan. Model dan versi prompt dicatat per eksekusi; kemampuan embedding diputuskan dan diuji tersendiri sebelum 7.5. Akun OpenAI API dengan kuota serta API key backend diperlukan untuk panggilan nyata; akun ChatGPT saja tidak menyediakan key API. Key tidak disimpan di Git atau dikirim ke browser.
+
+### Increment 4.1 - Sumber manual dan provenance
+
+**Yang dibuat:** Tabel `source_items` dengan RLS per pemilik, hash SHA-256 teks normal, waktu penerimaan, identitas sumber, batas 20 KB, serta waktu kedaluwarsa isi 30 hari. Endpoint POST /sources/manual memakai Idempotency-Key dan RPC atomik sehingga pengulangan menghasilkan sumber yang sama; key yang dipakai untuk input berbeda menghasilkan konflik. GET /sources dan GET /sources/{id} hanya mengembalikan sumber milik sesi terkait. Fungsi pembersihan isi dibatasi 100 baris per request.
+
+**Mengapa:** Calon tugas dari AI harus dapat ditelusuri ke isi tertentu; hash dan replay key menghindari duplikasi serta memisahkan ulang-kirim request dari sumber baru. RLS dan RPC pemilik menjadi batas keamanan di database, sedangkan batas ukuran/retensi mengurangi penyimpanan data pribadi.
+
+**Verifikasi:** Migration 20260927010000_manual_sources.sql berhasil diterapkan ke Supabase. Suite API dan tes sumber manual lulus. Uji browser autentikasi tetap perlu dilakukan oleh pengguna.

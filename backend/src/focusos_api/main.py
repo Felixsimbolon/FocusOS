@@ -35,6 +35,7 @@ from focusos_api.profiles import (
     read_profile,
     save_profile,
 )
+from focusos_api.sources import (ManualSourceInput, SourceConflict, SourceEnvelope, SourceListEnvelope, create_manual_source, list_sources, get_source)
 from focusos_api.tasks import (
     TaskCreate,
     TaskCreateEnvelope,
@@ -290,3 +291,42 @@ def tasks_patch(
         raise HTTPException(status_code=404, detail="Project not found") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Task could not be updated") from exc
+
+
+@app.post("/sources/manual", response_model=SourceEnvelope)
+def sources_manual_post(
+    source: ManualSourceInput,
+    request_id: UUID = Header(alias="Idempotency-Key"),
+    access_token: str = Depends(require_access_token),
+) -> SourceEnvelope:
+    try:
+        return create_manual_source(access_token, request_id, source)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except SourceConflict as exc:
+        raise HTTPException(status_code=409, detail="Source request key conflict") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Source unavailable") from exc
+
+
+@app.get("/sources", response_model=SourceListEnvelope)
+def sources_get(access_token: str = Depends(require_access_token)) -> SourceListEnvelope:
+    try:
+        return list_sources(access_token)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Source unavailable") from exc
+
+
+@app.get("/sources/{source_id}", response_model=SourceEnvelope)
+def source_get(source_id: UUID, access_token: str = Depends(require_access_token)) -> SourceEnvelope:
+    try:
+        source = get_source(access_token, source_id)
+        if source is None:
+            raise HTTPException(status_code=404, detail="Source not found")
+        return SourceEnvelope(source=source, replayed=False)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Source unavailable") from exc
