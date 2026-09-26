@@ -1959,7 +1959,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 ### Phase 5 â€” Gmail synchronization
 
 - [x] 5.1 List only selected IDs/metadata with bounded pagination.
-- [ ] 5.2 Fetch selected bounded message bodies; handle unavailable messages.
+- [x] 5.2 Fetch selected bounded message bodies; handle unavailable messages.
 - [ ] 5.3 Normalize MIME/text safely with thread/date/truncation/attachment metadata.
 - [ ] 5.4 Upsert Gmail sources by provider identity; test concurrent dedupe.
 - [ ] 5.5 Process one pending Gmail source through existing extraction/review.

@@ -16,6 +16,7 @@ from focusos_api.google_calendar import (
     CalendarReconnectRequired,
     read_primary_calendar_page,
 )
+from focusos_api.gmail_fetch import (SelectedFetchInput, SelectedFetchEnvelope, fetch_selected_status)
 from focusos_api.gmail_selection import (GmailSelectedPage, GmailSelectionError, GmailSelectionMissing, GmailSelectionReconnect, GmailSelectionUnavailable, list_selected_metadata)
 from focusos_api.google_gmail import (
     GmailProbeError,
@@ -423,3 +424,24 @@ def gmail_selected_get(
         raise HTTPException(status_code=502, detail="Gmail selection unavailable") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Gmail selection unavailable") from exc
+
+
+@app.post("/connections/google/gmail/selected/fetch", response_model=SelectedFetchEnvelope)
+def gmail_selected_fetch_post(
+    request: SelectedFetchInput,
+    access_token: str = Depends(require_access_token),
+) -> SelectedFetchEnvelope:
+    try:
+        return fetch_selected_status(access_token, request)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except GmailSelectionReconnect as exc:
+        raise HTTPException(status_code=409, detail="Reconnect Google with Gmail read access") from exc
+    except GmailSelectionMissing as exc:
+        raise HTTPException(status_code=404, detail="Create a Gmail label named FocusOS") from exc
+    except GmailSelectionUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Gmail temporarily unavailable") from exc
+    except GmailSelectionError as exc:
+        raise HTTPException(status_code=422, detail="Selected Gmail messages are invalid or too large") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Gmail temporarily unavailable") from exc

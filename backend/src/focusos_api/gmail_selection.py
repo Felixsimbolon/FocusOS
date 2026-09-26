@@ -76,7 +76,7 @@ def google_bearer(access_token: str):
     return connection, bearer
 
 
-def provider_json(client: httpx.Client, url: str, bearer: str, params: dict | list | None = None) -> dict:
+def provider_json(client: httpx.Client, url: str, bearer: str, params: dict | list | None = None, *, max_bytes: int = 2097152) -> dict:
     try:
         response = client.get(url, params=params, headers={"Authorization": "Bearer " + bearer},
                               timeout=10.0)
@@ -92,7 +92,7 @@ def provider_json(client: httpx.Client, url: str, bearer: str, params: dict | li
         raise GmailSelectionUnavailable(retry_seconds)
     if response.status_code == 403:
         raise GmailSelectionUnavailable()
-    if response.status_code != 200 or len(response.content) > 2097152:
+    if response.status_code != 200 or len(response.content) > max_bytes:
         raise GmailSelectionError("Unexpected Gmail response")
     try:
         data = response.json()

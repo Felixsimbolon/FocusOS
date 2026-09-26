@@ -356,3 +356,11 @@ Keputusan D9: opsi A, sinkronisasi manual satu halaman per request. Tidak ada cr
 **Mengapa:** Label eksplisit membatasi pilihan sebelum teks pribadi diambil atau dikirim ke model. ID label, bukan pencarian seluruh inbox atau status unread, menjadi batas pemilihan yang konsisten.
 
 **Verifikasi:** Tes provider membuktikan filter label, batas sepuluh, permintaan metadata saja, pagination, label hilang, serta penolakan anonim. Uji Gmail langsung menunggu koneksi/secret production.
+
+### Increment 5.2 - Pengambilan isi pesan terpilih
+
+**Yang dibuat:** Service mengambil maksimal tiga ID unik per request. Sebelum `format=full`, setiap ID diverifikasi ulang melalui metadata bahwa label `FocusOS` masih terpasang. Respons Gmail dibatasi 512 KB per pesan; pesan yang terhapus ditandai unavailable. Route diagnostik hanya mengembalikan ID/status, bukan MIME, body, atau token.
+
+**Mengapa:** Daftar ID dari browser tidak boleh menjadi otorisasi untuk membaca pesan mana pun. Pemeriksaan label tepat sebelum fetch dan batas ukuran menutup celah antara listing dan pengambilan isi.
+
+**Verifikasi:** Tes membuktikan pesan tanpa label tidak pernah diminta dalam format full, ID/path tidak valid ditolak sebelum Google, serta route anonim ditolak.
