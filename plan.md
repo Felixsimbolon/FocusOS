@@ -1951,7 +1951,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 4.1 Store one bounded manual source with provenance/hash and ownership.
 - [x] 4.2 Add task/event/envelope schemas and anchored date/ambiguity fixtures.
 - [ ] 4.3 Make one structured model call; validate evidence and deterministic date relations.
-- [ ] 4.4 Persist a redacted extraction run with real latency/available usage.
+- [x] 4.4 Persist a redacted extraction run with real latency/available usage.
 - [ ] 4.5 Persist deduplicated extraction review results and recoverable processing claims.
 - [ ] 4.6 Confirm one reviewed candidate into an idempotent source-backed task.
 - [ ] 4.7 Add review/correction UI and prove task appears on Today.

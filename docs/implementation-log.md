@@ -310,3 +310,11 @@ Keputusan D12 untuk generasi: opsi A, OpenAI Responses API dengan Structured Out
 **Mengapa:** Struktur dari provider mengurangi JSON rusak, tetapi pemeriksaan lokal tetap perlu karena struktur tidak membuktikan fakta, kepemilikan, atau tanggal relatif. Key disimpan hanya di FastAPI melalui `FOCUSOS_OPENAI_API_KEY`. Key tidak boleh berada di `web/.env.local`, browser, Git, atau log.
 
 **Setup dan batas verifikasi:** Buat API key di OpenAI Platform dan pastikan proyek punya kuota penggunaan. Isi `FOCUSOS_OPENAI_API_KEY` dalam environment backend lokal dan Vercel project API untuk production; deploy ulang API setelah menambahkannya. Saat increment ini dikerjakan, key belum tersedia di lingkungan kerja, sehingga uji provider nyata dengan sumber sintetis masih tertunda. Tes mock menguji keberhasilan, usage, bukti palsu, refusal, timeout, dan konfigurasi kosong.
+
+### Increment 4.4 - Catatan eksekusi agent
+
+**Yang dibuat:** Tabel `agent_runs` dengan pemilik dan sumber yang sama, status, provider/model/versi prompt/skema, waktu mulai-selesai, latensi nyata, token bila provider melaporkannya, dan kode kesalahan aman. Wrapper mencatat awal lalu akhir panggilan model, termasuk kegagalan.
+
+**Mengapa:** Kita perlu melihat kegagalan dan biaya penggunaan tanpa menyimpan prompt mentah, isi sumber, access token, atau API key di log. Relasi sumber-pemilik dan RLS mencegah pembacaan run pengguna lain.
+
+**Verifikasi:** Migration 20260927020000_agent_runs.sql diterapkan. Tes kegagalan memastikan status serta kode timeout dicatat tanpa teks sumber atau token.
