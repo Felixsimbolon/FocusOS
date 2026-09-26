@@ -4,3 +4,4 @@ httpx<0.29,>=0.27
 pydantic<3,>=2.10
 supabase==2.31.0
 tzdata>=2025.1
+cryptography<51,>=44

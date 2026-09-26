@@ -1928,7 +1928,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 
 - [x] Resolve D4 credential protection: Option A, FastAPI encryption key stored outside PostgreSQL; decide D13 before 2.3.
 - [x] 2.1 Add connection metadata and private credential storage with denied browser access.
-- [ ] 2.2 Implement/test protection, refresh, token preservation, concurrency and reconnect state.
+- [x] 2.2 Implement/test protection, refresh, token preservation, concurrency and reconnect state.
 - [ ] 2.3 Configure test-user consent and APIs; implement session-bound consent start.
 - [ ] 2.4 Validate callback/state; store encrypted tokens; display granted connection capabilities.
 - [ ] 2.5 Read one real selected synthetic Gmail message through the backend.

@@ -6,7 +6,7 @@ This log records what was implemented and why, one increment at a time. The deta
 
 ## Current state
 
-The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.8. Google sign-in/sign-out, database identity, and profile save/read were verified against the linked Supabase project. The profile isolation check used a synthetic second identity in a rolled-back database transaction. Increments 1.1–1.8 are verified; Phase 1 is complete. The hosted web and API run on two Vercel Hobby projects. Phase 2 began after D4 was selected. Increment 2.1 is complete; token encryption and refresh remain for 2.2.
+The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.8. Google sign-in/sign-out, database identity, and profile save/read were verified against the linked Supabase project. The profile isolation check used a synthetic second identity in a rolled-back database transaction. Increments 1.1–1.8 are verified; Phase 1 is complete. The hosted web and API run on two Vercel Hobby projects. Phase 2 began after D4 was selected. Increments 2.1 and 2.2 are complete. D13 must be selected before increment 2.3.
 
 ## Step 0 — Product and architecture plan
 
@@ -158,6 +158,20 @@ The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, 
 **Stop point:** No OAuth code exchange occurred, no Google tokens were requested or stored, and the encryption key/helper is not configured yet. These are 2.2 and later work.
 
 **Next gated increment:** 2.2, implement authenticated encryption and the expiry-aware refresh helper. No Google consent request yet.
+
+## Increment 2.2 - Token protection and refresh helper (2026-09-26)
+
+**Purpose:** Encrypt OAuth credentials with a deployment-managed key and refresh expired access tokens without losing the refresh grant or allowing competing requests to overwrite one another.
+
+**Files changed:** backend/src/focusos_api/token_crypto.py, backend/src/focusos_api/google_tokens.py, backend/src/focusos_api/google_token_store.py, backend/src/focusos_api/database.py, backend/tests/test_token_crypto.py, backend/tests/test_google_tokens.py, backend/tests/test_google_token_store.py, backend/tests/test_database.py, backend/pyproject.toml and editable package metadata, supabase/migrations/20260926160000_google_token_refresh_functions.sql, README.md, plan.md, and this log.
+
+**What was built and why:** AES-GCM uses a fresh 96-bit nonce for each token and authenticates the connection ID, token type, and key version as associated data. A server-only JSON keyring supports decrypting older key versions while encrypting with the active one. The refresh helper reuses unexpired access tokens, claims a bounded database lease before refreshing, performs one server-side Google token request, preserves an existing refresh token when Google omits a replacement, and saves via a versioned compare-and-swap. An invalid_grant marks the connection reconnect_required. Private token reads and refresh mutations go through security-definer RPCs executable only by service_role; user and anonymous roles cannot execute them. The service-role client requires a distinct server secret and is kept separate from normal user-scoped database access.
+
+**Verification:** All 33 backend tests passed, including random-nonce encryption, AAD/tamper rejection, key rotation, expired-token refresh, preservation of the refresh token, invalid_grant handling, and two competing refresh calls producing only one provider request. The SQL migration was first compiled in a rolled-back linked transaction, then applied to Supabase. Live grant checks confirmed only service_role can execute token RPCs. A second rolled-back SQL probe verified lease exclusivity, successful versioned save, stale-save rejection, and reconnect_required transition. No real Google token or provider request was used.
+
+**Stop point:** Consent and token exchange are still not configured. A decision on D13 is pending before increment 2.3. The API-host service key, encryption keyring, and Google client secret must be set privately before live callback verification in 2.4.
+
+**Next gated increment:** 2.3, implement the selected Google consent start flow after D13 is recorded.
 
 ## How this log will be maintained
 

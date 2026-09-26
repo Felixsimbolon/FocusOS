@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from focusos_api.database import DatabaseUnavailable, InvalidSession, check_database_identity
+from focusos_api.database import DatabaseUnavailable, InvalidSession, check_database_identity, service_client
 from focusos_api.main import app
 
 
@@ -108,6 +108,38 @@ class DatabaseHealthRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
+
+
+class ServiceClientTests(unittest.TestCase):
+    def test_user_publishable_key_cannot_be_used_for_privileged_client(self):
+        settings = {
+            "FOCUSOS_SUPABASE_URL": "https://example.supabase.co",
+            "FOCUSOS_SUPABASE_SERVICE_ROLE_KEY": "sb_publishable_not-a-server-secret",
+        }
+        with patch.dict(os.environ, settings), patch(
+            "focusos_api.database.create_client"
+        ) as create_client:
+            with self.assertRaises(DatabaseUnavailable):
+                with service_client():
+                    pass
+            create_client.assert_not_called()
+
+    def test_privileged_client_requires_server_secret_key(self):
+        settings = {
+            "FOCUSOS_SUPABASE_URL": "https://example.supabase.co",
+            "FOCUSOS_SUPABASE_SERVICE_ROLE_KEY": "sb_secret_server-only",
+        }
+        with patch.dict(os.environ, settings), patch(
+            "focusos_api.database.httpx.Client"
+        ) as transport_factory, patch("focusos_api.database.create_client") as create_client:
+            with service_client() as client:
+                self.assertIs(client, create_client.return_value)
+
+        self.assertEqual(create_client.call_args.args[1], "sb_secret_server-only")
+        self.assertIs(
+            create_client.call_args.kwargs["options"].httpx_client,
+            transport_factory.return_value.__enter__.return_value,
+        )
 
 
 if __name__ == "__main__":

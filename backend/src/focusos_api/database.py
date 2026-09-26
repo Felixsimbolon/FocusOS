@@ -67,3 +67,27 @@ def check_database_identity(access_token: str) -> None:
 
     if str(database_user_id) != user_id:
         raise DatabaseUnavailable("Database identity did not match Auth identity")
+
+
+@contextmanager
+def service_client() -> Iterator[Client]:
+    """Create a fresh server-only client for narrowly scoped privileged RPCs."""
+    url = os.environ.get("FOCUSOS_SUPABASE_URL", "").strip()
+    service_key = os.environ.get("FOCUSOS_SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    if not url or not service_key.startswith("sb_secret_"):
+        raise DatabaseUnavailable("Server-only Supabase credential settings are missing")
+
+    try:
+        with httpx.Client(timeout=10.0) as transport:
+            client = create_client(
+                url,
+                service_key,
+                options=ClientOptions(
+                    httpx_client=transport,
+                    auto_refresh_token=False,
+                    persist_session=False,
+                ),
+            )
+            yield client
+    except (APIError, httpx.HTTPError) as exc:
+        raise DatabaseUnavailable("Privileged database operation failed") from exc

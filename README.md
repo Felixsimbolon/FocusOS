@@ -31,6 +31,19 @@ npm.cmd run dev:web
 
 The web app is at http://localhost:3000. The open API health endpoint is at http://127.0.0.1:8000/health. The login callback uses PKCE; application sessions contain Supabase session tokens only. Gmail and Calendar scopes are not requested yet. See Supabase's [Google sign-in guide](https://supabase.com/docs/guides/auth/social-login/auth-google) and [Next.js SSR setup](https://supabase.com/docs/guides/auth/server-side/creating-a-client?framework=nextjs&package-manager=npm&queryGroups=framework&queryGroups=package-manager) for provider setup details.
 
+## Server-only Google token configuration (Phase 2)
+
+Increment 2.2 adds server-side token protection and refresh primitives. OAuth consent and real token storage are still disabled until the later Phase 2 callback is configured. Never put these values in web/.env.local, any NEXT_PUBLIC_ variable, or Git.
+
+For the FastAPI process only, prepare these variables when continuing to the Google connection setup:
+
+- FOCUSOS_SUPABASE_SERVICE_ROLE_KEY: the Supabase secret/service-role key. It is used only for database RPCs that are explicitly granted to service_role; ordinary profile and connection reads still use the signed-in user's token.
+- FOCUSOS_TOKEN_ENCRYPTION_KEYS: a JSON object mapping key versions to Base64-encoded 32-byte AES keys, such as {"1":"<base64-key>"}.
+- FOCUSOS_TOKEN_ENCRYPTION_ACTIVE_VERSION: the version used for new ciphertext, initially 1. Keep older keys in the keyring until all ciphertext using them has been re-encrypted.
+- FOCUSOS_GOOGLE_CLIENT_ID and FOCUSOS_GOOGLE_CLIENT_SECRET: the OAuth web-client credentials held by FastAPI for server-side token refresh.
+
+Generate a key locally with .\.venv\Scripts\python.exe -c "import base64,secrets; print(base64.b64encode(secrets.token_bytes(32)).decode())". Store the result and all other secret values in the FastAPI environment or the API host's private environment settings. The encryption helper fails closed if its keyring is malformed or lacks the active key. Losing the only key that can decrypt saved tokens requires users to reconnect.
+
 ## Database migration and identity check
 
 The project-local Supabase CLI owns ordered SQL migrations in `supabase/migrations/`. Once your Supabase project exists, link it and apply pending migrations:

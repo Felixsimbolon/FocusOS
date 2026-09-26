@@ -8,3 +8,4 @@ Requires-Dist: httpx<0.29,>=0.27
 Requires-Dist: pydantic<3,>=2.10
 Requires-Dist: supabase==2.31.0
 Requires-Dist: tzdata>=2025.1
+Requires-Dist: cryptography<51,>=44

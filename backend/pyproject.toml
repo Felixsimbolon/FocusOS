@@ -13,6 +13,7 @@ dependencies = [
     "pydantic>=2.10,<3",
     "supabase==2.31.0",
     "tzdata>=2025.1",
+    "cryptography>=44,<51",
 ]
 
 [tool.setuptools.packages.find]
