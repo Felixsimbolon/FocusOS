@@ -265,3 +265,29 @@ main.home-page {
     flex-direction: column;
   }
 }
+
+.task-edit-form {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.task-edit-form label {
+  display: grid;
+  gap: 0.35rem;
+  color: #354353;
+  font-size: 0.92rem;
+}
+
+.task-edit-form input {
+  width: 100%;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid #aab5c1;
+  border-radius: 0.4rem;
+  font: inherit;
+}
+
+.task-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}

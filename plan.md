@@ -1,6 +1,6 @@
 # FocusOS Implementation Plan
 
-Planning status: D1-D4, D7 Option A, and D13 are selected; Phase 1 is complete. Phase 2 implementation through 2.6 is complete, with live Google consent and provider acceptance still pending.
+Planning status: D1-D4, D7 Option A, and D13 are selected; Phases 1-3 implementation are complete. Phase 2 live Google consent/provider acceptance and Phase 3 hosted task-flow acceptance remain pending.
 
 ## 1. Product Goal
 
@@ -1943,7 +1943,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 3.4 Add minimal task form/list; create and reload persisted task.
 - [ ] Resolve D7 knowledge representation before 3.5.
 - [x] 3.5 Add minimal projects/owned task association; reject cross-owner references.
-- [ ] 3.6 Add versioned task edit/completion and Today task ordering.
+- [x] 3.6 Add versioned task edit/completion and Today task ordering.
 
 ### Phase 4 — Structured extraction
 

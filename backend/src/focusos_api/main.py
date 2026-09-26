@@ -45,10 +45,16 @@ from focusos_api.tasks import (
     TaskProjectNotFound,
     TaskRequestConflict,
     TaskStatus,
+    TaskUpdate,
+    TaskUpdateEnvelope,
+    TaskUpdateNotFound,
+    TodayTaskEnvelope,
     create_project,
     create_task,
     list_projects,
     list_tasks,
+    list_today_tasks,
+    update_task,
 )
 
 app = FastAPI(title="FocusOS API", version="0.1.0")
@@ -245,3 +251,42 @@ def projects_post(
         raise HTTPException(status_code=401, detail="Invalid session") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Project could not be saved") from exc
+
+
+@app.get("/tasks/today", response_model=TodayTaskEnvelope)
+def tasks_today_get(
+    access_token: str = Depends(require_access_token),
+) -> TodayTaskEnvelope:
+    try:
+        return list_today_tasks(access_token)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Today tasks unavailable") from exc
+
+
+@app.patch("/tasks/{task_id}", response_model=TaskUpdateEnvelope)
+def tasks_patch(
+    task_id: UUID,
+    update: TaskUpdate,
+    access_token: str = Depends(require_access_token),
+) -> TaskUpdateEnvelope:
+    try:
+        result = update_task(access_token, task_id, update)
+        if result.outcome == "stale":
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "error": "Task changed since it was loaded",
+                    "task": result.task.model_dump(mode="json"),
+                },
+            )
+        return result
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except TaskUpdateNotFound as exc:
+        raise HTTPException(status_code=404, detail="Task not found") from exc
+    except TaskProjectNotFound as exc:
+        raise HTTPException(status_code=404, detail="Project not found") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Task could not be updated") from exc

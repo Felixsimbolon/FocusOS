@@ -18,7 +18,12 @@ type Task = {
 };
 
 type Project = { id: string; name: string; created_at: string };
-type TaskList = { tasks: Task[]; truncated: boolean };
+type TaskList = {
+  tasks: Task[];
+  truncated: boolean;
+  today?: string;
+  timezone?: string;
+};
 
 function readableDue(task: Task): string | null {
   if (task.due_kind === "date" && task.due_date) return task.due_date;
@@ -38,6 +43,10 @@ export function TaskBoard() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [todayContext, setTodayContext] = useState("");
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [projectName, setProjectName] = useState("");
@@ -53,7 +62,7 @@ export function TaskBoard() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/tasks?status=open&limit=100", {
+      const response = await fetch("/api/tasks/today", {
         cache: "no-store",
       });
       const result = (await response.json()) as TaskList | { error?: string };
@@ -62,7 +71,12 @@ export function TaskBoard() {
         return;
       }
       setTasks(result.tasks);
-      setMessage(result.truncated ? "Showing the first 100 open tasks." : "");
+      setTodayContext(
+        result.today && result.timezone
+          ? "Showing tasks due on or before " + result.today + " in " + result.timezone + "."
+          : "",
+      );
+      setMessage(result.truncated ? "Showing the first 100 matching tasks." : "");
     } catch {
       setError("Tasks could not be loaded. Please try again.");
     } finally {
@@ -126,6 +140,42 @@ export function TaskBoard() {
     }
   }
 
+  async function patchTask(task: Task, changes: Record<string, unknown>) {
+    setUpdatingTaskId(task.id);
+    setError("");
+    setMessage("");
+    try {
+      const response = await fetch("/api/tasks/" + encodeURIComponent(task.id), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expected_version: task.version, ...changes }),
+      });
+      if (response.status === 409) {
+        await refresh();
+        setError("This task changed elsewhere. The latest Today list is loaded; review it before editing again.");
+        setEditingTaskId(null);
+        return;
+      }
+      const result = (await response.json()) as { error?: string; task?: Task };
+      if (!response.ok || !result.task) {
+        setError(result.error ?? "Task could not be updated.");
+        return;
+      }
+      setEditingTaskId(null);
+      await refresh();
+      setMessage(changes.status === "done" ? "Task completed." : "Task updated.");
+    } catch {
+      setError("Task update could not be confirmed. Reload the latest task state.");
+    } finally {
+      setUpdatingTaskId(null);
+    }
+  }
+
+  async function saveTitle(event: FormEvent<HTMLFormElement>, task: Task) {
+    event.preventDefault();
+    await patchTask(task, { title: editTitle });
+  }
+
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
@@ -182,8 +232,8 @@ export function TaskBoard() {
     <section className="task-board" aria-labelledby="tasks-heading">
       <div className="task-board-heading">
         <div>
-          <h2 id="tasks-heading">Open tasks</h2>
-          <p>Add a task, then reload the list to confirm it is saved.</p>
+          <h2 id="tasks-heading">Today</h2>
+          <p>{todayContext || "Tasks due today or earlier, plus tasks without a deadline."}</p>
         </div>
         <button
           type="button"
@@ -283,11 +333,49 @@ export function TaskBoard() {
                 {readableDue(task) ? <span>Due {readableDue(task)}</span> : null}
                 {task.estimate_minutes ? <span>{task.estimate_minutes} min estimate</span> : null}
               </div>
+              {editingTaskId === task.id ? (
+                <form className="task-edit-form" onSubmit={(event) => void saveTitle(event, task)}>
+                  <label>
+                    Edit task title
+                    <input
+                      value={editTitle}
+                      onChange={(event) => setEditTitle(event.target.value)}
+                      maxLength={200}
+                      required
+                      autoFocus
+                    />
+                  </label>
+                  <div className="task-actions">
+                    <button type="submit" disabled={updatingTaskId === task.id}>Save changes</button>
+                    <button type="button" onClick={() => setEditingTaskId(null)}>Cancel</button>
+                  </div>
+                </form>
+              ) : (
+                <div className="task-actions">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingTaskId(task.id);
+                      setEditTitle(task.title);
+                    }}
+                    disabled={updatingTaskId === task.id}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void patchTask(task, { status: "done" })}
+                    disabled={updatingTaskId === task.id}
+                  >
+                    Mark complete
+                  </button>
+                </div>
+              )}
             </li>
           ))}
         </ul>
       ) : (
-        <p className="task-empty">No open tasks yet.</p>
+        <p className="task-empty">No tasks due today or earlier, or without a deadline.</p>
       )}
     </section>
   );

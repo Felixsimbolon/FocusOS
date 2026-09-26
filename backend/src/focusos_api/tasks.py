@@ -1,6 +1,6 @@
 ﻿"""Validated task schemas and owner-scoped persistence."""
 
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta, timezone
 import hashlib
 import json
 import re
@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from focusos_api.database import DatabaseUnavailable, scoped_client
+from focusos_api.profiles import read_profile
 
 Priority = Literal["low", "normal", "high"]
 DueKind = Literal["none", "date", "datetime"]
@@ -77,15 +78,71 @@ class TaskCreate(BaseModel):
 
         if self.due_date is not None or self.due_at is None or self.due_timezone is None:
             raise ValueError("Date-time deadlines require due_at and due_timezone only")
-        if self.due_at.utcoffset() is None:
-            raise ValueError("Date-time deadlines must include a UTC offset")
-        try:
-            zone = ZoneInfo(self.due_timezone)
-        except (ZoneInfoNotFoundError, ValueError) as exc:
-            raise ValueError("Use a valid IANA timezone name") from exc
-        local_time = self.due_at.astimezone(zone)
-        if local_time.replace(tzinfo=None) != self.due_at.replace(tzinfo=None):
-            raise ValueError("The timestamp offset does not match due_timezone")
+        _validate_zoned_datetime(self.due_at, self.due_timezone)
+        return self
+
+
+class TaskUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_version: int = Field(strict=True, ge=1)
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+    status: TaskStatus | None = None
+    priority: Priority | None = None
+    due_kind: DueKind | None = None
+    due_date: date | None = None
+    due_at: datetime | None = None
+    due_timezone: str | None = Field(default=None, min_length=1, max_length=64)
+    estimate_minutes: int | None = Field(default=None, strict=True, ge=1, le=1440)
+    project_id: UUID | None = None
+
+    @field_validator("title")
+    @classmethod
+    def normalized_optional_title(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("Title cannot be blank")
+        return value
+
+    @field_validator("description")
+    @classmethod
+    def normalized_optional_description(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
+    @field_validator("due_date", mode="before")
+    @classmethod
+    def update_date_only(cls, value: object) -> object:
+        return TaskCreate.date_only(value)
+
+    @model_validator(mode="after")
+    def valid_patch(self) -> "TaskUpdate":
+        fields = self.model_fields_set - {"expected_version"}
+        if not fields:
+            raise ValueError("At least one task field must be changed")
+        for name in ("title", "status", "priority", "due_kind"):
+            if name in fields and getattr(self, name) is None:
+                raise ValueError(f"{name} cannot be null")
+
+        deadline_fields = {"due_kind", "due_date", "due_at", "due_timezone"}
+        if fields & deadline_fields:
+            if not deadline_fields.issubset(fields):
+                raise ValueError("Deadline fields must be updated together")
+            if self.due_kind == "none":
+                if any(value is not None for value in (self.due_date, self.due_at, self.due_timezone)):
+                    raise ValueError("No-deadline tasks cannot include deadline fields")
+            elif self.due_kind == "date":
+                if self.due_date is None or self.due_at is not None or self.due_timezone is not None:
+                    raise ValueError("Date deadlines require only due_date")
+            elif self.due_kind == "datetime":
+                _validate_zoned_datetime(self.due_at, self.due_timezone)
+            else:
+                raise ValueError("Deadline kind is invalid")
         return self
 
 
@@ -117,6 +174,16 @@ class TaskListEnvelope(BaseModel):
 class TaskCreateEnvelope(BaseModel):
     task: TaskRecord
     replayed: bool
+
+
+class TaskUpdateEnvelope(BaseModel):
+    task: TaskRecord
+    outcome: Literal["updated", "stale"]
+
+
+class TodayTaskEnvelope(TaskListEnvelope):
+    today: date
+    timezone: str
 
 
 class TaskRequestConflict(Exception):
@@ -156,6 +223,17 @@ class ProjectEnvelope(BaseModel):
 
 class ProjectListEnvelope(BaseModel):
     projects: list[ProjectRecord]
+
+
+def _validate_zoned_datetime(value: datetime | None, zone_name: str | None) -> None:
+    if value is None or zone_name is None or value.utcoffset() is None:
+        raise ValueError("Date-time deadlines require a UTC offset and timezone")
+    try:
+        zone = ZoneInfo(zone_name)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise ValueError("Use a valid IANA timezone name") from exc
+    if value.astimezone(zone).replace(tzinfo=None) != value.replace(tzinfo=None):
+        raise ValueError("The timestamp offset does not match due_timezone")
 
 
 def _payload_hash(task: TaskCreate) -> str:
@@ -279,4 +357,101 @@ def create_project(access_token: str, project: ProjectCreate) -> ProjectEnvelope
     return ProjectEnvelope(
         project=ProjectRecord.model_validate(project_data),
         existing=row["existing"],
+    )
+
+
+class TaskUpdateNotFound(Exception):
+    pass
+
+
+def update_task(
+    access_token: str,
+    task_id: UUID,
+    update: TaskUpdate,
+) -> TaskUpdateEnvelope:
+    changes = update.model_dump(mode="json", exclude_unset=True, exclude={"expected_version"})
+    with scoped_client(access_token) as (_, supabase):
+        rows = (
+            supabase.rpc(
+                "focusos_update_task",
+                {
+                    "p_task_id": str(task_id),
+                    "p_expected_version": update.expected_version,
+                    "p_changes": changes,
+                },
+            )
+            .execute()
+            .data
+        )
+
+    if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict):
+        raise DatabaseUnavailable("Unexpected task update response")
+    row = rows[0]
+    outcome = row.get("outcome")
+    if outcome == "not_found":
+        raise TaskUpdateNotFound()
+    if outcome == "project_not_found":
+        raise TaskProjectNotFound()
+    task_data = row.get("task")
+    if outcome not in ("updated", "stale") or not isinstance(task_data, dict):
+        raise DatabaseUnavailable("Unexpected task update response")
+    return TaskUpdateEnvelope(
+        task=TaskRecord.model_validate(task_data),
+        outcome=outcome,
+    )
+
+
+def _today_key(task: TaskRecord, zone: ZoneInfo) -> tuple[date, int, str]:
+    if task.due_kind == "date" and task.due_date is not None:
+        task_date = task.due_date
+    elif task.due_kind == "datetime" and task.due_at is not None:
+        task_date = task.due_at.astimezone(zone).date()
+    else:
+        task_date = date.max
+
+    priority_order = {"high": 0, "normal": 1, "low": 2}
+    return task_date, priority_order[task.priority], str(task.id)
+
+
+def list_today_tasks(
+    access_token: str,
+    *,
+    now: datetime | None = None,
+) -> TodayTaskEnvelope:
+    profile = read_profile(access_token)
+    timezone_name = profile.timezone if profile is not None else "UTC"
+    zone = ZoneInfo(timezone_name)
+    current = now or datetime.now(zone)
+    if current.utcoffset() is None:
+        raise ValueError("Today task time must be timezone-aware")
+    today = current.astimezone(zone).date()
+    next_day = today + timedelta(days=1)
+    next_midnight_utc = datetime.combine(next_day, time.min, tzinfo=zone).astimezone(timezone.utc)
+    due_filter = (
+        f"due_kind.eq.none,due_date.lte.{today.isoformat()},"
+        f"due_at.lt.{next_midnight_utc.isoformat()}"
+    )
+
+    with scoped_client(access_token) as (user_id, supabase):
+        rows = (
+            supabase.table("tasks")
+            .select(_TASK_SELECT)
+            .eq("user_id", user_id)
+            .eq("status", "open")
+            .or_(due_filter)
+            .limit(1001)
+            .execute()
+            .data
+        )
+
+    if not isinstance(rows, list):
+        raise DatabaseUnavailable("Unexpected Today task response")
+    tasks = [TaskRecord.model_validate(row) for row in rows]
+    tasks.sort(key=lambda task: _today_key(task, zone))
+    truncated = len(tasks) > 100 or len(rows) >= 1000
+    return TodayTaskEnvelope(
+        tasks=tasks[:100],
+        truncated=truncated,
+        today=today,
+        timezone=timezone_name,
     )

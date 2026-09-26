@@ -270,3 +270,13 @@ After each future increment, append a dated section with the increment number, p
 **Verification:** Applied migration 20260926220000_projects_task_association.sql. The rollback-only Supabase integration probe verified case/whitespace-insensitive project dedupe, task association to an owned project, zero project visibility and rejected association for a different Auth subject, then rolled back all probe data. The Phase 2/3 backend suite passes (80 tests); web tests pass (29 tests across 6 files); production build and TypeScript checks pass.
 
 **Next:** Increment 3.6 adds version-checked task edits/completion and a deterministic Today task list.
+
+## Increment 3.6 - Versioned edits and Today task ordering
+
+**What changed:** Added strict task PATCH validation with expected_version, an atomic compare-and-swap database function, and a 409 response containing the latest owned task when another edit won first. Title edits and completion controls use this version check. Added a timezone-aware Today endpoint: it includes open tasks due today or earlier plus undated open tasks, excludes future-dated work, and orders by deadline date, priority, then stable task ID. A profile supplies the IANA timezone; UTC is the explicit fallback when no profile exists.
+
+**Why:** Compare-and-swap prevents stale pages or retries from silently overwriting newer task changes. The Today query uses local calendar-date boundaries, including DST transitions, so a day is not treated as a fixed 24-hour duration. Sorting happens deterministically in the API instead of depending on browser order.
+
+**Verification:** Applied migration 20260926230000_task_versions_today.sql. The rollback-only Supabase probe verified a version-1 update to version 2, rejection of a second version-1 edit with the latest row returned, and no task visibility/update for another Auth subject; all probe data rolled back. Backend tests pass (92 total), web tests pass (34 across 7 files), and the production Next.js build/TypeScript check passes. Live Google provider acceptance from Phase 2 remains separate.
+
+**Next:** Phase 3 implementation is complete. Deploy the API and web project, then perform the authenticated browser task create/reload/edit/complete check.
