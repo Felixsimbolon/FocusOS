@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getServerAccessToken, getServerUser } from "@/server/auth/session";
 import { requireServerEnv } from "@/server/env";
+import { GmailMessageProbe } from "./gmail-message-probe";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,7 @@ export default async function ConnectionsSettings({
             {connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned.readonly") ? <li>Read events on calendars you own</li> : null}
             {connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned") ? <li>Calendar event write access</li> : null}
           </ul>
+          <GmailMessageProbe />
         </section>
       ) : connection?.status === "reconnect_required" ? (
         <p role="status">Google needs to be connected or reauthorized.</p>

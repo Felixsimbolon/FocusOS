@@ -7,6 +7,13 @@ from focusos_api.database import (
     InvalidSession,
     check_database_identity,
 )
+from focusos_api.google_gmail import (
+    GmailProbeError,
+    GmailProbeUnavailable,
+    GmailReconnectRequired,
+    GmailMessageProbe,
+    read_selected_gmail_message,
+)
 from focusos_api.google_oauth import (
     GoogleAuthorizationInput,
     GoogleOAuthError,
@@ -99,3 +106,22 @@ def google_connection_authorize(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Google connection unavailable") from exc
+
+
+@app.get("/connections/google/gmail/messages/{message_id}", response_model=GmailMessageProbe)
+def google_gmail_message_probe(
+    message_id: str,
+    access_token: str = Depends(require_access_token),
+) -> GmailMessageProbe:
+    try:
+        return read_selected_gmail_message(access_token, message_id)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except GmailReconnectRequired as exc:
+        raise HTTPException(status_code=409, detail="Google connection needs authorization") from exc
+    except GmailProbeUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except GmailProbeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Gmail probe unavailable") from exc

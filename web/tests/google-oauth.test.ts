@@ -138,3 +138,39 @@ describe("Google consent routes", () => {
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");
   });
 });
+
+
+describe("Gmail diagnostic proxy", () => {
+  it("requires an authenticated FocusOS session", async () => {
+    vi.mocked(getServerAccessToken).mockResolvedValue(null);
+    const { GET } = await import("../src/app/api/integrations/google/gmail/messages/[messageId]/route");
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/integrations/google/gmail/messages/msg-123"),
+      { params: Promise.resolve({ messageId: "msg-123" }) },
+    );
+    expect(response.status).toBe(401);
+  });
+
+  it("proxies only safe message diagnostics and never exposes message body", async () => {
+    vi.mocked(getServerAccessToken).mockResolvedValue("supabase-session-token");
+    vi.stubEnv("FOCUSOS_API_URL", "http://127.0.0.1:8000");
+    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      message_id: "msg-123", internal_date_ms: 1799990000000, label_count: 2, text_body_bytes: 21,
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchSpy);
+    const { GET } = await import("../src/app/api/integrations/google/gmail/messages/[messageId]/route");
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/integrations/google/gmail/messages/msg-123"),
+      { params: Promise.resolve({ messageId: "msg-123" }) },
+    );
+    const payload = await response.json();
+    expect(response.status).toBe(200);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/connections/google/gmail/messages/msg-123",
+      expect.objectContaining({ headers: { Authorization: "Bearer supabase-session-token" }, cache: "no-store" }),
+    );
+    expect(payload).toHaveProperty("text_body_bytes", 21);
+    expect(payload).not.toHaveProperty("body");
+    expect(payload).not.toHaveProperty("snippet");
+  });
+});

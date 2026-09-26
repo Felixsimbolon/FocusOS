@@ -6,7 +6,7 @@ This log records what was implemented and why, one increment at a time. The deta
 
 ## Current state
 
-The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.8. Google sign-in/sign-out, database identity, and profile save/read were verified against the linked Supabase project. The profile isolation check used a synthetic second identity in a rolled-back database transaction. Increments 1.1–1.8 are verified; Phase 1 is complete. The hosted web and API run on two Vercel Hobby projects. Phase 2 began after D4 was selected. Increments 2.1 and 2.2 are complete. D13 Option A (incremental consent and owned primary Calendar) is selected. Increment 2.3 code is implemented with live consent setup pending; 2.4 implementation, production build, and SQL grants are verified; live OAuth verification is pending.
+The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.8. Google sign-in/sign-out, database identity, and profile save/read were verified against the linked Supabase project. The profile isolation check used a synthetic second identity in a rolled-back database transaction. Increments 1.1–1.8 are verified; Phase 1 is complete. The hosted web and API run on two Vercel Hobby projects. Phase 2 began after D4 was selected. Increments 2.1 and 2.2 are complete. D13 Option A (incremental consent and owned primary Calendar) is selected. Increment 2.3 code is implemented with live consent setup pending; 2.4 implementation, production build, and SQL grants are verified; live OAuth verification is pending. Increment 2.5 code and mocked tests are implemented; reading a live synthetic email remains pending.
 
 ## Step 0 — Product and architecture plan
 
@@ -200,3 +200,13 @@ After each future increment, append a dated section with the increment number, p
 **Verification:** Backend tests cover code exchange, PKCE forwarding, strict callback allowlisting, read-scope validation, identity verification, ciphertext round-trip, anonymous denial, and token-free response (39 backend tests pass). Web tests pass (14 tests). Production build passed. The migration was applied and rollback-probed; a live grant query confirmed only service_role can execute the RPCs. Live Google consent remains pending private provider configuration and callback registration. No live token was used in tests.
 
 **Next:** Increment 2.5, read one explicitly selected synthetic Gmail message through the backend without persisting message content.
+
+## Increment 2.5 - Read one selected Gmail message
+
+**What changed:** Added an authenticated FastAPI probe that accepts one message ID, checks the user's connection and Gmail read grant, obtains a fresh Google access token through the encrypted refresh store, and calls Gmail `users.messages.get` with `format=full`. It decodes a text/plain body only in memory and returns the selected ID, date, label count, and body byte count. The settings page provides a message-ID field and the Next.js proxy keeps the Supabase access token server-side. No message content is returned or persisted.
+
+**Why:** The first Gmail acceptance test needs evidence that the granted scope can read one chosen synthetic message without turning the probe into inbox sync or retaining personal email. The read endpoint is scoped to an explicit ID, and the response omits snippet, headers, and body.
+
+**Verification:** Backend tests cover scope denial, invalid IDs, token access, provider authorization failure, byte-count extraction, anonymous denial, and content-free response (45 tests pass). Web tests pass (16 tests), production build includes the dynamic Gmail route, and Python compilation passes. A real Gmail request remains pending Google connection and a synthetic message ID; obtain the ID with Gmail `users.messages.list` and enter it on Settings > Google connections. No real email or body was used in tests.
+
+**Next:** Increment 2.6, read a bounded Calendar events page and add a separate incremental-consent route to verify the write-capable grant without creating or changing any event.

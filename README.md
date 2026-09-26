@@ -56,6 +56,10 @@ For the FastAPI process only, prepare these variables when continuing to the Goo
 
 Generate a key locally with .\.venv\Scripts\python.exe -c "import base64,secrets; print(base64.b64encode(secrets.token_bytes(32)).decode())". Store the result and all other secret values in the FastAPI environment or the API host's private environment settings. The encryption helper fails closed if its keyring is malformed or lacks the active key. Losing the only key that can decrypt saved tokens requires users to reconnect.
 
+
+
+After Google is connected, the Connections page can probe one synthetic test email. Obtain its message ID with Gmail's [`users.messages.list` API](https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/list), then enter that ID. The probe uses `users.messages.get` with `format=full` on the server, computes a body byte count in memory, and returns only the message ID/date/label count/body size. It does not persist or return the message body. Use only a test email for this probe.
+
 ## Database migration and identity check
 
 The project-local Supabase CLI owns ordered SQL migrations in `supabase/migrations/`. Once your Supabase project exists, link it and apply pending migrations:
