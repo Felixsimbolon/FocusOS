@@ -1,4 +1,4 @@
-﻿import { signInWithGoogle, signOut } from "./auth/actions";
+import { signInWithGoogle, signOut } from "./auth/actions";
 import { getServerUser } from "@/server/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +26,7 @@ export default async function Home({
       {user ? (
         <>
           <p>Signed in{user.email ? ` as ${user.email}` : ""}.</p>
+          <a href="/settings">Scheduling preferences</a>
           <form action={signOut}>
             <button type="submit">Sign out</button>
           </form>

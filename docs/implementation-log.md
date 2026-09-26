@@ -6,7 +6,7 @@ This log records what was implemented and why, one increment at a time. The deta
 
 ## Current state
 
-The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.5. Increments 1.4 and 1.5 are verified against the hosted Supabase project: Google sign-in/sign-out works, the migration is applied, and the database sees the signed-in user identity. Increment 1.6 is next.
+The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.6. Google sign-in/sign-out, database identity, and profile save/read were verified against the linked Supabase project. The profile isolation check used a synthetic second identity in a rolled-back database transaction. Increment 1.7 is next.
 
 ## Step 0 — Product and architecture plan
 
@@ -93,6 +93,20 @@ The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, 
 
 **Next gated increment:** 1.6, owned profile and scheduling preferences.
 
+
+## Increment 1.6 — Owned profile and scheduling preferences (2026-09-26)
+
+**Purpose:** Store the user's timezone and working hours as the first user-owned domain data, and prove that another identity cannot access it.
+
+**Files changed:** `supabase/migrations/20260926112710_owned_profiles.sql`, `backend/src/focusos_api/{database,main,profiles}.py`, `backend/tests/test_profiles.py`, `backend/pyproject.toml`, `web/src/server/api/profile.ts`, `web/src/app/settings/page.tsx`, `web/src/app/settings/actions.ts`, `web/src/app/page.tsx`, `web/src/app/globals.css`, `README.md`, `.gitignore`, and `plan.md`. Python editable-install metadata was refreshed.
+
+**What was built and why:** The migration creates `profiles`, keyed to `auth.users`, with database checks for IANA timezone names and a compact working-hours JSON shape. Row-level policies restrict SELECT, INSERT, and UPDATE to the caller's own row; column grants keep `is_allowlisted` and timestamps outside user writes. An authenticated, security-invoker RPC atomically inserts or updates the caller's preferences. FastAPI verifies the access token and uses a fresh user-scoped Supabase client per request, validates inputs with Pydantic, and exposes GET/PUT `/profile`. The signed-in Next.js settings page uses a server-side bridge to FastAPI, so the form never handles tokens. Defaults are suggestions until the user saves them.
+
+**Verification:** `npm.cmd run test:api` passed 14 tests, including invalid timezone/range/duplicate days, anonymous access, and rejection of a client-supplied allowlist flag. `npm.cmd run build:web` and TypeScript checking passed. The migration was applied to the linked Supabase project. Direct live checks found anonymous profile table/RPC access denied, authenticated preference grants present, and no authenticated update grant for the allowlist flag. Live FastAPI logs showed profile GET 200, PUT 200, and subsequent GET 200; the Next.js settings redirect returned with `saved=1`. A rolled-back database transaction impersonated the saved profile's owner and then a second synthetic authenticated identity: the owner could select/update one row; the second identity selected/updated zero rows. This validates policy behavior without creating a second Google account or persisting the test update.
+
+**Limitations:** The user-facing reload result was not separately reported in chat at the time of this entry; server requests show the saved profile was read again. The second identity was synthetic, not a second live Google login. Calendar selection, scheduling, tasks, and Google service grants remain later work.
+
+**Next gated increment:** 1.7, the protected `/api/me` contract and signed-in shell.
 ## How this log will be maintained
 
 After each future increment, append a dated section with the increment number, purpose, files changed, what was added and why, commands/tests and their results, manual verification, known limitations, and the next gated increment. Keep incomplete live checks explicitly marked as pending. Do not mark plan checklist items complete unless their stated acceptance checks actually passed.

@@ -1,10 +1,12 @@
-"""A user-scoped, read-only Supabase database connectivity check."""
+"""User-scoped Supabase access for the FocusOS API."""
 
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 
 import httpx
 from postgrest.exceptions import APIError
-from supabase import create_client
+from supabase import Client, create_client
 from supabase.client import ClientOptions
 from supabase_auth.errors import AuthError
 
@@ -14,7 +16,7 @@ class InvalidSession(Exception):
 
 
 class DatabaseUnavailable(Exception):
-    """The restricted database check could not be completed."""
+    """A restricted database operation could not be completed."""
 
 
 def _settings() -> tuple[str, str]:
@@ -27,15 +29,15 @@ def _settings() -> tuple[str, str]:
     return url, publishable_key
 
 
-def check_database_identity(access_token: str) -> None:
-    """Confirm that Auth and PostgREST see the same verified user."""
+@contextmanager
+def scoped_client(access_token: str) -> Iterator[tuple[str, Client]]:
+    """Verify Auth and use the caller's JWT for one PostgREST operation."""
     if not access_token:
         raise InvalidSession()
 
     url, publishable_key = _settings()
-
     try:
-        # A fresh client and HTTP transport prevent credentials crossing requests.
+        # Fresh clients and transports keep user credentials out of shared state.
         with httpx.Client(timeout=10.0) as transport:
             supabase = create_client(
                 url,
@@ -51,13 +53,17 @@ def check_database_identity(access_token: str) -> None:
                 raise InvalidSession()
 
             supabase.postgrest.auth(access_token)
-            database_user_id = supabase.rpc(
-                "focusos_session_uid", get=True
-            ).execute().data
+            yield str(user.id), supabase
     except AuthError as exc:
         raise InvalidSession() from exc
     except (APIError, httpx.HTTPError) as exc:
-        raise DatabaseUnavailable("Restricted database check failed") from exc
+        raise DatabaseUnavailable("Restricted database operation failed") from exc
 
-    if str(database_user_id) != str(user.id):
+
+def check_database_identity(access_token: str) -> None:
+    """Confirm that Auth and PostgREST see the same verified user."""
+    with scoped_client(access_token) as (user_id, supabase):
+        database_user_id = supabase.rpc("focusos_session_uid", get=True).execute().data
+
+    if str(database_user_id) != user_id:
         raise DatabaseUnavailable("Database identity did not match Auth identity")

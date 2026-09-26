@@ -4,4 +4,7 @@ Version: 0.1.0
 Requires-Python: >=3.10
 Requires-Dist: fastapi<1.0,>=0.115
 Requires-Dist: uvicorn<1.0,>=0.30
+Requires-Dist: httpx<0.29,>=0.27
+Requires-Dist: pydantic<3,>=2.10
 Requires-Dist: supabase==2.31.0
+Requires-Dist: tzdata>=2025.1

@@ -33,7 +33,7 @@ The web app is at http://localhost:3000. The open API health endpoint is at http
 
 ## Database migration and identity check
 
-The project-local Supabase CLI owns ordered SQL migrations in `supabase/migrations/`. Once your Supabase project exists, link it and apply the migration:
+The project-local Supabase CLI owns ordered SQL migrations in `supabase/migrations/`. Once your Supabase project exists, link it and apply pending migrations:
 
 ```powershell
 npm.cmd exec -- supabase login
@@ -41,7 +41,7 @@ npm.cmd exec -- supabase link --project-ref YOUR_PROJECT_REF
 npm.cmd run db:push
 ```
 
-`db:push` writes the pending SQL migration to the linked project. The first migration creates only a read-only `focusos_session_uid()` probe; there are no domain tables yet. It grants execution to authenticated users only. The backend verifies the bearer token with Supabase Auth, sends that same token to PostgREST, and checks that the database sees the same user ID. It creates a fresh client per request. [Supabase CLI migration workflow](https://supabase.com/docs/guides/local-development/cli-workflows) and [Python client setup](https://supabase.com/docs/reference/python/initializing) provide the underlying commands and client details.
+`db:push` writes the pending SQL migration to the linked project. The first migration creates a read-only `focusos_session_uid()` probe for authenticated users. The second creates owned profiles for timezone and working hours, with row-level security and limited column grants. The backend verifies the bearer token with Supabase Auth, sends that same token to PostgREST, and checks that the database sees the same user ID. It creates a fresh client per request. [Supabase CLI migration workflow](https://supabase.com/docs/guides/local-development/cli-workflows) and [Python client setup](https://supabase.com/docs/reference/python/initializing) provide the underlying commands and client details.
 
 After signing in at http://localhost:3000, open http://localhost:3000/api/db-check. Expect `{"status":"ok"}`. After signing out, expect HTTP 401. Calling `http://127.0.0.1:8000/health/database` without a bearer token also returns 401. The browser never needs to send a token directly to FastAPI; the Next.js route forwards it server-side. If the migration or backend configuration is missing, the signed-in check returns 503.
 
@@ -53,4 +53,8 @@ npm.cmd run test:api
 npm.cmd run build:web
 ```
 
-The current automated API checks use mocks. A real Google login and live database identity check still require configured cloud credentials and migration application; those checks are not claimed as passed by the local test suite.
+The automated API tests use mocks. The project has also been checked against a linked Supabase project: Google sign-in and sign-out, identity propagation, profile save/read, anonymous denial, and an RLS check using a second synthetic identity. Run those live checks against your own project after applying migrations.
+
+## Scheduling preferences
+
+After signing in, open http://localhost:3000/settings, review the suggested timezone and working days/hours, and save. Reload the page to see the stored values. The Next.js server sends the session access token to FastAPI, which validates the values and queries Supabase as that user. The browser form and profile responses do not expose the token or the server-controlled allowlist flag. An anonymous visit to /settings returns to the home page.
