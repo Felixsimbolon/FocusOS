@@ -1,6 +1,6 @@
 # FocusOS Implementation Plan
 
-Planning status: **D1, D2, and D3 are selected; Phase 1 increments 1.1 through 1.3 are verified.** Code for 1.4 and 1.5 is in place; their live Supabase checks remain pending. Remaining decisions and increments are still open.
+Planning status: **D1, D2, and D3 are selected; Phase 1 increments 1.1 through 1.5 are verified.** Increment 1.6 is next; later decisions and increments remain open.
 
 ## 1. Product Goal
 
@@ -1919,7 +1919,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 1.2 Validate environment boundaries; ignore private files; no secret output.
 - [x] 1.3 Add focused verification harness; environment test passes.
 - [x] 1.4 Complete selected login/callback/logout; verify session server-side.
-- [ ] 1.5 Prove restricted database connectivity and identity propagation.
+- [x] 1.5 Prove restricted database connectivity and identity propagation.
 - [ ] 1.6 Add profiles only; persist timezone/hours; pass two-user isolation test.
 - [ ] 1.7 Add protected `/api/me`; reject anonymous access; return no secrets.
 - [ ] 1.8 Deploy current slice and verify hosted login/route behavior on free infrastructure.

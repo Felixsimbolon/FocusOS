@@ -6,7 +6,7 @@ This log records what was implemented and why, one increment at a time. The deta
 
 ## Current state
 
-The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.5. Increment 1.4 now has a completed live Google sign-in and sign-out check. Increment 1.5 has a linked project and matching migration history; its live identity check is recorded in the next update. Increment 1.6 follows after that check.
+The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.5. Increments 1.4 and 1.5 are verified against the hosted Supabase project: Google sign-in/sign-out works, the migration is applied, and the database sees the signed-in user identity. Increment 1.6 is next.
 
 ## Step 0 — Product and architecture plan
 
@@ -87,11 +87,11 @@ The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, 
 
 **Verification:** `npm.cmd run test:api` passed 8 tests covering JWT propagation, identity mismatch, missing/invalid sessions, secret-key rejection, generic database failure handling, and minimal success output. These tests mock Supabase responses. `npm.cmd run build:web` passed TypeScript and the production build, including `/api/db-check`. The Supabase CLI initialized the local config and generated the migration file. No remote migration or live database query was run.
 
-**Manual verification still needed:** Configure a Supabase project and Google sign-in as described in the README, set `web/.env.local` and the API process variables, link the project, run `npm.cmd run db:push`, and complete real sign-in/sign-out. Signed in, `http://localhost:3000/api/db-check` should return `{"status":"ok"}`; signed out, it should return 401. The direct API route without a bearer token should also return 401. Confirm the SQL function executes for an authenticated user and rejects anonymous access. These live checks are required before checking 1.4 and 1.5 off in the plan.
+**Live verification (2026-09-26):** The CLI listed local and remote migration `20260925103118` as matched, and `db push --linked --dry-run` reported no pending migration. Supabase reported the Google provider enabled. A direct anonymous request to the read-only RPC returned HTTP 401. Local `GET /health/database` without a bearer token returned 401. With the user signed in through Google, Next.js `GET /api/db-check` returned 200 and FastAPI `GET /health/database` returned 200; after sign-out, `/api/db-check` returned 401. The browser received only the status/error JSON, not a token or identity.
 
-**Known limitations:** No Supabase project values or Google provider credentials were present in the workspace, so cloud identity propagation, function grants, and migration application remain unverified. This read-only probe does not prove table row isolation; that begins with the profile table and two-user test in 1.6. No domain table exists yet.
+**Known limitations:** This read-only probe confirms authenticated identity propagation and denies anonymous access, but no domain table exists yet. Table row isolation will be checked with the profile table and two users in 1.6.
 
-**Next gated increment:** 1.6, owned profile and scheduling preferences, after the pending 1.4/1.5 live checks are completed.
+**Next gated increment:** 1.6, owned profile and scheduling preferences.
 
 ## How this log will be maintained
 
