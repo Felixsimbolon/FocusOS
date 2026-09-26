@@ -364,3 +364,11 @@ Keputusan D9: opsi A, sinkronisasi manual satu halaman per request. Tidak ada cr
 **Mengapa:** Daftar ID dari browser tidak boleh menjadi otorisasi untuk membaca pesan mana pun. Pemeriksaan label tepat sebelum fetch dan batas ukuran menutup celah antara listing dan pengambilan isi.
 
 **Verifikasi:** Tes membuktikan pesan tanpa label tidak pernah diminta dalam format full, ID/path tidak valid ditolak sebelum Google, serta route anonim ditolak.
+
+### Increment 5.3 - Normalisasi MIME murni
+
+**Yang dibuat:** Parser tanpa network untuk base64url, charset, multipart bersarang, preferensi text/plain lalu HTML aman, timestamp/thread/history, penanda lampiran, pemotongan UTF-8 maksimum 20 KB, dan penghilangan blok kutipan balasan yang jelas. Script/style/iframe/SVG dan URL gambar tidak diambil; lampiran tidak diunduh.
+
+**Mengapa:** Model harus menerima teks yang konsisten dan terikat pada sumber yang sama. Normalisasi sebagai fungsi murni mudah diuji dengan fixture tanpa membuka Gmail sungguhan. Pesan hanya berisi lampiran tidak dipaksa menjadi tugas.
+
+**Verifikasi:** Fixture Unicode, HTML dengan script/gambar, nesting, teks panjang, kutipan balasan, lampiran-only, dan encoding invalid lulus.
