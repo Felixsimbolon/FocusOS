@@ -1938,7 +1938,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 ### Phase 3 — Task vertical slice
 
 - [x] 3.1 Add owned task table/date constraints/indexes and isolation tests.
-- [ ] 3.2 Add runtime task payload validation and boundary cases.
+- [x] 3.2 Add runtime task payload validation and boundary cases.
 - [ ] 3.3 Add authenticated task create/list API with create replay handling.
 - [ ] 3.4 Add minimal task form/list; create and reload persisted task.
 - [ ] Resolve D7 knowledge representation before 3.5.

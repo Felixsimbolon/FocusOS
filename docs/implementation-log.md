@@ -230,3 +230,13 @@ After each future increment, append a dated section with the increment number, p
 **Verification:** Applied migration 20260926200000_owned_tasks.sql to the linked Supabase project. Ran supabase db query --linked --file supabase/tests/20260926200000_tasks_rls.sql; the owner saw the temporary task, a different Auth subject saw no row, and the transaction rolled back. No task data remains from the probe.
 
 **Next:** Increment 3.2 adds strict runtime payload validation and boundary tests.
+
+## Increment 3.2 - Runtime task validation
+
+**What changed:** Added a strict Pydantic create schema for task title, description, priority, date-only deadlines, zoned instants, and estimates. Unknown fields are rejected, text is normalized, estimates are bounded to 1-1440 minutes, and a datetime's supplied UTC offset must agree with its IANA timezone. Date-only strings must match YYYY-MM-DD exactly.
+
+**Why:** API validation provides clear client errors before database access, while the database constraints from 3.1 remain the final guard. Keeping due_date distinct from due_at prevents an all-day deadline from becoming an invented midnight instant. Validating zone/offset consistency prevents a timestamp from silently describing a different local time than the user selected.
+
+**Verification:** The complete backend unittest suite passes: 63 tests, including 9 task-payload tests for required field shapes, impossible/ambiguous dates, time-zone and offset mismatches, enum/extra-field rejection, and input boundaries.
+
+**Next:** Increment 3.3 adds authenticated, owner-scoped task create/list endpoints and replay-safe creation.
