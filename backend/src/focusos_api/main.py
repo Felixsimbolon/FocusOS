@@ -16,6 +16,8 @@ from focusos_api.google_calendar import (
     CalendarReconnectRequired,
     read_primary_calendar_page,
 )
+from focusos_api.gmail_sources import (GmailIngestEnvelope, ingest_selected_messages)
+from focusos_api.gmail_normalize import GmailNormalizationError
 from focusos_api.gmail_fetch import (SelectedFetchInput, SelectedFetchEnvelope, fetch_selected_status)
 from focusos_api.gmail_selection import (GmailSelectedPage, GmailSelectionError, GmailSelectionMissing, GmailSelectionReconnect, GmailSelectionUnavailable, list_selected_metadata)
 from focusos_api.google_gmail import (
@@ -445,3 +447,24 @@ def gmail_selected_fetch_post(
         raise HTTPException(status_code=422, detail="Selected Gmail messages are invalid or too large") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Gmail temporarily unavailable") from exc
+
+
+@app.post("/connections/google/gmail/selected/ingest", response_model=GmailIngestEnvelope)
+def gmail_selected_ingest_post(
+    request: SelectedFetchInput,
+    access_token: str = Depends(require_access_token),
+) -> GmailIngestEnvelope:
+    try:
+        return ingest_selected_messages(access_token, request)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except GmailSelectionReconnect as exc:
+        raise HTTPException(status_code=409, detail="Reconnect Google with Gmail read access") from exc
+    except GmailSelectionMissing as exc:
+        raise HTTPException(status_code=404, detail="Create a Gmail label named FocusOS") from exc
+    except GmailSelectionUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Gmail temporarily unavailable") from exc
+    except (GmailSelectionError, GmailNormalizationError) as exc:
+        raise HTTPException(status_code=422, detail="Selected Gmail message could not be imported") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Gmail import unavailable") from exc

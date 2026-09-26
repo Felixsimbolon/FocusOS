@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from focusos_api.database import DatabaseUnavailable, scoped_client
 
-SOURCE_SELECT = "id,kind,title,source_ref,normalized_body,body_hash,normalization_version,body_truncated,received_at,created_at,body_expires_at"
+SOURCE_SELECT = "id,kind,title,source_ref,normalized_body,body_hash,normalization_version,body_truncated,received_at,created_at,body_expires_at,provider_message_id,thread_id,sender,gmail_history_id,selected_label_id,has_attachments,content_version"
 MAX_BODY_BYTES = 20480
 
 
@@ -67,6 +67,13 @@ class SourceRecord(BaseModel):
     received_at: datetime
     created_at: datetime
     body_expires_at: datetime
+    provider_message_id: str | None = None
+    thread_id: str | None = None
+    sender: str | None = None
+    gmail_history_id: str | None = None
+    selected_label_id: str | None = None
+    has_attachments: bool = False
+    content_version: int = 1
 
 
 class SourceEnvelope(BaseModel):

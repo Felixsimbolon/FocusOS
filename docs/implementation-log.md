@@ -372,3 +372,11 @@ Keputusan D9: opsi A, sinkronisasi manual satu halaman per request. Tidak ada cr
 **Mengapa:** Model harus menerima teks yang konsisten dan terikat pada sumber yang sama. Normalisasi sebagai fungsi murni mudah diuji dengan fixture tanpa membuka Gmail sungguhan. Pesan hanya berisi lampiran tidak dipaksa menjadi tugas.
 
 **Verifikasi:** Fixture Unicode, HTML dengan script/gambar, nesting, teks panjang, kutipan balasan, lampiran-only, dan encoding invalid lulus.
+
+### Increment 5.4 - Upsert sumber Gmail idempoten
+
+**Yang dibuat:** `source_items` menampung sumber Gmail dengan connection ID, provider message ID, thread/history, sender, label pilihan, attachment flag, serta content_version. Kunci unik per koneksi dan message ID memastikan fetch berulang atau serentak memakai satu source ID. Hash isi berubah menaikkan versi; isi yang sama setelah pembersihan retensi dapat dipulihkan tanpa mengarang versi konten baru. Route ingest memakai pemeriksaan label dari 5.2 dan normalizer 5.3.
+
+**Mengapa:** Identitas provider, bukan kesamaan teks, adalah dasar deduplikasi: dua pesan yang kebetulan sama harus tetap dua sumber. Hasil ekstraksi dipisah berdasarkan hash, sehingga konten berubah tidak diam-diam mengganti hasil review lama.
+
+**Verifikasi:** Migration 20260927060000 dan perbaikan 20260927061000 diterapkan. Probe SQL rollback-only menegaskan replay ID sama, konten berubah menjadi versi 2, dua pesan berbeda tetap dua sumber, dan pengguna asing melihat nol baris. Tes repository/route lulus.

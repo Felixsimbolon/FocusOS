@@ -18,6 +18,7 @@ class RawSelectedMessage:
     id: str
     status: Literal["available", "unavailable"]
     message: dict | None
+    label_id: str
 
 
 class SelectedFetchInput(BaseModel):
@@ -55,9 +56,9 @@ def fetch_selected_messages(access_token: str, ids: list[str],
                                      max_bytes=MAX_MESSAGE_BYTES)
                 if full.get("id") != message_id or not isinstance(full.get("labelIds"), list) or label_id not in full["labelIds"]:
                     raise GmailSelectionError("Selected message changed")
-                results.append(RawSelectedMessage(message_id, "available", full))
+                results.append(RawSelectedMessage(message_id, "available", full, label_id))
             except GmailMessageGone:
-                results.append(RawSelectedMessage(message_id, "unavailable", None))
+                results.append(RawSelectedMessage(message_id, "unavailable", None, label_id))
         return results
     finally:
         if own:
