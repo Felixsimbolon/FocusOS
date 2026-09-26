@@ -62,3 +62,5 @@ After signing in, open http://localhost:3000/settings, review the suggested time
 ## Protected identity route
 
 While signed in, open http://localhost:3000/api/me to inspect the small identity/profile JSON used by the home page. It contains only user.id, user.email, and saved timezone/working hours (or profile: null before saving). Anonymous requests return HTTP 401; an unavailable profile backend returns HTTP 503. The route always sets Cache-Control: no-store and never returns an access token, cookie, or allowlist flag.
+
+For the two-project Vercel deployment probe, follow [docs/deployment.md](docs/deployment.md).
