@@ -1,6 +1,6 @@
 # FocusOS Implementation Plan
 
-Planning status: **D1, D2, and D3 are selected; Phase 1 increments 1.1 through 1.8 are verified.** Phase 1 is complete; later decisions and increments remain open.
+Planning status: **D1-D4 are selected; Phase 1 increments 1.1 through 1.8 and Phase 2 increment 2.1 are verified.** Phase 1 is complete; Phase 2 continues at 2.2.
 
 ## 1. Product Goal
 
@@ -10,14 +10,14 @@ The principal Day-7 demonstration is: sync a selected Gmail message; extract and
 
 ## Architecture Decisions Requiring User Input
 
-D1, D2, and D3 are selected; D4 through D13 remain open until their gates. The option descriptions appear at the point of use below. No option is ranked. Agree on choices before their gates; choices due later do not block independent earlier increments. Product scope limits and safety invariants are distinguished from these architectural choices.
+D1, D2, D3, and D4 are selected; D5 through D13 remain open until their gates. The option descriptions appear at the point of use below. No option is ranked. Agree on choices before their gates; choices due later do not block independent earlier increments. Product scope limits and safety invariants are distinguished from these architectural choices.
 
 | ID | Decision | Decide before | Dependent work | Can proceed beforehand |
 |---|---|---|---|---|
 | D1 | **SELECTED: Next.js UI + Python API; hosting remains open** | 1.1 | All backend paths, deployment, validation/test tools | Planning and account readiness checks |
 | D2 | **SELECTED: Supabase Auth Google sign-in** | 1.4 | Sessions, RLS identity, OAuth callbacks, reconnect | 1.1–1.3 |
 | D3 | **SELECTED: Supabase client + versioned SQL migrations** | 1.5 | Repositories, transactions, migrations, RLS context | 1.1–1.4 |
-| D4 | Encrypted OAuth credentials: application encryption or database Vault | 2.1 | Token storage, refresh, scheduled sync | Step 1 |
+| D4 | **SELECTED: Option A - FastAPI application encryption into a private table** | 2.1 | Token storage, refresh, scheduled sync | Step 1 |
 | D5 | Store normalized email bodies or only metadata/evidence | 4.1 | Sources, reprocessing, retention, Gmail normalization | Steps 1–3 |
 | D6 | Bounded tool loop or fixed workflow with model tool selection | 7.1 | Agent states, continuation, tests | Steps 1–6, including extraction |
 | D7 | Relational project memory or explicit relational entity/edge memory | 3.5 | Project association, memory queries | 3.1–3.4 |
@@ -1926,8 +1926,8 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 
 ### Phase 2 — Google risk retirement
 
-- [ ] Resolve D4 credential protection before 2.1 and D13 grants/calendar choice before 2.3.
-- [ ] 2.1 Add connection metadata and private credential storage with denied browser access.
+- [x] Resolve D4 credential protection: Option A, FastAPI encryption key stored outside PostgreSQL; decide D13 before 2.3.
+- [x] 2.1 Add connection metadata and private credential storage with denied browser access.
 - [ ] 2.2 Implement/test protection, refresh, token preservation, concurrency and reconnect state.
 - [ ] 2.3 Configure test-user consent and APIs; implement session-bound consent start.
 - [ ] 2.4 Validate callback/state; store encrypted tokens; display granted connection capabilities.

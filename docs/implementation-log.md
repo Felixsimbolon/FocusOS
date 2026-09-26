@@ -6,7 +6,7 @@ This log records what was implemented and why, one increment at a time. The deta
 
 ## Current state
 
-The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.8. Google sign-in/sign-out, database identity, and profile save/read were verified against the linked Supabase project. The profile isolation check used a synthetic second identity in a rolled-back database transaction. Increments 1.1–1.8 are verified; Phase 1 is complete. The hosted web and API run on two Vercel Hobby projects. Phase 2 begins only after its credential-protection decision gate.
+The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.8. Google sign-in/sign-out, database identity, and profile save/read were verified against the linked Supabase project. The profile isolation check used a synthetic second identity in a rolled-back database transaction. Increments 1.1–1.8 are verified; Phase 1 is complete. The hosted web and API run on two Vercel Hobby projects. Phase 2 began after D4 was selected. Increment 2.1 is complete; token encryption and refresh remain for 2.2.
 
 ## Step 0 — Product and architecture plan
 
@@ -138,6 +138,26 @@ The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, 
 **Limitations:** Python runtime is beta, the two project deployments are currently issued through the CLI, and Git pushes do not auto-update them. No background execution or public Gmail/Calendar grant is claimed.
 
 **Next gated increment:** 2.1 after the Phase 2 credential-storage decision gate.
+
+## Decision D4 - FastAPI application encryption
+
+**Choice:** Option A, selected by the user: FastAPI will encrypt OAuth token values with authenticated encryption before persistence. The key belongs in private server configuration, outside PostgreSQL and browser-visible variables.
+
+**Why:** This fits the Python API that owns Google integration work and keeps plaintext tokens out of database storage. The tradeoff is that the application must protect, back up, version, and rotate its encryption key.
+
+## Increment 2.1 - Google connection metadata and private credential storage (2026-09-26)
+
+**Purpose:** Create a safe database destination and owner-scoped status record before adding any OAuth exchange or refresh behavior.
+
+**Files changed:** supabase/migrations/20260926150000_google_connection_storage.sql, backend/src/focusos_api/connections.py, backend/src/focusos_api/main.py, backend/tests/test_connections.py, plan.md, and this log.
+
+**What was built and why:** The migration adds one Google connection per user, owner-only metadata reads under RLS, and a private.oauth_credentials table for encrypted access/refresh token bytes, expiry, key version, token version, and refresh lease metadata. Browser roles receive no schema or table access to the credential store. The authenticated API can only read the explicitly granted safe metadata columns; it cannot read provider_subject or write connection records. A protected GET /connections/google route and repository method use the verified caller's JWT, owner predicate, and a narrow response model that excludes provider identity and credentials.
+
+**Verification:** The full backend test suite passed (18 tests). The migration dry-run listed only this migration, and it was applied to the linked Supabase project. Live grant checks confirmed anon and authenticated cannot access the private schema or credential table; authenticated users can read approved metadata columns but not provider_subject and cannot insert connections. A rolled-back live RLS probe returned one visible row for its owner and zero for a second authenticated identity. git diff --check passed.
+
+**Stop point:** No OAuth code exchange occurred, no Google tokens were requested or stored, and the encryption key/helper is not configured yet. These are 2.2 and later work.
+
+**Next gated increment:** 2.2, implement authenticated encryption and the expiry-aware refresh helper. No Google consent request yet.
 
 ## How this log will be maintained
 

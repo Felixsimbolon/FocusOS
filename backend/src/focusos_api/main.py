@@ -1,6 +1,7 @@
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from focusos_api.connections import GoogleConnectionEnvelope, read_google_connection
 from focusos_api.database import (
     DatabaseUnavailable,
     InvalidSession,
@@ -62,3 +63,15 @@ def profile_put(
         raise HTTPException(status_code=401, detail="Invalid session") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Profile unavailable") from exc
+
+
+@app.get("/connections/google", response_model=GoogleConnectionEnvelope)
+def google_connection_get(
+    access_token: str = Depends(require_access_token),
+) -> GoogleConnectionEnvelope:
+    try:
+        return GoogleConnectionEnvelope(connection=read_google_connection(access_token))
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Connection unavailable") from exc
