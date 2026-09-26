@@ -1984,7 +1984,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 7.4 Persist small confirmed source-backed memories.
 - [x] Resolve D8-A follow-on embedding and D12 text-embedding-3-small/256 contract before 7.5.
 - [x] 7.5 Embed selected memories with status/hash/version tracking. (Live provider call pending API key.)
-- [ ] 7.6 Expose owned filtered semantic/SQL memory retrieval and its tool.
+- [x] 7.6 Expose owned filtered semantic/SQL memory retrieval and its tool. (Live query embedding pending API key.)
 - [ ] 7.7 Validate planning schema, known slot refs and scheduling invariants.
 - [ ] 7.8 Produce grounded plan/clarification/shortfall through the selected orchestrator.
 - [ ] 7.9 Add command/run UI showing actual tools, context counts and outcomes.

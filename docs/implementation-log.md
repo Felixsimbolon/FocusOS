@@ -504,3 +504,11 @@ Keputusan rekomendasi: D6-B alur bertahap yang dibatasi backend; D11-A konteks p
 **Mengapa:** Tidak semua email atau tugas perlu embedding. Memori yang dikonfirmasi berjumlah kecil, sehingga exact scan cukup dan HNSW tidak perlu. Lease mencegah dua klik menambah biaya bersamaan; hash/model/dimensi mencegah vector lama dipakai untuk teks atau kontrak baru.
 
 **Verifikasi:** Migration 20260927120000 diterapkan. Probe SQL rollback-only membuktikan klaim pertama, busy pada klaim kedua, reuse setelah sukses, dan isolasi pemilik. Tes adapter memeriksa dimensi, key hilang, serta reuse. Live embedding menunggu API key dan kuota.
+
+### Increment 7.6 - Pencarian memori terscope
+
+**Yang dibuat:** RPC search mengambil maksimal lima memori aktif dengan join ke source yang masih hidup dan hash masih cocok; filter owner/project ada di SQL. Exact pgvector cosine scan dipakai bila embedding query tersedia; SQL full-text sederhana menjadi fallback yang diberi label jelas. Tool `memory.search` menjadi tahap baca keempat dalam run, menyimpan hanya lima hasil dan mode pencarian.
+
+**Mengapa:** Similarity tidak boleh melewati batas kepemilikan atau menghidupkan lagi fakta dari sumber yang dihapus/berubah. Pada dataset kecil exact scan lebih mudah dipastikan lengkap daripada index perkiraan. Fallback leksikal menjaga alur baca tetap berguna ketika API key belum tersedia tanpa mengaku sebagai semantic search.
+
+**Verifikasi:** Migration 20260927130000 dan perbaikan 20260927131000 diterapkan. Probe SQL rollback-only membuktikan hasil lexical, semantic dengan vector cocok, nol hasil milik pengguna asing, dan nol setelah source dihapus. Tes service menguji mode fallback, vector, filter project, dan limit.

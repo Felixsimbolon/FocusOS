@@ -14,6 +14,7 @@ from focusos_api.google_calendar import CalendarReconnectRequired
 from focusos_api.calendar_normalize import normalize_window, occurrence_interval
 from focusos_api.database import DatabaseUnavailable, scoped_client
 from focusos_api.profiles import read_profile
+from focusos_api.memory_search import MemorySearchInput, search_memories
 from focusos_api.tasks import list_tasks
 
 MAX_CHECKPOINT_EVENTS = 80
@@ -27,6 +28,7 @@ class AgentRunInput(CommandInput):
 class AgentRunState(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: UUID
+    command: str
     status: str
     stage: str
     version: int
@@ -41,7 +43,7 @@ class AgentRunState(BaseModel):
 def load_command_run(access_token: str, run_id: UUID) -> AgentRunState:
     with scoped_client(access_token) as (user_id, client):
         rows = (client.table("command_runs")
-                .select("id,status,stage,version,model_turns,tool_calls_count,checkpoint,result,safe_error,expires_at")
+                .select("id,command,status,stage,version,model_turns,tool_calls_count,checkpoint,result,safe_error,expires_at")
                 .eq("id", str(run_id)).eq("user_id", user_id).limit(1).execute().data)
     if not isinstance(rows, list) or len(rows) != 1:
         raise DatabaseUnavailable("Command run not found")
@@ -144,6 +146,14 @@ def _free_step(access_token: str, run: AgentRunState) -> tuple[dict, int]:
     return {**run.checkpoint, "free_time": result.model_dump(mode="json")}, 3
 
 
+def _memory_step(access_token: str, run: AgentRunState) -> tuple[dict, int]:
+    args = {"query": run.command[:1000], "limit": 5}
+    _log(access_token, run.id, "memory.search", args, "requested", ordinal=4)
+    result = search_memories(access_token, MemorySearchInput(query=args["query"], limit=5))
+    _log(access_token, run.id, "memory.search", args, "succeeded", ordinal=4)
+    return {**run.checkpoint, "memory_search": result.model_dump(mode="json")}, 4
+
+
 def continue_staged_run(access_token: str, run_id: UUID) -> AgentRunState:
     run = load_command_run(access_token, run_id)
     if run.status in ("succeeded", "clarify", "failed") or run.stage == "planning":
@@ -161,6 +171,9 @@ def continue_staged_run(access_token: str, run_id: UUID) -> AgentRunState:
             next_stage = "calendar"
         elif run.stage == "calendar":
             checkpoint, count = _free_step(access_token, run)
+            next_stage = "memory"
+        elif run.stage == "memory":
+            checkpoint, count = _memory_step(access_token, run)
             next_stage = "planning"
         else:
             raise DatabaseUnavailable("Invalid command stage")

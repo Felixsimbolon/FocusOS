@@ -1,4 +1,4 @@
-﻿import unittest
+import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
 from uuid import uuid4
@@ -10,7 +10,7 @@ from focusos_api.main import app
 
 
 def state(stage="start", count=0):
-    return AgentRunState(id=uuid4(), status="waiting", stage=stage, version=2,
+    return AgentRunState(id=uuid4(), command="Find work time", status="waiting", stage=stage, version=2,
         model_turns=0, tool_calls_count=count, checkpoint={"duration_minutes": 60, "allow_split": False},
         expires_at=datetime.now(timezone.utc)+timedelta(minutes=10))
 
