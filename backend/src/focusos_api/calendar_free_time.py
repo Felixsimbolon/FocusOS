@@ -1,4 +1,4 @@
-﻿"""Deterministic work-window subtraction and slot selection."""
+"""Deterministic work-window subtraction and slot selection."""
 
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -137,8 +137,7 @@ def calculate_free_time(window: CalendarWindow, *, timezone_name: str,
             allocated = duration_minutes
         else:
             allocated = 0
-    shortfall = max(0, duration_minutes - (allocated if allow_split else
-                    min(duration_minutes, max(durations, default=0))))
+    shortfall = max(0, duration_minutes - allocated)
     return FreeTimeResult(timezone=timezone_name, requested_minutes=duration_minutes,
         available_minutes=available, allocated_minutes=allocated, shortfall_minutes=shortfall,
         allow_split=allow_split, slots=slots,

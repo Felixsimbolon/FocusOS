@@ -101,6 +101,7 @@ def fetch_calendar_window(access_token: str, start: datetime, end: datetime, *,
                 "timeMax": end.isoformat().replace("+00:00", "Z"),
                 "singleEvents": "true", "orderBy": "startTime",
                 "maxResults": PAGE_SIZE,
+                "fields": "items(id,summary,status,transparency,start,end,attendees(self,responseStatus),recurringEventId,originalStartTime),nextPageToken,timeZone",
             }
             if page_token:
                 params["pageToken"] = page_token
@@ -155,4 +156,3 @@ def calendar_window_status(window: CalendarWindow) -> CalendarWindowStatus:
     return CalendarWindowStatus(calendar=window.calendar_id, timezone=window.calendar_timezone,
         window_start=window.start, window_end=window.end, fetched_at=window.fetched_at,
         event_count=len(window.events))
-

@@ -450,3 +450,11 @@ Tidak perlu akun baru. Phase ini memakai project OAuth/Calendar yang sama dan iz
 **Mengapa:** Aritmetika jadwal lebih dapat diuji sebagai fungsi deterministik daripada didelegasikan ke model. Kekurangan durasi ditampilkan eksplisit, bukan dibuat seolah tersedia; deadline tanpa jam tidak diam-diam diasumsikan akhir hari.
 
 **Verifikasi:** Tes touching intervals, hari sibuk penuh, kalender kosong, split versus kontigu, deadline, incomplete window, dan batas DST lulus.
+
+### Increment 6.5 - Jadwal Today dan pratinjau availability
+
+**Yang dibuat:** Endpoint baca mengambil profil timezone/jam kerja pengguna, menghitung jendela Today atau tujuh hari lokal, membaca Calendar secara lengkap, menormalisasi busy events, lalu menjalankan kalkulator 6.4. UI Today menyediakan input durasi, pilihan kontigu/split, daftar jadwal sibuk, slot terpilih, kapasitas, shortfall, kalender, timezone, dan fetched-at. Proxy Next.js menjaga bearer server-side, hanya meneruskan parameter allowlist, dan menyembunyikan detail error provider.
+
+**Mengapa:** Pengguna perlu membandingkan hasil algoritma dengan jadwal nyata sebelum agen Phase 7 memakai layanan ini. Pratinjau ini tidak mengajukan persetujuan dan tidak menulis event; hasil lama tidak boleh dianggap aman untuk penulisan nanti, sehingga UI meminta pengecekan ulang sebelum tindakan berikutnya.
+
+**Verifikasi:** Tes API fixture profil/kejadian, kegagalan provider tanpa jadwal parsial, penolakan anonim; tes proxy validasi input/token/error aman; seluruh suite backend dan web serta build Next.js. Perbandingan Calendar nyata menunggu secret OAuth dan koneksi Google produksi yang belum dikonfigurasi.

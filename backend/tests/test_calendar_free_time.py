@@ -1,4 +1,4 @@
-﻿import unittest
+import unittest
 from datetime import date, datetime, timedelta, timezone
 from dataclasses import replace
 
@@ -45,7 +45,7 @@ class FreeTimeTests(unittest.TestCase):
             working_hours=HOURS, duration_minutes=180)
         split = calculate_free_time(source, timezone_name="Asia/Jakarta",
             working_hours=HOURS, duration_minutes=180, allow_split=True)
-        self.assertEqual((contiguous.allocated_minutes, contiguous.shortfall_minutes), (0, 60))
+        self.assertEqual((contiguous.allocated_minutes, contiguous.shortfall_minutes), (0, 180))
         self.assertEqual((split.allocated_minutes, len(split.slots)), (180, 2))
         before = calculate_free_time(source, timezone_name="Asia/Jakarta",
             working_hours=HOURS, duration_minutes=180, allow_split=True,

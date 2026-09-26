@@ -1,6 +1,7 @@
-import { signInWithGoogle, signOut } from "./auth/actions";
+﻿import { signInWithGoogle, signOut } from "./auth/actions";
 import { getMe } from "@/server/api/me";
 import { TaskBoard } from "./tasks/task-board";
+import { CalendarAvailability } from "./calendar-availability";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,7 @@ export default async function Home({
           ) : (
             <p>Set your scheduling preferences to get started.</p>
           )}
-          {me.kind === "ok" ? <TaskBoard /> : null}
+          {me.kind === "ok" ? <><TaskBoard /><CalendarAvailability /></> : null}
           <a href="/activity">Review extracted sources</a>
           <a href="/settings">Scheduling preferences</a>
           <form action={signOut}>

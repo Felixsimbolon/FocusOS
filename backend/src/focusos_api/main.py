@@ -10,6 +10,9 @@ from focusos_api.database import (
     InvalidSession,
     check_database_identity,
 )
+from focusos_api.calendar_availability import (AvailabilityPreview, CalendarProfileRequired, build_availability_preview)
+from focusos_api.calendar_domain import CalendarEventError
+from focusos_api.calendar_free_time import CalendarPlanningError
 from focusos_api.calendar_fetch import (CalendarFetchError, CalendarFetchUnavailable, CalendarWindowStatus, calendar_window_status, fetch_calendar_window)
 from focusos_api.google_calendar import (
     CalendarPageProbe,
@@ -185,6 +188,32 @@ def google_calendar_write_authorize(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Google connection unavailable") from exc
+
+
+@app.get("/connections/google/calendar/availability", response_model=AvailabilityPreview)
+def google_calendar_availability_get(
+    days: int = Query(1, ge=1, le=7),
+    duration_minutes: int = Query(60, ge=1, le=1440),
+    allow_split: bool = Query(False),
+    deadline_at: datetime | None = Query(None),
+    access_token: str = Depends(require_access_token),
+) -> AvailabilityPreview:
+    try:
+        return build_availability_preview(access_token, days=days,
+            duration_minutes=duration_minutes, allow_split=allow_split,
+            deadline_at=deadline_at)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except CalendarReconnectRequired as exc:
+        raise HTTPException(status_code=409, detail="Reconnect Google with Calendar read access") from exc
+    except CalendarProfileRequired as exc:
+        raise HTTPException(status_code=409, detail="Save scheduling preferences first") from exc
+    except CalendarFetchUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Calendar temporarily unavailable") from exc
+    except (CalendarFetchError, CalendarEventError, CalendarPlanningError) as exc:
+        raise HTTPException(status_code=422, detail="Calendar availability incomplete or invalid") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Calendar availability unavailable") from exc
 
 
 @app.get("/connections/google/calendar/window", response_model=CalendarWindowStatus)

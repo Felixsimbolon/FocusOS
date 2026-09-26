@@ -1973,7 +1973,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 6.2 Fetch every page of bounded event window; reject incomplete availability.
 - [x] 6.3 Normalize zones, all-day bounds, recurring exceptions and busy status.
 - [x] 6.4 Implement/test deterministic free-time and duration/shortfall calculation.
-- [ ] 6.5 Show real Today schedule and read-only availability preview.
+- [x] 6.5 Show Today schedule and read-only availability preview. (Live Calendar comparison pending OAuth secrets.)
 
 ### Phase 7 â€” Read/planning agent and memory
 

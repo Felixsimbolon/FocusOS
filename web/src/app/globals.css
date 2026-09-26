@@ -315,3 +315,10 @@ main.activity-page { width: min(100%, 64rem); margin-inline: auto; place-content
 .gmail-sync-actions button { cursor: pointer; padding: .65rem .9rem; border: 0; border-radius: .4rem; color: white; background: #2158a5; font: inherit; }
 .gmail-sync-actions .secondary-button { color: #2158a5; background: #e8eef7; }
 .gmail-sync-actions button:disabled { opacity: .6; cursor: wait; }
+.calendar-availability { margin-block: 1.5rem; padding: 1.25rem; border: 1px solid #d8dee6; border-radius: .8rem; background: #fff; }
+.availability-form { display: flex; align-items: end; flex-wrap: wrap; gap: .75rem; }
+.availability-form label { display: grid; gap: .35rem; }
+.availability-form input, .availability-form select { padding: .55rem; font: inherit; }
+.availability-form .availability-check { display: flex; align-items: center; }
+.availability-form button { padding: .65rem .9rem; cursor: pointer; }
+.calendar-availability li { margin-block: .4rem; }

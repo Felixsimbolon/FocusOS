@@ -1,4 +1,4 @@
-﻿import unittest
+import unittest
 from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
@@ -38,6 +38,7 @@ class CalendarFetchTests(unittest.TestCase):
         self.assertEqual(len(result.events), 2)
         self.assertEqual(http.calls[1][1]["pageToken"], "page2")
         self.assertEqual(http.calls[0][1]["singleEvents"], "true")
+        self.assertNotIn("description", http.calls[0][1]["fields"])
         self.assertEqual(http.calls[1][1]["orderBy"], "startTime")
         self.assertEqual(http.calls[0][1]["timeMin"], http.calls[1][1]["timeMin"])
         self.assertEqual(http.calls[1][2], {"Authorization": "Bearer private"})
