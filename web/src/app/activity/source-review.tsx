@@ -155,7 +155,13 @@ export function SourceReview() {
         const id = new URLSearchParams(window.location.search).get("source");
         if (id) {
           const found = sourceData.sources.find((item) => item.id === id);
-          if (found) await selectSource(found);
+          if (found) {
+            await selectSource(found);
+          } else {
+            const detail = await readJson<{ source: Source }>(await fetch("/api/sources/" + encodeURIComponent(id), { cache: "no-store" }));
+            setSources((current) => [detail.source, ...current]);
+            await selectSource(detail.source);
+          }
         }
       } catch { setMessage("Could not load sources or projects. Try reloading."); }
     })();
