@@ -44,3 +44,16 @@ Phase 3 code is deployed to the existing production aliases:
 Both deployments reached READY. Smoke checks: API /health returned 200; anonymous /api/me, /api/tasks/today, /api/projects, and POST /api/tasks returned 401. The anonymous task POST created no data. No user token or cookie was used during these checks.
 
 To verify the signed-in lifecycle, open the web URL, sign in with Google, create a task, reload and confirm it remains, edit its title, and mark it complete. The Today list removes completed tasks. The implementation uses the profile timezone, or UTC if no profile exists. Live Google provider consent/read acceptance from Phase 2 remains pending.
+
+## Phase 4 production deploy (2026-09-27)
+
+Phase 4 API and web deployments reached READY on the existing aliases:
+
+- API: https://focusos-api.vercel.app (deployment dpl_EsfyXwA2qYj8yP4TVeEx4JnPYH2g)
+- Web: https://focusos-web-five.vercel.app (deployment dpl_D4oT778d6NFPC2U7RsBEVw2gnBsb)
+
+Applied Supabase migrations 20260927010000 through 20260927050000. Production checks returned API `/health` 200 and web `/activity` 200. Anonymous `/api/sources`, source extraction reads, and POST confirmation returned 401.
+
+To activate model extraction, create an OpenAI Platform API key with available API usage. Add **FOCUSOS_OPENAI_API_KEY** as a Production secret to the `focusos-api` Vercel project, then redeploy the API. For local development, set it only in the backend process environment; do not put it in `web/.env.local`, a `NEXT_PUBLIC_` variable, Git, or browser code. No OpenAI key was present during this deployment, so the live provider call has not been verified. The current API responds with a safe failed extraction record (`provider_unconfigured`) while the key is absent.
+
+After adding the key, sign in at the web URL, open `/activity`, paste a synthetic message such as `Presentation Friday 25 September 2026. Submit slides one day before.`, save, extract, review the exact quote and Thursday date, then confirm. Open Today and follow the source link on the saved task. Also try an ambiguous phrase such as `next Friday` and check that no deadline is silently invented. Never paste a key, access token, cookie, or private email into diagnostics.

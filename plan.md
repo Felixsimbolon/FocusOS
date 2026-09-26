@@ -10,7 +10,7 @@ The principal Day-7 demonstration is: sync a selected Gmail message; extract and
 
 ## Architecture Decisions Requiring User Input
 
-D1, D2, D3, D4, D7 Option A, and D13 are selected; D5 through D12 remain open until their gates. The option descriptions appear at the point of use below. No option is ranked. Agree on choices before their gates; choices due later do not block independent earlier increments. Product scope limits and safety invariants are distinguished from these architectural choices.
+D1-D5, D7 Option A, D12 Option A for generation, and D13 are selected. D12 embedding capability remains open until 7.5; the other decisions remain open until their gates. The option descriptions appear at the point of use below. No option is ranked. Agree on choices before their gates; choices due later do not block independent earlier increments. Product scope limits and safety invariants are distinguished from these architectural choices.
 
 | ID | Decision | Decide before | Dependent work | Can proceed beforehand |
 |---|---|---|---|---|
@@ -18,14 +18,14 @@ D1, D2, D3, D4, D7 Option A, and D13 are selected; D5 through D12 remain open un
 | D2 | **SELECTED: Supabase Auth Google sign-in** | 1.4 | Sessions, RLS identity, OAuth callbacks, reconnect | 1.1â€“1.3 |
 | D3 | **SELECTED: Supabase client + versioned SQL migrations** | 1.5 | Repositories, transactions, migrations, RLS context | 1.1â€“1.4 |
 | D4 | **SELECTED: Option A - FastAPI application encryption into a private table** | 2.1 | Token storage, refresh, scheduled sync | Step 1 |
-| D5 | Store normalized email bodies or only metadata/evidence | 4.1 | Sources, reprocessing, retention, Gmail normalization | Steps 1â€“3 |
+| D5 | **SELECTED: Option A - capped normalized text, lazy 30-day expiry cleanup** | 4.1 | Sources, reprocessing, retention, Gmail normalization | Steps 1â€“3 |
 | D6 | Bounded tool loop or fixed workflow with model tool selection | 7.1 | Agent states, continuation, tests | Steps 1â€“6, including extraction |
 | D7 | **SELECTED: Option A - Relational projects, tasks, sources, and memories** | 3.5 | Project association, memory queries | 3.1-3.4 |
 | D8 | Embed on confirmation or in a resumable batch | 7.5 | Embedding status, retrieval latency, sync load | Through 7.4 |
 | D9 | User-triggered sync only or user-triggered plus daily schedule | 5.7 | Scheduler authentication, job triggers, settings | Through 5.6 |
 | D10 | Per-event approvals or approval of a fixed multi-event batch | 8.1 | Approval payload, partial execution, UI | Steps 1â€“7 |
 | D11 | Per-run context or persistent conversations | 7.1 | Message retention, follow-up commands, UI | Steps 1â€“6 |
-| D12 | Existing LLM API/provider, model and embedding capability | 4.3; embedding part by 7.5 | SDK, schema compatibility, eval, vector dimension | Through 4.2 |
+| D12 | **SELECTED for generation: Option A - OpenAI Responses API, gpt-4.1-mini; embeddings pending 7.5** | 4.3; embedding part by 7.5 | SDK, schema compatibility, eval, vector dimension | Through 4.2 |
 | D13 | SELECTED: Option A - incremental consent, owned Calendar events | 2.3 | Google grants, Calendar reads/writes and demo account | Through 2.2 |
 
 Record each selected option and any consequence in this document before implementing dependent work. Selecting Python, custom identity, relational edges, persistent chat, or batch approval changes the relevant increments; it does not authorize implementing multiple increments together.
@@ -269,7 +269,7 @@ Deletion semantics: disconnect stops sync, revokes/deletes credentials, and expi
 
 ### DECISION D11 â€” Conversation persistence
 
-**NOT SELECTED - choose before the dependent increment listed in the decision table.**
+**SELECTED for generation: Option A, OpenAI Responses API with gpt-4.1-mini and strict Structured Outputs. Embedding endpoint/model/dimension remains to be confirmed before 7.5.**
 
 **CONDITION**: A run must survive an approval pause; that does not necessarily require permanent chat history.
 
@@ -462,7 +462,7 @@ OAuth flow: configure consent screen, test-user list, enabled APIs, exact localh
 
 **CONDITION**: Extraction and evidence validation need message content; retaining complete bodies increases private data and storage.
 
-**OPTION A â€” Retain capped normalized text**
+**SELECTED OPTION A â€” Retain capped normalized text**
 
 **DESCRIPTION**: Store selected plaintext bodies, source metadata, content hashes, and evidence; use a stated short retention period such as 30 days.
 
@@ -1950,7 +1950,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] Resolve D5 source retention before 4.1 and D12 generation contract before 4.3.
 - [x] 4.1 Store one bounded manual source with provenance/hash and ownership.
 - [x] 4.2 Add task/event/envelope schemas and anchored date/ambiguity fixtures.
-- [ ] 4.3 Make one structured model call; validate evidence and deterministic date relations.
+- [ ] 4.3 Make one structured model call; validate evidence and deterministic date relations. (Adapter and mock tests done; live call pending OpenAI API key.)
 - [x] 4.4 Persist a redacted extraction run with real latency/available usage.
 - [x] 4.5 Persist deduplicated extraction review results and recoverable processing claims.
 - [x] 4.6 Confirm one reviewed candidate into an idempotent source-backed task.
