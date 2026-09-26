@@ -250,3 +250,13 @@ After each future increment, append a dated section with the increment number, p
 **Verification:** Applied the replay RPC and its strict hash-pair constraint to linked Supabase. Ran a rollback-only SQL probe through the deployed RPC: first request created one row, an identical replay returned that same ID, and different input returned the original row/hash for API conflict handling. The transaction rolled back. The complete backend suite passes (71 tests), including anonymous denial, owner filters, bounded results, replay conflicts, validation, and token-free response checks.
 
 **Next:** Increment 3.4 adds the authenticated task form/list in the web app and verifies persisted reload behavior.
+
+## Increment 3.4 - Task form and list
+
+**What changed:** Added an authenticated task board to the signed-in home page, with title, details, priority, date-only deadline, estimate, open-task list, and a reload control. A Next.js route proxies GET/POST requests to FastAPI using the verified Supabase session token on the server. The proxy restricts filters, bounds request size, disables redirects, maps safe errors, and marks responses no-store. Retries reuse a key only when the exact payload matches.
+
+**Why:** The first user-facing slice can now create and read the durable tasks introduced in 3.1-3.3. The session token never enters client JavaScript or API responses. The initial form supports date-only deadlines, avoiding an incorrect conversion from the browser's timezone into a saved instant; timed deadlines can be added when the UI has an explicit timezone flow.
+
+**Verification:** Web tests pass (26 tests across 5 files), including anonymous denial, server-only token forwarding, input filtering, request-key handling, safe conflict mapping, and token-free responses. The production Next.js build passes and includes /api/tasks. The UI reloads the open-task list after saving and exposes a manual reload control.
+
+**Next:** Increment 3.5 adds relational projects and same-owner project association to tasks.

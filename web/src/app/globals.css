@@ -81,3 +81,158 @@ main.settings-page {
   padding: 0.7rem 1rem;
   cursor: pointer;
 }
+
+
+main.home-page {
+  width: min(100%, 60rem);
+  margin-inline: auto;
+  place-content: start;
+  align-content: start;
+  gap: 1.25rem;
+  padding-block: 3rem;
+}
+
+.home-header {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.home-header h1 {
+  margin: 0;
+}
+
+.task-board {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  margin-block: 0.5rem;
+  padding: 1.25rem;
+  border: 1px solid #d8dee6;
+  border-radius: 0.8rem;
+  background: #fff;
+  box-shadow: 0 0.4rem 1.4rem rgb(23 33 43 / 5%);
+}
+
+.task-board-heading,
+.task-list-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.task-board-heading > div,
+.task-form,
+.task-list li {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.task-board h2,
+.task-board p {
+  margin: 0;
+}
+
+.task-form label {
+  display: grid;
+  gap: 0.35rem;
+  color: #354353;
+  font-size: 0.92rem;
+}
+
+.task-form input,
+.task-form textarea,
+.task-form select {
+  width: 100%;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid #aab5c1;
+  border-radius: 0.4rem;
+  color: inherit;
+  background: #fff;
+  font: inherit;
+}
+
+.task-form textarea {
+  resize: vertical;
+}
+
+.task-form-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.task-board button {
+  justify-self: start;
+  padding: 0.65rem 0.9rem;
+  border: 0;
+  border-radius: 0.4rem;
+  color: white;
+  background: #2158a5;
+  font: inherit;
+  cursor: pointer;
+}
+
+.task-board button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.task-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-list li {
+  padding: 0.85rem;
+  border: 1px solid #e0e5eb;
+  border-radius: 0.5rem;
+}
+
+.task-priority {
+  padding: 0.15rem 0.45rem;
+  border-radius: 1rem;
+  color: #46586a;
+  background: #edf1f5;
+  font-size: 0.8rem;
+  text-transform: capitalize;
+}
+
+.priority-high {
+  color: #8c2d20;
+  background: #fae7e3;
+}
+
+.task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  color: #586575;
+  font-size: 0.88rem;
+}
+
+.task-error {
+  color: #a3291d !important;
+}
+
+.task-message {
+  color: #21643d !important;
+}
+
+@media (max-width: 36rem) {
+  main.home-page {
+    padding: 1.5rem 1rem;
+  }
+
+  .task-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .task-board-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+}

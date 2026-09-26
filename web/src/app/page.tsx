@@ -1,5 +1,6 @@
 import { signInWithGoogle, signOut } from "./auth/actions";
 import { getMe } from "@/server/api/me";
+import { TaskBoard } from "./tasks/task-board";
 
 export const dynamic = "force-dynamic";
 
@@ -21,9 +22,11 @@ export default async function Home({
   const user = me.kind === "ok" ? me.data.user : me.kind === "unavailable" ? me.user : null;
 
   return (
-    <main>
-      <h1>FocusOS</h1>
-      <p>Your personal AI productivity agent starts here.</p>
+    <main className={user ? "home-page" : undefined}>
+      <header className="home-header">
+        <h1>FocusOS</h1>
+        <p>Your personal AI productivity agent starts here.</p>
+      </header>
       {authError ? <p role="alert">{authError}</p> : null}
       {user ? (
         <>
@@ -38,6 +41,7 @@ export default async function Home({
           ) : (
             <p>Set your scheduling preferences to get started.</p>
           )}
+          {me.kind === "ok" ? <TaskBoard /> : null}
           <a href="/settings">Scheduling preferences</a>
           <form action={signOut}>
             <button type="submit">Sign out</button>
