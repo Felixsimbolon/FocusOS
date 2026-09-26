@@ -302,3 +302,11 @@ Keputusan D12 untuk generasi: opsi A, OpenAI Responses API dengan Structured Out
 **Mengapa:** Format JSON yang sah belum membuktikan kebenaran isi. Tenggat `unresolved` tetap eksplisit, sehingga model tidak boleh mengarang jam batas atau membuat tanggal ambigu menjadi pasti.
 
 **Verifikasi:** Fixture pengembangan meliputi Kamis sebelum presentasi Jumat, bukti palsu, tanggal ambigu, tanggal kalender tidak valid, waktu eksplisit dengan zona, serta field tambahan/bukti kosong. Semua tes kontrak lulus.
+
+### Increment 4.3 - Panggilan ekstraksi terstruktur
+
+**Yang dibuat:** Adapter OpenAI Responses API untuk model `gpt-4.1-mini`, dengan JSON Schema ketat, `store=false`, batas output, timeout 25 detik, dan maksimal satu perbaikan bila JSON atau bukti tidak valid. Input sumber diberi label sebagai data tak tepercaya. Output diperiksa ulang oleh kontrak Pydantic dan validasi kutipan/tanggal; kegagalan mempunyai jenis eksplisit tanpa menghasilkan tugas.
+
+**Mengapa:** Struktur dari provider mengurangi JSON rusak, tetapi pemeriksaan lokal tetap perlu karena struktur tidak membuktikan fakta, kepemilikan, atau tanggal relatif. Key disimpan hanya di FastAPI melalui `FOCUSOS_OPENAI_API_KEY`. Key tidak boleh berada di `web/.env.local`, browser, Git, atau log.
+
+**Setup dan batas verifikasi:** Buat API key di OpenAI Platform dan pastikan proyek punya kuota penggunaan. Isi `FOCUSOS_OPENAI_API_KEY` dalam environment backend lokal dan Vercel project API untuk production; deploy ulang API setelah menambahkannya. Saat increment ini dikerjakan, key belum tersedia di lingkungan kerja, sehingga uji provider nyata dengan sumber sintetis masih tertunda. Tes mock menguji keberhasilan, usage, bukti palsu, refusal, timeout, dan konfigurasi kosong.
