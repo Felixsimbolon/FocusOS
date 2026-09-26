@@ -69,7 +69,7 @@ export function AgentConsole({ initialRunId }: { initialRunId?: string }) {
     {run ? <div className="review-panel"><h2>Run status: {run.status}</h2><p>{run.command}</p>
       <p>Stage: {run.stage}. Model turns: {run.model_turns}. Read tools completed: {run.tool_calls_count}.</p>
       {run.safe_error ? <p role="alert">Stopped safely: {run.safe_error}</p> : null}
-      {run.status === "waiting" || run.status === "running" ? <button disabled={busy || run.status === "running"} onClick={advance}>{busy ? "Working…" : "Continue run"}</button> : null}
+      {run.status === "waiting" || run.status === "running" ? <button disabled={busy} onClick={advance}>{busy ? "Working…" : run.status === "running" ? "Check planning stage" : "Continue run"}</button> : null}
       <button className="secondary-button" disabled={busy} onClick={() => refresh(run.id).catch(() => setError("Run unavailable"))}>Reload status</button>
       <p><a href={`/agent/${run.id}`}>Permanent run link</a></p></div> : null}
     {run ? <div className="review-panel"><h2>Retrieved context</h2>

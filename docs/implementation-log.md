@@ -524,3 +524,7 @@ Tahap terakhir run menyusun konteks terbatas dari task, slot kalender yang dihit
 ### Increment 7.9 — halaman perintah dan inspeksi run
 
 Halaman `/agent` menerima perintah, durasi, dan pilihan pembagian blok. Setiap lanjut menjalankan satu tahap sehingga checkpoint dapat direload lewat URL `/agent/{runId}`. Panel memperlihatkan status, jumlah task/event/slot/memori, hasil proposal atau klarifikasi, serta ledger empat tool baca. Route Next.js memproksi request dengan sesi server dan whitelist path; endpoint backend memeriksa kepemilikan run sebelum membaca ledger melalui RLS. Tidak ada tombol approve atau penulisan Google Calendar pada fase ini. Tes mencakup sesi anonim, path, kegagalan upstream, dan akses ledger tanpa run milik pengguna.
+
+### Penutupan Phase 7 — deploy dan batas penerimaan
+
+Pada 2026-09-27, API (`dpl_ARnMPYGfwByzMKuJHmRNbP38oE41`) dan web (`dpl_7GpWKycwors94i719ngdGHtySD7V`) mencapai READY di alias produksi yang sama. Smoke test: API `/health` 200, web `/agent` 200, dan endpoint run tanpa sesi 401. Semua 192 tes backend, 52 tes web, dan build web lulus. Audit nama variabel Vercel memperlihatkan API hanya memiliki URL serta publishable key Supabase; web hanya memiliki empat variabel Supabase/app/API awal. Karena OpenAI key dan kredensial Google integrasi belum ada, belum ada uji live perintah dengan Calendar dan model. Ini batas verifikasi yang nyata, bukan kegagalan tes mock. Setelah variabel privat diisi dan kedua project dideploy ulang, uji sintetik harus dilakukan dari akun yang login.

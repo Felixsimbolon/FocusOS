@@ -81,7 +81,7 @@ def validate_planning_response(raw: object, tasks: list[dict], free: FreeTimeRes
         resolved.append({"slot_ref": block.slot_ref, "task_ref": block.task_ref,
                          "task_id": task["id"], "start": slot.start.isoformat(),
                          "end": slot.end.isoformat(), "title": block.title,
-                         "reason": block.reason, "evidence_refs": block.evidence_refs})
+                         "reason": "Available work time from the saved Calendar snapshot.", "evidence_refs": block.evidence_refs})
     ordered = sorted(resolved, key=lambda block: block["start"])
     if any(datetime.fromisoformat(a["end"]) > datetime.fromisoformat(b["start"])
            for a, b in zip(ordered, ordered[1:])):
@@ -105,5 +105,12 @@ def validate_planning_response(raw: object, tasks: list[dict], free: FreeTimeRes
     result["blocks"] = resolved
     result["scheduled_minutes"] = total
     result["shortfall_minutes"] = free.requested_minutes-total
+    result["summary"] = (
+        f"{total} minutes proposed across {len(resolved)} block(s) for review."
+        if candidate.status == "proposed" else
+        "More detail is needed before a plan can be proposed."
+        if candidate.status == "needs_clarification" else
+        "The available work time is shorter than requested."
+    )
     result["actionable"] = False
     return result

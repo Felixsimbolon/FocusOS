@@ -20,6 +20,7 @@ class PlanningContractTests(unittest.TestCase):
         result=validate_planning_response(plan(),[TASK],FREE)
         self.assertEqual(result["blocks"][0]["task_id"],TASK["id"])
         self.assertFalse(result["actionable"])
+        self.assertNotEqual(result["blocks"][0]["reason"], plan()["blocks"][0]["reason"])
     def test_reject_unknown_slot_and_wrong_total(self):
         value=plan(); value["blocks"][0]["slot_ref"]="slot-999"
         with self.assertRaises(PlanningValidationError): validate_planning_response(value,[TASK],FREE)
