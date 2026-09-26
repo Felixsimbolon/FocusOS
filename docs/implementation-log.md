@@ -294,3 +294,11 @@ Keputusan D12 untuk generasi: opsi A, OpenAI Responses API dengan Structured Out
 **Mengapa:** Calon tugas dari AI harus dapat ditelusuri ke isi tertentu; hash dan replay key menghindari duplikasi serta memisahkan ulang-kirim request dari sumber baru. RLS dan RPC pemilik menjadi batas keamanan di database, sedangkan batas ukuran/retensi mengurangi penyimpanan data pribadi.
 
 **Verifikasi:** Migration 20260927010000_manual_sources.sql berhasil diterapkan ke Supabase. Suite API dan tes sumber manual lulus. Uji browser autentikasi tetap perlu dilakukan oleh pengguna.
+
+### Increment 4.2 - Kontrak kandidat dan fixture tanggal
+
+**Yang dibuat:** Skema Pydantic ketat untuk tugas, event, fakta, permintaan, bukti, dan envelope versi 1. Referensi kandidat bersifat lokal; UUID milik database tidak dapat ditentukan model. Validasi deterministik memeriksa kutipan terhadap teks sumber, referensi sumber, waktu acuan, tanggal kalender, zona IANA, dan perhitungan tenggat relatif terhadap event. Jumlah total kandidat dibatasi sepuluh.
+
+**Mengapa:** Format JSON yang sah belum membuktikan kebenaran isi. Tenggat `unresolved` tetap eksplisit, sehingga model tidak boleh mengarang jam batas atau membuat tanggal ambigu menjadi pasti.
+
+**Verifikasi:** Fixture pengembangan meliputi Kamis sebelum presentasi Jumat, bukti palsu, tanggal ambigu, tanggal kalender tidak valid, waktu eksplisit dengan zona, serta field tambahan/bukti kosong. Semua tes kontrak lulus.
