@@ -472,3 +472,11 @@ Keputusan rekomendasi: D6-B alur bertahap yang dibatasi backend; D11-A konteks p
 **Mengapa:** Model tidak dapat memberi hak baru hanya dengan menulis argumen; setiap eksekusi harus melewati validasi aplikasi. Run per perintah lebih kecil dan mudah dibatasi daripada percakapan permanen. Ledger membuktikan tool yang benar-benar dipanggil tanpa menyimpan token atau isi sensitif.
 
 **Verifikasi:** Tes unknown tool, user_id palsu, limit berlebih, dan hash kanonik; migration serta pemeriksaan owner/versi akan diverifikasi di database.
+
+### Increment 7.2 - Satu roundtrip tool tasks.list
+
+**Yang dibuat:** Adapter Responses API memberi model hanya fungsi `tasks_list`; nama itu dipetakan ke tool internal `tasks.list`. Backend memvalidasi argumen, membaca maksimal 20 tugas open lewat akses pengguna, mencatat requested/succeeded tanpa payload, lalu mengirim hasil ke model untuk turn final. API mengembalikan daftar tugas dari database dan ringkasan deterministik, bukan fakta baru dari teks model. Run dibuat sebelum panggilan model dan disimpan sebagai succeeded/failed dengan request key idempoten.
+
+**Mengapa:** Tool call membuktikan pilihan model tidak menjadi hak akses; database tetap sumber kebenaran. Teks final model tidak boleh mengarang tanggal atau tindakan yang tidak terjadi.
+
+**Verifikasi:** Fixture menerima satu fungsi yang diizinkan, menolak fungsi write palsu, memastikan hasil tool berasal dari task service, dan menolak route anonim. Uji model live menunggu API key.

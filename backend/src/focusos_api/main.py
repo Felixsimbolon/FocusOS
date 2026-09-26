@@ -3,6 +3,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from uuid import UUID
 from datetime import datetime
 
+from focusos_api.agent_model import AgentModelError
+from focusos_api.agent_tools import ToolValidationError
+from focusos_api.agent_tasks import CommandInput, CommandResult, run_tasks_command
 from focusos_api.confirmation import (ConfirmInput, ConfirmNotFound, ConfirmStale, ConfirmConflict, ConfirmProjectNotFound, confirm_candidate)
 from focusos_api.connections import GoogleConnectionEnvelope, read_google_connection
 from focusos_api.database import (
@@ -82,6 +85,23 @@ def require_access_token(
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(status_code=401, detail="Authentication required")
     return credentials.credentials
+
+
+@app.post("/agent/runs/tasks", response_model=CommandResult)
+def agent_tasks_command_post(
+    request: CommandInput,
+    access_token: str = Depends(require_access_token),
+) -> CommandResult:
+    try:
+        return run_tasks_command(access_token, request)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except ToolValidationError as exc:
+        raise HTTPException(status_code=422, detail="Invalid read-only tool request") from exc
+    except AgentModelError as exc:
+        raise HTTPException(status_code=503, detail="Agent model unavailable or invalid") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Agent run unavailable") from exc
 
 
 @app.get("/health")

@@ -1979,7 +1979,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 
 - [x] Resolve D6-B bounded stages and D11-A per-run context before 7.1.
 - [x] 7.1 Add typed registry/request boundary and owned tool execution ledger.
-- [ ] 7.2 Complete one tasks.list model-tool-result round trip.
+- [x] 7.2 Complete one tasks.list model-tool-result round trip. (Live model test pending API key.)
 - [ ] 7.3 Add existing Calendar read/slot tool bindings and bounded persisted continuation.
 - [ ] 7.4 Persist small confirmed source-backed memories.
 - [ ] Resolve D8 timing and D12 embedding capability/model/dimension before 7.5.
