@@ -480,3 +480,11 @@ Keputusan rekomendasi: D6-B alur bertahap yang dibatasi backend; D11-A konteks p
 **Mengapa:** Tool call membuktikan pilihan model tidak menjadi hak akses; database tetap sumber kebenaran. Teks final model tidak boleh mengarang tanggal atau tindakan yang tidak terjadi.
 
 **Verifikasi:** Fixture menerima satu fungsi yang diizinkan, menolak fungsi write palsu, memastikan hasil tool berasal dari task service, dan menolak route anonim. Uji model live menunggu API key.
+
+### Increment 7.3 - Multi-read continuation terbatas
+
+**Yang dibuat:** Endpoint start/get/continue run. Satu continue membaca tugas, langkah berikutnya membaca Calendar primary secara lengkap, dan langkah berikutnya menghitung slot dari snapshot sibuk tersimpan. Setiap langkah menaikkan counter/versi dalam database; maksimal 8 tool call dan 4 model turn. Kalender memakai anchor waktu tetap per run, mencatat 80 busy interval paling banyak, tanpa judul pribadi di checkpoint. Gagal baca atau hasil parsial menandai run gagal dan tidak menghasilkan slot.
+
+**Mengapa:** Vercel tidak menjamin worker berlanjut setelah respons selesai. Checkpoint per langkah membuat tab yang ditutup dapat dilanjutkan secara eksplisit dan mencegah percobaan ulang memulai budget dari nol. Data kalender yang disimpan hanya interval untuk rencana, bukan isi event.
+
+**Verifikasi:** Tes stage/counter, penolakan anonim, kegagalan Calendar tanpa slot palsu, dan terminal planning tanpa tool tambahan. Uji Calendar nyata menunggu secret OAuth.

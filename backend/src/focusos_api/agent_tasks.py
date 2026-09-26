@@ -1,4 +1,4 @@
-﻿"""Persist one read-only command run and return server-grounded task results."""
+"""Persist one read-only command run and return server-grounded task results."""
 
 from uuid import UUID
 
@@ -39,9 +39,9 @@ def _checkpoint(access_token: str, run_id: UUID, version: int, status: str,
 
 
 def _log(access_token: str, run_id: UUID, name: str, args: dict,
-         status: str, code: str | None = None) -> None:
+         status: str, code: str | None = None, ordinal: int = 1) -> None:
     saved = _rpc(access_token, "focusos_log_tool_call", {
-        "p_run_id": str(run_id), "p_ordinal": 1, "p_name": name,
+        "p_run_id": str(run_id), "p_ordinal": ordinal, "p_name": name,
         "p_arguments_hash": argument_hash(name, args),
         "p_status": status, "p_safe_code": code,
     })

@@ -1,0 +1,175 @@
+"""One deterministic read-tool stage per request with persisted checkpoints."""
+
+from datetime import datetime, timedelta, timezone
+from uuid import UUID
+from zoneinfo import ZoneInfo
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from focusos_api.agent_tasks import CommandInput, _checkpoint, _log, _rpc
+from focusos_api.calendar_domain import CalendarEventError
+from focusos_api.calendar_fetch import CalendarFetchError, CalendarWindow, fetch_calendar_window
+from focusos_api.calendar_free_time import CalendarPlanningError, _local_boundary, calculate_free_time
+from focusos_api.google_calendar import CalendarReconnectRequired
+from focusos_api.calendar_normalize import normalize_window, occurrence_interval
+from focusos_api.database import DatabaseUnavailable, scoped_client
+from focusos_api.profiles import read_profile
+from focusos_api.tasks import list_tasks
+
+MAX_CHECKPOINT_EVENTS = 80
+
+
+class AgentRunInput(CommandInput):
+    duration_minutes: int = Field(default=60, ge=15, le=480)
+    allow_split: bool = False
+
+
+class AgentRunState(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: UUID
+    status: str
+    stage: str
+    version: int
+    model_turns: int
+    tool_calls_count: int
+    checkpoint: dict
+    result: dict | None = None
+    safe_error: str | None = None
+    expires_at: datetime
+
+
+def load_command_run(access_token: str, run_id: UUID) -> AgentRunState:
+    with scoped_client(access_token) as (user_id, client):
+        rows = (client.table("command_runs")
+                .select("id,status,stage,version,model_turns,tool_calls_count,checkpoint,result,safe_error,expires_at")
+                .eq("id", str(run_id)).eq("user_id", user_id).limit(1).execute().data)
+    if not isinstance(rows, list) or len(rows) != 1:
+        raise DatabaseUnavailable("Command run not found")
+    return AgentRunState.model_validate(rows[0])
+
+
+def start_staged_run(access_token: str, request: AgentRunInput) -> AgentRunState:
+    profile = read_profile(access_token)
+    if profile is None:
+        raise CalendarPlanningError("Save scheduling preferences first")
+    window_start = datetime.now(timezone.utc).isoformat()
+    initial = _rpc(access_token, "focusos_start_command_run", {
+        "p_request_key": str(request.request_key), "p_command": request.command.strip(),
+    })
+    if not isinstance(initial, dict):
+        raise DatabaseUnavailable("Unexpected command run")
+    run_id = UUID(str(initial["id"]))
+    if initial["status"] == "pending":
+        _checkpoint(access_token, run_id, int(initial["version"]), "waiting", "start",
+            {"duration_minutes": request.duration_minutes, "allow_split": request.allow_split,
+             "window_start": window_start, "timezone": profile.timezone},
+            None, 0, 0)
+    return load_command_run(access_token, run_id)
+
+
+def _task_step(access_token: str, run: AgentRunState) -> tuple[dict, int]:
+    args = {"status": "open", "limit": 20}
+    _log(access_token, run.id, "tasks.list", args, "requested")
+    page = list_tasks(access_token, status="open", limit=20)
+    tasks = [
+        {"id": str(task.id), "title": task.title,
+         "due_kind": task.due_kind,
+         "due_date": task.due_date.isoformat() if task.due_date else None,
+         "due_at": task.due_at.isoformat() if task.due_at else None,
+         "estimate_minutes": task.estimate_minutes,
+         "source_id": str(task.source_id) if task.source_id else None}
+        for task in page.tasks
+    ]
+    _log(access_token, run.id, "tasks.list", args, "succeeded")
+    return {**run.checkpoint, "tasks": tasks, "tasks_truncated": page.truncated}, 1
+
+
+def _calendar_step(access_token: str, run: AgentRunState) -> tuple[dict, int]:
+    profile = read_profile(access_token)
+    if profile is None:
+        raise CalendarPlanningError("Scheduling profile required")
+    if profile.timezone != run.checkpoint.get("timezone"):
+        raise CalendarPlanningError("Scheduling timezone changed")
+    current = datetime.fromisoformat(run.checkpoint["window_start"])
+    zone = ZoneInfo(profile.timezone)
+    end = _local_boundary(current.astimezone(zone).date() + timedelta(days=7), 0, zone)
+    args = {"calendar": "primary", "start": current.isoformat(), "end": end.isoformat()}
+    _log(access_token, run.id, "calendar.get_events", args, "requested", ordinal=2)
+    window = fetch_calendar_window(access_token, current, end)
+    normalized = normalize_window(window)
+    if len(normalized) > MAX_CHECKPOINT_EVENTS:
+        raise CalendarPlanningError("Calendar context exceeds safe checkpoint size")
+    events = []
+    for item in normalized:
+        start, finish = occurrence_interval(item)
+        if finish <= window.start or start >= window.end:
+            continue
+        events.append({ "id": item.provider_id, "title": "Busy",
+                       "start": start.isoformat(), "end": finish.isoformat()})
+    if len(events) > MAX_CHECKPOINT_EVENTS:
+        raise CalendarPlanningError("Calendar context exceeds safe checkpoint size")
+    _log(access_token, run.id, "calendar.get_events", args, "succeeded", ordinal=2)
+    return {**run.checkpoint, "calendar": {
+        "timezone": profile.timezone, "start": window.start.isoformat(),
+        "end": window.end.isoformat(), "fetched_at": window.fetched_at.isoformat(),
+        "event_count": len(window.events), "events": events, "complete": True,
+    }}, 2
+
+
+def _free_step(access_token: str, run: AgentRunState) -> tuple[dict, int]:
+    snapshot = run.checkpoint.get("calendar")
+    if not isinstance(snapshot, dict) or snapshot.get("complete") is not True:
+        raise CalendarPlanningError("Calendar snapshot is incomplete")
+    profile = read_profile(access_token)
+    if profile is None or profile.timezone != snapshot.get("timezone"):
+        raise CalendarPlanningError("Scheduling profile changed")
+    args = {"duration_minutes": run.checkpoint["duration_minutes"],
+            "allow_split": run.checkpoint["allow_split"],
+            "calendar_fetched_at": snapshot["fetched_at"]}
+    _log(access_token, run.id, "calendar.find_free_time", args, "requested", ordinal=3)
+    events = tuple({
+        "id": item["id"], "summary": item["title"],
+        "start": {"dateTime": item["start"]}, "end": {"dateTime": item["end"]},
+    } for item in snapshot["events"])
+    window = CalendarWindow(
+        datetime.fromisoformat(snapshot["start"]),
+        datetime.fromisoformat(snapshot["end"]),
+        datetime.fromisoformat(snapshot["fetched_at"]),
+        "primary", profile.timezone, events, complete=True,
+    )
+    result = calculate_free_time(window, timezone_name=profile.timezone,
+        working_hours=profile.working_hours,
+        duration_minutes=int(args["duration_minutes"]), allow_split=bool(args["allow_split"]))
+    _log(access_token, run.id, "calendar.find_free_time", args, "succeeded", ordinal=3)
+    return {**run.checkpoint, "free_time": result.model_dump(mode="json")}, 3
+
+
+def continue_staged_run(access_token: str, run_id: UUID) -> AgentRunState:
+    run = load_command_run(access_token, run_id)
+    if run.status in ("succeeded", "clarify", "failed") or run.stage == "planning":
+        return run
+    if run.status != "waiting" or run.expires_at <= datetime.now(timezone.utc):
+        raise DatabaseUnavailable("Command run unavailable or expired")
+    if run.tool_calls_count >= 8:
+        raise DatabaseUnavailable("Tool budget exhausted")
+    try:
+        if run.stage == "start":
+            checkpoint, count = _task_step(access_token, run)
+            next_stage = "tasks"
+        elif run.stage == "tasks":
+            checkpoint, count = _calendar_step(access_token, run)
+            next_stage = "calendar"
+        elif run.stage == "calendar":
+            checkpoint, count = _free_step(access_token, run)
+            next_stage = "planning"
+        else:
+            raise DatabaseUnavailable("Invalid command stage")
+    except (CalendarPlanningError, CalendarFetchError, CalendarEventError, CalendarReconnectRequired, DatabaseUnavailable):
+        _checkpoint(access_token, run.id, run.version, "failed", "done",
+                    run.checkpoint, None, run.model_turns, run.tool_calls_count,
+                    "read_unavailable")
+        raise
+    if not _checkpoint(access_token, run.id, run.version, "waiting", next_stage,
+                       checkpoint, None, run.model_turns, count):
+        raise DatabaseUnavailable("Run checkpoint was updated elsewhere")
+    return load_command_run(access_token, run.id)
