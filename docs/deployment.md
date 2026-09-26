@@ -33,3 +33,14 @@ Open the stable web URL in a private browser window. Confirm the root loads and 
 If the API function cold-starts slowly, retry the first request once; repeated failures require inspecting Vercel deployment logs and checking `FOCUSOS_API_URL` and both Supabase environment variables. The Next.js server calls FastAPI directly, so browser CORS configuration is not required for this slice.
 
 References: [Vercel monorepos](https://vercel.com/docs/monorepos), [FastAPI on Vercel](https://vercel.com/kb/guide/ship-a-fastapi-app-on-vercel), [Python runtime](https://vercel.com/docs/functions/runtimes/python), [Hobby plan](https://vercel.com/docs/plans/hobby).
+
+## Phase 3 production deploy (2026-09-27)
+
+Phase 3 code is deployed to the existing production aliases:
+
+- Web: https://focusos-web-five.vercel.app (deployment dpl_ECAbJU3wn7mmfMzFaTr6bGfagSWr)
+- API: https://focusos-api.vercel.app (deployment dpl_27TqkKascunbXfjVV8RMMbTCVFLj)
+
+Both deployments reached READY. Smoke checks: API /health returned 200; anonymous /api/me, /api/tasks/today, /api/projects, and POST /api/tasks returned 401. The anonymous task POST created no data. No user token or cookie was used during these checks.
+
+To verify the signed-in lifecycle, open the web URL, sign in with Google, create a task, reload and confirm it remains, edit its title, and mark it complete. The Today list removes completed tasks. The implementation uses the profile timezone, or UTC if no profile exists. Live Google provider consent/read acceptance from Phase 2 remains pending.
