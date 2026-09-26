@@ -31,6 +31,9 @@ class MemoryRecord(BaseModel):
     text: str
     evidence_quote: str
     status: str
+    embedding_status: str = "pending"
+    embedding_model: str | None = None
+    embedding_error: str | None = None
     created_at: datetime
 
 
@@ -59,7 +62,7 @@ def confirm_memory(access_token: str, request: MemoryInput) -> MemoryRecord:
 def list_memories(access_token: str) -> MemoryList:
     with scoped_client(access_token) as (owner, client):
         rows = (client.table("memories")
-                .select("id,source_id,project_id,source_hash,text,evidence_quote,status,created_at")
+                .select( "id,source_id,project_id,source_hash,text,evidence_quote,status,embedding_status,embedding_model,embedding_error,created_at")
                 .eq("user_id", owner).eq("status", "active")
                 .order("created_at", desc=True).limit(50).execute().data)
     if not isinstance(rows, list):

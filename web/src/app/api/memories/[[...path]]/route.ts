@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerAccessToken } from "@/server/auth/session";
 import { requireServerEnv } from "@/server/env";
 
@@ -10,8 +10,8 @@ async function proxy(request: NextRequest, context: Context, method: "GET" | "PO
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   const { path = [] } = await context.params;
   const suffix = path.length === 0 ? "" :
-    path.length === 2 && UUID.test(path[0]) && path[1] === "supersede"
-      ? "/" + path[0] + "/supersede" : null;
+    path.length === 2 && UUID.test(path[0]) && ["supersede", "embed"].includes(path[1])
+      ? "/" + path[0] + "/" + path[1] : null;
   if (suffix === null || (method === "GET" && suffix)) {
     return NextResponse.json({ error: "Memory route not found" }, { status: 404 });
   }

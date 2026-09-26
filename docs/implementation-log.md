@@ -496,3 +496,11 @@ Keputusan rekomendasi: D6-B alur bertahap yang dibatasi backend; D11-A konteks p
 **Mengapa:** Hanya sumber yang dipilih dan fakta yang dinilai benar oleh manusia masuk konteks jangka panjang. Fakta usang tidak perlu dihapus diam-diam; status superseded menjaga riwayat keputusan. Konfirmasi selamat meski embedding nanti gagal.
 
 **Verifikasi:** Migration 20260927110000 diterapkan. Probe SQL rollback-only menolak kutipan palsu dan memperlihatkan nol memori saat berperan sebagai pengguna lain. Tes API/proxy dan build web lulus.
+
+### Increment 7.5 - Embedding selektif
+
+**Yang dibuat:** pgvector 256 dimensi pada memori confirmed saja. RPC claim memakai lease 45 detik, status pending/processing/ready/failed, model, dimensi, dan content hash. Tombol Embed/retry memicu satu request setelah konfirmasi; adapter mengirim `text-embedding-3-small` dengan `dimensions=256`, memvalidasi tepat 256 angka finite, lalu menyimpan vector hanya bila lease dan source hash masih cocok. Key OpenAI hanya backend; kegagalan provider menyisakan fakta serta kode aman untuk retry.
+
+**Mengapa:** Tidak semua email atau tugas perlu embedding. Memori yang dikonfirmasi berjumlah kecil, sehingga exact scan cukup dan HNSW tidak perlu. Lease mencegah dua klik menambah biaya bersamaan; hash/model/dimensi mencegah vector lama dipakai untuk teks atau kontrak baru.
+
+**Verifikasi:** Migration 20260927120000 diterapkan. Probe SQL rollback-only membuktikan klaim pertama, busy pada klaim kedua, reuse setelah sukses, dan isolasi pemilik. Tes adapter memeriksa dimensi, key hilang, serta reuse. Live embedding menunggu API key dan kuota.

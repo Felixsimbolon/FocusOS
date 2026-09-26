@@ -21,11 +21,11 @@ D1-D5, D7 Option A, D12 Option A for generation, and D13 are selected. D12 embed
 | D5 | **SELECTED: Option A - capped normalized text, lazy 30-day expiry cleanup** | 4.1 | Sources, reprocessing, retention, Gmail normalization | Steps 1â€“3 |
 | D6 | Bounded tool loop or fixed workflow with model tool selection | 7.1 | Agent states, continuation, tests | Steps 1â€“6, including extraction |
 | D7 | **SELECTED: Option A - Relational projects, tasks, sources, and memories** | 3.5 | Project association, memory queries | 3.1-3.4 |
-| D8 | Embed on confirmation or in a resumable batch | 7.5 | Embedding status, retrieval latency, sync load | Through 7.4 |
+| D8 | Chosen A: embed confirmed memory in one follow-on request | 7.5 | One-item lease, retry status, no worker | Resolved |
 | D9 | Chosen A: user-triggered bounded sync only | 5.7 | Manual Sync Now/Continue and one-source processing; no cron | Resolved |
 | D10 | Per-event approvals or approval of a fixed multi-event batch | 8.1 | Approval payload, partial execution, UI | Steps 1â€“7 |
 | D11 | Per-run context or persistent conversations | 7.1 | Message retention, follow-up commands, UI | Steps 1â€“6 |
-| D12 | **SELECTED for generation: Option A - OpenAI Responses API, gpt-4.1-mini; embeddings pending 7.5** | 4.3; embedding part by 7.5 | SDK, schema compatibility, eval, vector dimension | Through 4.2 |
+| D12 | **SELECTED: Option A - OpenAI Responses API, gpt-4.1-mini; text-embedding-3-small/256 for memories** | 4.3; embedding part by 7.5 | SDK, schema compatibility, eval, vector dimension | Through 4.2 |
 | D13 | SELECTED: Option A - incremental consent, owned Calendar events | 2.3 | Google grants, Calendar reads/writes and demo account | Through 2.2 |
 
 Record each selected option and any consequence in this document before implementing dependent work. Selecting Python, custom identity, relational edges, persistent chat, or batch approval changes the relevant increments; it does not authorize implementing multiple increments together.
@@ -269,7 +269,7 @@ Deletion semantics: disconnect stops sync, revokes/deletes credentials, and expi
 
 ### DECISION D11 â€” Conversation persistence
 
-**SELECTED for generation: Option A, OpenAI Responses API with gpt-4.1-mini and strict Structured Outputs. Embedding endpoint/model/dimension remains to be confirmed before 7.5.**
+**SELECTED: Option A, OpenAI Responses API with gpt-4.1-mini for generation; text-embedding-3-small with 256 dimensions for selected memories.**
 
 **CONDITION**: A run must survive an approval pause; that does not necessarily require permanent chat history.
 
@@ -1982,8 +1982,8 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 7.2 Complete one tasks.list model-tool-result round trip. (Live model test pending API key.)
 - [x] 7.3 Add existing Calendar read/slot tool bindings and bounded persisted continuation. (Live Calendar pending OAuth secrets.)
 - [x] 7.4 Persist small confirmed source-backed memories.
-- [ ] Resolve D8 timing and D12 embedding capability/model/dimension before 7.5.
-- [ ] 7.5 Embed selected memories with status/hash/version tracking.
+- [x] Resolve D8-A follow-on embedding and D12 text-embedding-3-small/256 contract before 7.5.
+- [x] 7.5 Embed selected memories with status/hash/version tracking. (Live provider call pending API key.)
 - [ ] 7.6 Expose owned filtered semantic/SQL memory retrieval and its tool.
 - [ ] 7.7 Validate planning schema, known slot refs and scheduling invariants.
 - [ ] 7.8 Produce grounded plan/clarification/shortfall through the selected orchestrator.
