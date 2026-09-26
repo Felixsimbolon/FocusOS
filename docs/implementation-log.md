@@ -6,7 +6,7 @@ This log records what was implemented and why, one increment at a time. The deta
 
 ## Current state
 
-The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.6. Google sign-in/sign-out, database identity, and profile save/read were verified against the linked Supabase project. The profile isolation check used a synthetic second identity in a rolled-back database transaction. Increment 1.7 is next.
+The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.7. Google sign-in/sign-out, database identity, and profile save/read were verified against the linked Supabase project. The profile isolation check used a synthetic second identity in a rolled-back database transaction. Increment 1.7 is verified locally; Increment 1.8 is next.
 
 ## Step 0 — Product and architecture plan
 
@@ -107,6 +107,21 @@ The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, 
 **Limitations:** The user-facing reload result was not separately reported in chat at the time of this entry; server requests show the saved profile was read again. The second identity was synthetic, not a second live Google login. Calendar selection, scheduling, tasks, and Google service grants remain later work.
 
 **Next gated increment:** 1.7, the protected `/api/me` contract and signed-in shell.
+
+## Increment 1.7 — Protected identity API and signed-in shell (2026-09-26)
+
+**Purpose:** Provide a small authenticated UI-to-API contract before adding feature routes, and show saved scheduling context in the signed-in home page.
+
+**Files changed:** `web/src/server/api/me.ts`, `web/src/app/api/me/route.ts`, `web/src/app/page.tsx`, `web/tests/me.test.ts`, `README.md`, `plan.md`, and this log.
+
+**What was built and why:** The server composes a freshly verified Supabase user with the owned profile returned by FastAPI. It explicitly projects only user ID/email and timezone/working hours, rejects a mismatched profile owner, and returns a narrow error state if the profile backend is unavailable. `GET /api/me` returns this nonsecret DTO with `Cache-Control: no-store`, or a safe 401/503 error envelope. The home page consumes the same server contract and displays the saved timezone and working days; it keeps sign-out available if the profile backend fails.
+
+**Verification:** `npm.cmd run test:web` passed 8 tests across 3 files, including anonymous denial, safe projection when an upstream object contains canary secret fields, and owner mismatch. `npm.cmd run build:web` passed and includes the dynamic `/api/me` route. A local anonymous `GET /api/me` returned HTTP 401, `Cache-Control: no-store`, and the safe unauthorized error envelope. The local development server logged a signed-in `GET /api/me` 200 followed by FastAPI `GET /profile` 200; a separate anonymous request returned 401. The user confirmed that the browser response contained `user` and `profile` without a token.
+
+**Limitations:** The authenticated route succeeded locally; hosted behavior remains for 1.8. There is no task dashboard or integration data.
+
+**Next gated increment:** 1.8, deploy the small authenticated slice after the hosting branch and account are confirmed.
+
 ## How this log will be maintained
 
 After each future increment, append a dated section with the increment number, purpose, files changed, what was added and why, commands/tests and their results, manual verification, known limitations, and the next gated increment. Keep incomplete live checks explicitly marked as pending. Do not mark plan checklist items complete unless their stated acceptance checks actually passed.

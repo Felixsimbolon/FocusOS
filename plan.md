@@ -1,6 +1,6 @@
 # FocusOS Implementation Plan
 
-Planning status: **D1, D2, and D3 are selected; Phase 1 increments 1.1 through 1.6 are verified.** Increment 1.7 is next; later decisions and increments remain open.
+Planning status: **D1, D2, and D3 are selected; Phase 1 increments 1.1 through 1.7 are verified.** Increment 1.8 is next; later decisions and increments remain open.
 
 ## 1. Product Goal
 
@@ -1921,7 +1921,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 1.4 Complete selected login/callback/logout; verify session server-side.
 - [x] 1.5 Prove restricted database connectivity and identity propagation.
 - [x] 1.6 Add profiles only; persist timezone/hours; pass two-user isolation test.
-- [ ] 1.7 Add protected `/api/me`; reject anonymous access; return no secrets.
+- [x] 1.7 Add protected `/api/me`; reject anonymous access; return no secrets.
 - [ ] 1.8 Deploy current slice and verify hosted login/route behavior on free infrastructure.
 
 ### Phase 2 — Google risk retirement
