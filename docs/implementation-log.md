@@ -326,3 +326,11 @@ Keputusan D12 untuk generasi: opsi A, OpenAI Responses API dengan Structured Out
 **Mengapa:** Request dapat terputus saat model bekerja. Status `processing` mencegah panggilan paralel yang sama, sementara lease memungkinkan pemulihan setelah fungsi server berhenti. Hasil kandidat baru bersifat review; belum menjadi tugas.
 
 **Verifikasi:** Migration 20260927030000_extraction_results.sql diterapkan. Tes route menolak pengunjung anonim dan membuktikan hasil `ready` dipakai ulang tanpa provider call. Suite API lulus.
+
+### Increment 4.6 - Konfirmasi kandidat menjadi tugas
+
+**Yang dibuat:** Kolom provenance pada tugas untuk sumber, hasil ekstraksi, referensi kandidat, bukti, dan confidence. Endpoint POST /extractions/{id}/confirm menerima data tugas yang sudah dikoreksi pengguna, memvalidasi ulang ekstraksi terhadap sumber, lalu memakai RPC atomik untuk membuat satu tugas. Kunci unik kandidat dan hash review membuat retry identik aman dan perubahan detail pada retry menjadi konflik.
+
+**Mengapa:** Kandidat AI tidak boleh langsung menjadi tugas. Pengguna menegaskan judul, prioritas, proyek, estimasi, dan tanggal; bukti tetap ditautkan ke sumber. Pemeriksaan hash sumber dan kepemilikan mencegah konfirmasi hasil yang usang atau milik pengguna lain.
+
+**Verifikasi:** Migration 20260927040000_confirm_extraction.sql diterapkan. Tes API menolak sesi anonim, tanggal tidak valid, dan mengembalikan konflik yang aman. Tes browser autentikasi dan panggilan model nyata masih menunggu key/sesi pengguna.

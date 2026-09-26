@@ -2,6 +2,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from uuid import UUID
 
+from focusos_api.confirmation import (ConfirmInput, ConfirmNotFound, ConfirmStale, ConfirmConflict, ConfirmProjectNotFound, confirm_candidate)
 from focusos_api.connections import GoogleConnectionEnvelope, read_google_connection
 from focusos_api.database import (
     DatabaseUnavailable,
@@ -362,3 +363,25 @@ def source_extraction_get(source_id: UUID, access_token: str = Depends(require_a
         raise HTTPException(status_code=404, detail="Source not found") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Extraction unavailable") from exc
+
+
+@app.post("/extractions/{extraction_id}/confirm", response_model=TaskCreateEnvelope)
+def extraction_confirm_post(
+    extraction_id: UUID,
+    request: ConfirmInput,
+    access_token: str = Depends(require_access_token),
+) -> TaskCreateEnvelope:
+    try:
+        return confirm_candidate(access_token, extraction_id, request)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except ConfirmNotFound as exc:
+        raise HTTPException(status_code=404, detail="Extraction candidate not found") from exc
+    except ConfirmStale as exc:
+        raise HTTPException(status_code=409, detail="Extraction source changed or expired") from exc
+    except ConfirmConflict as exc:
+        raise HTTPException(status_code=409, detail="Candidate already confirmed with different details") from exc
+    except ConfirmProjectNotFound as exc:
+        raise HTTPException(status_code=404, detail="Project not found") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Confirmation unavailable") from exc

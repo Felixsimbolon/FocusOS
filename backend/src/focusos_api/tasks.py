@@ -19,7 +19,8 @@ TaskStatus = Literal["open", "done", "archived"]
 
 _TASK_SELECT = (
     "id,title,description,status,priority,due_kind,due_date,due_at,due_timezone,"
-    "estimate_minutes,estimate_origin,project_id,version,created_at,updated_at"
+    "estimate_minutes,estimate_origin,project_id,source_id,extraction_result_id,"
+    "extraction_item_key,evidence,confidence,version,created_at,updated_at"
 )
 
 
@@ -161,6 +162,11 @@ class TaskRecord(BaseModel):
     estimate_minutes: int | None
     estimate_origin: Literal["explicit", "suggested", "unknown"] | None
     project_id: UUID | None
+    source_id: UUID | None = None
+    extraction_result_id: UUID | None = None
+    extraction_item_key: str | None = None
+    evidence: list[dict] | None = None
+    confidence: float | None = None
     version: int = Field(ge=1)
     created_at: datetime
     updated_at: datetime
