@@ -44,22 +44,7 @@ def fetch_selected_messages(access_token: str, ids: list[str],
     client = http_client or httpx.Client(timeout=10.0, follow_redirects=False)
     try:
         label_id = selected_label_id(client, bearer)
-        results: list[RawSelectedMessage] = []
-        for message_id in ids:
-            url = GMAIL_ROOT + "/messages/" + quote(message_id, safe="")
-            try:
-                metadata = provider_json(client, url, bearer,
-                    [("format", "metadata"), ("metadataHeaders", "Subject"),
-                     ("metadataHeaders", "From"), ("metadataHeaders", "Date")], max_bytes=65536)
-                parse_metadata(metadata, message_id, label_id)
-                full = provider_json(client, url, bearer, {"format": "full"},
-                                     max_bytes=MAX_MESSAGE_BYTES)
-                if full.get("id") != message_id or not isinstance(full.get("labelIds"), list) or label_id not in full["labelIds"]:
-                    raise GmailSelectionError("Selected message changed")
-                results.append(RawSelectedMessage(message_id, "available", full, label_id))
-            except GmailMessageGone:
-                results.append(RawSelectedMessage(message_id, "unavailable", None, label_id))
-        return results
+        return fetch_selected_with_bearer(client, bearer, label_id, ids)
     finally:
         if own:
             client.close()
@@ -68,3 +53,22 @@ def fetch_selected_messages(access_token: str, ids: list[str],
 def fetch_selected_status(access_token: str, request: SelectedFetchInput) -> SelectedFetchEnvelope:
     messages = fetch_selected_messages(access_token, request.ids)
     return SelectedFetchEnvelope(messages=[SelectedFetchStatus(id=m.id, status=m.status) for m in messages])
+
+
+def fetch_selected_with_bearer(client: httpx.Client, bearer: str, label_id: str, ids: list[str]) -> list[RawSelectedMessage]:
+    results: list[RawSelectedMessage] = []
+    for message_id in ids:
+        url = GMAIL_ROOT + "/messages/" + quote(message_id, safe="")
+        try:
+            metadata = provider_json(client, url, bearer,
+                [("format", "metadata"), ("metadataHeaders", "Subject"),
+                 ("metadataHeaders", "From"), ("metadataHeaders", "Date")], max_bytes=65536)
+            parse_metadata(metadata, message_id, label_id)
+            full = provider_json(client, url, bearer, {"format": "full"},
+                                 max_bytes=MAX_MESSAGE_BYTES)
+            if full.get("id") != message_id or not isinstance(full.get("labelIds"), list) or label_id not in full["labelIds"]:
+                raise GmailSelectionError("Selected message changed")
+            results.append(RawSelectedMessage(message_id, "available", full, label_id))
+        except GmailMessageGone:
+            results.append(RawSelectedMessage(message_id, "unavailable", None, label_id))
+    return results

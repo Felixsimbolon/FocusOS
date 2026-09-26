@@ -388,3 +388,11 @@ Keputusan D9: opsi A, sinkronisasi manual satu halaman per request. Tidak ada cr
 **Mengapa:** Ingest dan ekstraksi adalah dua status berbeda. Menyimpan sumber sebelum memanggil model memungkinkan retry setelah crash tanpa kehilangan asalnya; klaim Phase 4 menangani dua tab yang memproses sumber sama.
 
 **Verifikasi:** Migration 20260927070000_gmail_handoff.sql diterapkan. Tes memastikan tidak ada panggilan model saat antrean kosong, handoff memakai service yang sama, dan route anonim ditolak. Uji provider nyata menunggu OAuth/API key.
+
+### Increment 5.6a - Lease dan checkpoint scan awal
+
+**Yang dibuat:** State sync per koneksi dan pemilik dengan anchor history, token halaman awal, mode, daftar pending, retry time, status, dan lease 90 detik. Sync awal mengambil dua ID label `FocusOS` per request, menyimpan sumber dahulu, lalu memajukan token halaman dalam transaksi. Ketika halaman terakhir selesai, mode berganti ke history dari anchor yang diambil sebelum scan awal.
+
+**Mengapa:** Crash sebelum checkpoint membuat halaman diulang dengan upsert idempoten; crash setelah checkpoint tidak menghilangkan pesan yang sudah disimpan. Lease mencegah dua tab memajukan cursor bersamaan. Anchor sebelum scan menangkap perubahan yang terjadi di tengah scan saat history diproses berikutnya.
+
+**Verifikasi:** Migration 20260927080000_gmail_sync_state.sql diterapkan. Probe rollback-only membuktikan klaim kedua menjadi busy, checkpoint awal beralih ke history, staging/pengosongan pending menggeser history ID, dan pengguna lain tidak melihat state. Tes service memastikan checkpoint setelah upsert.

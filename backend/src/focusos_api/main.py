@@ -16,6 +16,7 @@ from focusos_api.google_calendar import (
     CalendarReconnectRequired,
     read_primary_calendar_page,
 )
+from focusos_api.gmail_sync import (GmailSyncStep, run_one_sync_page)
 from focusos_api.gmail_processing import (GmailProcessOne, process_one_gmail_source)
 from focusos_api.gmail_sources import (GmailIngestEnvelope, ingest_selected_messages)
 from focusos_api.gmail_normalize import GmailNormalizationError
@@ -483,3 +484,21 @@ def gmail_process_one_post(access_token: str = Depends(require_access_token)) ->
         raise HTTPException(status_code=409, detail="Pending source changed; retry") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Gmail processing unavailable") from exc
+
+
+@app.post("/connections/google/gmail/sync", response_model=GmailSyncStep)
+def gmail_sync_post(access_token: str = Depends(require_access_token)) -> GmailSyncStep:
+    try:
+        return run_one_sync_page(access_token)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except GmailSelectionReconnect as exc:
+        raise HTTPException(status_code=409, detail="Reconnect Google with Gmail read access") from exc
+    except GmailSelectionMissing as exc:
+        raise HTTPException(status_code=404, detail="Create a Gmail label named FocusOS") from exc
+    except GmailSelectionUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Gmail temporarily unavailable") from exc
+    except (GmailSelectionError, GmailNormalizationError) as exc:
+        raise HTTPException(status_code=502, detail="Gmail sync stopped on an invalid source") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Gmail sync unavailable") from exc
