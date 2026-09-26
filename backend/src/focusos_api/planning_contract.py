@@ -61,7 +61,7 @@ def validate_planning_response(raw: object, tasks: list[dict], free: FreeTimeRes
     for block in candidate.blocks:
         if block.task_ref not in candidate.task_refs or block.slot_ref not in known_slots or block.slot_ref in used:
             raise PlanningValidationError("Unknown or repeated block handle")
-        if not block.title.strip() or not block.reason.strip():
+        if block.title.strip() != known_tasks[block.task_ref].get("title", "") or not block.reason.strip():
             raise PlanningValidationError("Empty block explanation")
         if any(ref not in known_sources for ref in block.evidence_refs):
             raise PlanningValidationError("Invented evidence reference")

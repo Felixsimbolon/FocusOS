@@ -9,12 +9,14 @@ from pydantic import BaseModel, ConfigDict, Field
 from focusos_api.agent_tasks import CommandInput, _checkpoint, _log, _rpc
 from focusos_api.calendar_domain import CalendarEventError
 from focusos_api.calendar_fetch import CalendarFetchError, CalendarWindow, fetch_calendar_window
-from focusos_api.calendar_free_time import CalendarPlanningError, _local_boundary, calculate_free_time
+from focusos_api.calendar_free_time import CalendarPlanningError, FreeTimeResult, _local_boundary, calculate_free_time
 from focusos_api.google_calendar import CalendarReconnectRequired
 from focusos_api.calendar_normalize import normalize_window, occurrence_interval
 from focusos_api.database import DatabaseUnavailable, scoped_client
 from focusos_api.profiles import read_profile
 from focusos_api.memory_search import MemorySearchInput, search_memories
+from focusos_api.agent_planner import PlanningModelError, propose_plan
+from focusos_api.planning_contract import PlanningValidationError, validate_planning_response
 from focusos_api.tasks import list_tasks
 
 MAX_CHECKPOINT_EVENTS = 80
@@ -38,12 +40,13 @@ class AgentRunState(BaseModel):
     result: dict | None = None
     safe_error: str | None = None
     expires_at: datetime
+    updated_at: datetime
 
 
 def load_command_run(access_token: str, run_id: UUID) -> AgentRunState:
     with scoped_client(access_token) as (user_id, client):
         rows = (client.table("command_runs")
-                .select("id,command,status,stage,version,model_turns,tool_calls_count,checkpoint,result,safe_error,expires_at")
+                .select("id,command,status,stage,version,model_turns,tool_calls_count,checkpoint,result,safe_error,expires_at,updated_at")
                 .eq("id", str(run_id)).eq("user_id", user_id).limit(1).execute().data)
     if not isinstance(rows, list) or len(rows) != 1:
         raise DatabaseUnavailable("Command run not found")
@@ -154,10 +157,41 @@ def _memory_step(access_token: str, run: AgentRunState) -> tuple[dict, int]:
     return {**run.checkpoint, "memory_search": result.model_dump(mode="json")}, 4
 
 
+def _planning_step(access_token: str, run: AgentRunState) -> AgentRunState:
+    # A CAS lease prevents simultaneous model calls; an expired lease can be retried.
+    now = datetime.now(timezone.utc)
+    if run.status == "running" and run.updated_at + timedelta(seconds=35) > now:
+        return run
+    if run.status not in ("waiting", "running"):
+        raise DatabaseUnavailable("Planning run unavailable")
+    if not _checkpoint(access_token, run.id, run.version, "running", "planning",
+                       run.checkpoint, None, run.model_turns, run.tool_calls_count):
+        return load_command_run(access_token, run.id)
+    leased = load_command_run(access_token, run.id)
+    try:
+        free = FreeTimeResult.model_validate(leased.checkpoint["free_time"])
+        tasks = leased.checkpoint["tasks"]
+        memories = leased.checkpoint.get("memory_search", {"mode": "none", "matches": []})
+        raw = propose_plan(leased.command, tasks, free, memories, leased.checkpoint["calendar"]["fetched_at"])
+        source_refs = {item["source_ref"] for item in memories.get("matches", []) if isinstance(item, dict) and isinstance(item.get("source_ref"), str)}
+        result = validate_planning_response(raw, tasks, free, source_refs)
+        status, error = ("succeeded" if result["status"] == "proposed" else "clarify"), None
+    except (PlanningModelError, PlanningValidationError, KeyError, ValueError) as exc:
+        result, status = None, "failed"
+        error = exc.code if isinstance(exc, PlanningModelError) else "invalid_plan"
+    if not _checkpoint(access_token, leased.id, leased.version, status, "done",
+                       leased.checkpoint, result, leased.model_turns + 1,
+                       leased.tool_calls_count, error):
+        raise DatabaseUnavailable("Planning checkpoint lost")
+    return load_command_run(access_token, leased.id)
+
+
 def continue_staged_run(access_token: str, run_id: UUID) -> AgentRunState:
     run = load_command_run(access_token, run_id)
-    if run.status in ("succeeded", "clarify", "failed") or run.stage == "planning":
+    if run.status in ("succeeded", "clarify", "failed"):
         return run
+    if run.stage == "planning":
+        return _planning_step(access_token, run)
     if run.status != "waiting" or run.expires_at <= datetime.now(timezone.utc):
         raise DatabaseUnavailable("Command run unavailable or expired")
     if run.tool_calls_count >= 8:

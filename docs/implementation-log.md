@@ -516,3 +516,7 @@ Keputusan rekomendasi: D6-B alur bertahap yang dibatasi backend; D11-A konteks p
 ### Increment 7.7 — kontrak rencana yang bisa diverifikasi
 
 Backend sekarang menerima PlanningResponse v1 yang ketat. Model hanya boleh menunjuk task-N dan slot-N dari snapshot milik server; backend menyelesaikan ID serta waktu blok sendiri, mengecek durasi total, tumpang tindih, tenggat, bukti, dan bentuk klarifikasi/shortfall. Ini mencegah teks model atau handle buatan berubah menjadi rencana yang tampak bisa dijalankan. Semua hasil tetap proposal (`actionable: false`); belum ada penulisan kalender. Tes unit mencakup rencana sah serta slot, total, deadline, overlap dan bukti palsu.
+
+### Increment 7.8 — tahap perencanaan berbasis konteks
+
+Tahap terakhir run menyusun konteks terbatas dari task, slot kalender yang dihitung server, dan maksimal lima memori. Adapter Responses memakai Structured Outputs, `store: false`, tanpa tool tulis. Teks task/memori diperlakukan sebagai data yang tidak dipercaya. Model hanya memilih handle; validator 7.7 menyelesaikan waktu dan ID asli. Hasil `proposed`, klarifikasi, atau waktu tidak cukup disimpan dalam checkpoint terminal. Tahap model memakai CAS lease untuk mencegah panggilan serentak; kegagalan model atau proposal palsu menjadi error aman tanpa blok usulan. Tes mock memeriksa payload, proposal, dan penolakan output palsu. Uji provider langsung menunggu API key runtime.

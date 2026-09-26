@@ -12,7 +12,8 @@ from focusos_api.main import app
 def state(stage="start", count=0):
     return AgentRunState(id=uuid4(), command="Find work time", status="waiting", stage=stage, version=2,
         model_turns=0, tool_calls_count=count, checkpoint={"duration_minutes": 60, "allow_split": False},
-        expires_at=datetime.now(timezone.utc)+timedelta(minutes=10))
+        expires_at=datetime.now(timezone.utc)+timedelta(minutes=10),
+        updated_at=datetime.now(timezone.utc))
 
 
 class ContinuationTests(unittest.TestCase):
@@ -42,9 +43,9 @@ class ContinuationTests(unittest.TestCase):
     def test_planning_stage_does_not_run_another_tool(self):
         run = state("planning", 3)
         with patch("focusos_api.agent_continuation.load_command_run", return_value=run), \
-             patch("focusos_api.agent_continuation._free_step") as free:
+             patch("focusos_api.agent_continuation._planning_step", return_value=run) as plan:
             self.assertEqual(continue_staged_run("session", run.id), run)
-        free.assert_not_called()
+        plan.assert_called_once()
 
     def test_anonymous_run_routes(self):
         client = TestClient(app)
