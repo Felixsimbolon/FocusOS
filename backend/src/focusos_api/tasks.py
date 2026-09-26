@@ -18,7 +18,7 @@ TaskStatus = Literal["open", "done", "archived"]
 
 _TASK_SELECT = (
     "id,title,description,status,priority,due_kind,due_date,due_at,due_timezone,"
-    "estimate_minutes,estimate_origin,version,created_at,updated_at"
+    "estimate_minutes,estimate_origin,project_id,version,created_at,updated_at"
 )
 
 
@@ -32,6 +32,7 @@ class TaskCreate(BaseModel):
     due_date: date | None = None
     due_at: datetime | None = None
     due_timezone: str | None = Field(default=None, min_length=1, max_length=64)
+    project_id: UUID | None = None
     estimate_minutes: int | None = Field(default=None, strict=True, ge=1, le=1440)
 
     @field_validator("title")
@@ -102,6 +103,7 @@ class TaskRecord(BaseModel):
     due_timezone: str | None
     estimate_minutes: int | None
     estimate_origin: Literal["explicit", "suggested", "unknown"] | None
+    project_id: UUID | None
     version: int = Field(ge=1)
     created_at: datetime
     updated_at: datetime
@@ -119,6 +121,41 @@ class TaskCreateEnvelope(BaseModel):
 
 class TaskRequestConflict(Exception):
     """An idempotency key was reused for a different task payload."""
+
+
+class TaskProjectNotFound(Exception):
+    """The requested project is not owned by the authenticated user."""
+
+
+class ProjectCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=100)
+
+    @field_validator("name")
+    @classmethod
+    def normalized_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Project name cannot be blank")
+        return value
+
+
+class ProjectRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    name: str
+    created_at: datetime
+
+
+class ProjectEnvelope(BaseModel):
+    project: ProjectRecord
+    existing: bool
+
+
+class ProjectListEnvelope(BaseModel):
+    projects: list[ProjectRecord]
 
 
 def _payload_hash(task: TaskCreate) -> str:
@@ -182,6 +219,7 @@ def create_task(
                     "p_due_at": task.due_at.isoformat() if task.due_at else None,
                     "p_due_timezone": task.due_timezone,
                     "p_estimate_minutes": task.estimate_minutes,
+                    "p_project_id": str(task.project_id) if task.project_id else None,
                 },
             )
             .execute()
@@ -191,6 +229,8 @@ def create_task(
     if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict):
         raise DatabaseUnavailable("Unexpected task create response")
     row = rows[0]
+    if row.get("project_available") is False:
+        raise TaskProjectNotFound()
     if row.get("stored_request_hash") != payload_hash:
         raise TaskRequestConflict()
     task_data = row.get("task")
@@ -199,4 +239,44 @@ def create_task(
     return TaskCreateEnvelope(
         task=TaskRecord.model_validate(task_data),
         replayed=row.get("replayed") is True,
+    )
+
+
+def list_projects(access_token: str) -> ProjectListEnvelope:
+    with scoped_client(access_token) as (user_id, supabase):
+        rows = (
+            supabase.table("projects")
+            .select("id,name,created_at")
+            .eq("user_id", user_id)
+            .order("name")
+            .order("id")
+            .limit(100)
+            .execute()
+            .data
+        )
+
+    if not isinstance(rows, list):
+        raise DatabaseUnavailable("Unexpected project list response")
+    return ProjectListEnvelope(
+        projects=[ProjectRecord.model_validate(row) for row in rows]
+    )
+
+
+def create_project(access_token: str, project: ProjectCreate) -> ProjectEnvelope:
+    with scoped_client(access_token) as (_, supabase):
+        rows = (
+            supabase.rpc("focusos_create_project", {"p_name": project.name})
+            .execute()
+            .data
+        )
+
+    if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict):
+        raise DatabaseUnavailable("Unexpected project create response")
+    row = rows[0]
+    project_data = row.get("project")
+    if not isinstance(project_data, dict) or not isinstance(row.get("existing"), bool):
+        raise DatabaseUnavailable("Unexpected project create response")
+    return ProjectEnvelope(
+        project=ProjectRecord.model_validate(project_data),
+        existing=row["existing"],
     )

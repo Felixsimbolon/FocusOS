@@ -44,6 +44,7 @@ begin
     null,
     null,
     null,
+    null,
     null
   ) as result;
 
@@ -56,6 +57,7 @@ begin
     null,
     'normal',
     'none',
+    null,
     null,
     null,
     null,
@@ -75,6 +77,7 @@ begin
     null,
     'normal',
     'none',
+    null,
     null,
     null,
     null,

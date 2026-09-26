@@ -39,9 +39,15 @@ from focusos_api.tasks import (
     TaskCreate,
     TaskCreateEnvelope,
     TaskListEnvelope,
+    ProjectCreate,
+    ProjectEnvelope,
+    ProjectListEnvelope,
+    TaskProjectNotFound,
     TaskRequestConflict,
     TaskStatus,
+    create_project,
     create_task,
+    list_projects,
     list_tasks,
 )
 
@@ -205,6 +211,8 @@ def tasks_post(
         return create_task(access_token, request_id, task)
     except InvalidSession as exc:
         raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except TaskProjectNotFound as exc:
+        raise HTTPException(status_code=404, detail="Project not found") from exc
     except TaskRequestConflict as exc:
         raise HTTPException(
             status_code=409,
@@ -212,3 +220,28 @@ def tasks_post(
         ) from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Task could not be saved") from exc
+
+
+@app.get("/projects", response_model=ProjectListEnvelope)
+def projects_get(
+    access_token: str = Depends(require_access_token),
+) -> ProjectListEnvelope:
+    try:
+        return list_projects(access_token)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Project list unavailable") from exc
+
+
+@app.post("/projects", response_model=ProjectEnvelope)
+def projects_post(
+    project: ProjectCreate,
+    access_token: str = Depends(require_access_token),
+) -> ProjectEnvelope:
+    try:
+        return create_project(access_token, project)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Project could not be saved") from exc

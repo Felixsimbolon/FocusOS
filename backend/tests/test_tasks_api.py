@@ -28,6 +28,7 @@ TASK_ROW = {
     "due_timezone": None,
     "estimate_minutes": None,
     "estimate_origin": None,
+    "project_id": None,
     "version": 1,
     "created_at": "2026-09-26T12:00:00+00:00",
     "updated_at": "2026-09-26T12:00:00+00:00",

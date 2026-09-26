@@ -260,3 +260,13 @@ After each future increment, append a dated section with the increment number, p
 **Verification:** Web tests pass (26 tests across 5 files), including anonymous denial, server-only token forwarding, input filtering, request-key handling, safe conflict mapping, and token-free responses. The production Next.js build passes and includes /api/tasks. The UI reloads the open-task list after saving and exposes a manual reload control.
 
 **Next:** Increment 3.5 adds relational projects and same-owner project association to tasks.
+
+## Increment 3.5 - Projects and owned task association
+
+**What changed:** Added owner-scoped relational projects with case-insensitive, per-user unique names; authenticated project list/create API; project selection and creation in the task board; and an optional task project reference. The database uses a composite user_id/project_id foreign key so a task cannot point to another user's project. The create RPC derives the owner from auth.uid() and returns a generic unavailable-project result that the API maps to 404.
+
+**Why:** D7 Option A keeps known relationships explicit and enforceable in SQL without a generic edge graph. The composite foreign key is a final database boundary, while the RPC check gives the caller a clean response without confirming whether a foreign project ID exists. Case-insensitive uniqueness prevents duplicate copies of the same project name for one owner.
+
+**Verification:** Applied migration 20260926220000_projects_task_association.sql. The rollback-only Supabase integration probe verified case/whitespace-insensitive project dedupe, task association to an owned project, zero project visibility and rejected association for a different Auth subject, then rolled back all probe data. The Phase 2/3 backend suite passes (80 tests); web tests pass (29 tests across 6 files); production build and TypeScript checks pass.
+
+**Next:** Increment 3.6 adds version-checked task edits/completion and a deterministic Today task list.

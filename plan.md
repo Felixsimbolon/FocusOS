@@ -1942,7 +1942,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 3.3 Add authenticated task create/list API with create replay handling.
 - [x] 3.4 Add minimal task form/list; create and reload persisted task.
 - [ ] Resolve D7 knowledge representation before 3.5.
-- [ ] 3.5 Add minimal projects/owned task association; reject cross-owner references.
+- [x] 3.5 Add minimal projects/owned task association; reject cross-owner references.
 - [ ] 3.6 Add versioned task edit/completion and Today task ordering.
 
 ### Phase 4 — Structured extraction
