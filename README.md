@@ -29,11 +29,22 @@ In a second terminal, start the web app:
 npm.cmd run dev:web
 ```
 
-The web app is at http://localhost:3000. The open API health endpoint is at http://127.0.0.1:8000/health. The login callback uses PKCE; application sessions contain Supabase session tokens only. Gmail and Calendar scopes are not requested yet. See Supabase's [Google sign-in guide](https://supabase.com/docs/guides/auth/social-login/auth-google) and [Next.js SSR setup](https://supabase.com/docs/guides/auth/server-side/creating-a-client?framework=nextjs&package-manager=npm&queryGroups=framework&queryGroups=package-manager) for provider setup details.
+The web app is at http://localhost:3000. The open API health endpoint is at http://127.0.0.1:8000/health. The login callback uses PKCE; application sessions contain Supabase session tokens only. The Supabase sign-in callback does not request Gmail or Calendar access; that consent is handled separately in Phase 2. See Supabase's [Google sign-in guide](https://supabase.com/docs/guides/auth/social-login/auth-google) and [Next.js SSR setup](https://supabase.com/docs/guides/auth/server-side/creating-a-client?framework=nextjs&package-manager=npm&queryGroups=framework&queryGroups=package-manager) for provider setup details.
+
+## Google OAuth consent setup (Phase 2)
+
+The separate Google integration consent flow returns to Next.js; it does not use Supabase's Auth callback. In Google Cloud, use the same OAuth Web application client if desired and add these exact Authorized redirect URIs:
+
+- http://localhost:3000/api/integrations/google/callback
+- https://focusos-web-five.vercel.app/api/integrations/google/callback
+
+Enable the Gmail API and Google Calendar API in that project and add the account you will test with to the OAuth audience's test users. The first consent requests openid/email/profile, Gmail read-only, and read-only events on calendars you own. It does not request Calendar write access yet. The current probe assumes the primary Calendar ID, so it does not request permission to list every calendar. Google classifies gmail.readonly as a restricted scope; this phase is a controlled test-user integration, not public verified onboarding.
+
+Set FOCUSOS_GOOGLE_CLIENT_ID and FOCUSOS_GOOGLE_STATE_SECRET in web/.env.local. The client ID is not a secret; the state secret must be a separately generated 32-byte Base64 key and stays server-side. Generate one with .\.venv\Scripts\python.exe -c "import base64,secrets; print(base64.b64encode(secrets.token_bytes(32)).decode())". Do not reuse the AES encryption key as the state-signing key. Keep the Google client secret in the FastAPI environment only.
 
 ## Server-only Google token configuration (Phase 2)
 
-Increment 2.2 adds server-side token protection and refresh primitives. OAuth consent and real token storage are still disabled until the later Phase 2 callback is configured. Never put these values in web/.env.local, any NEXT_PUBLIC_ variable, or Git.
+Increment 2.2 adds server-side token protection and refresh primitives. OAuth consent and real token storage are still disabled until the later Phase 2 callback is configured. Never put the Supabase service-role key, AES encryption keyring, or Google client secret in web/.env.local, any NEXT_PUBLIC_ variable, or Git. The Google client ID and a separate state-signing key are server-only web settings described below.
 
 For the FastAPI process only, prepare these variables when continuing to the Google connection setup:
 

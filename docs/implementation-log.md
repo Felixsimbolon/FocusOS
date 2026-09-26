@@ -6,7 +6,7 @@ This log records what was implemented and why, one increment at a time. The deta
 
 ## Current state
 
-The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.8. Google sign-in/sign-out, database identity, and profile save/read were verified against the linked Supabase project. The profile isolation check used a synthetic second identity in a rolled-back database transaction. Increments 1.1–1.8 are verified; Phase 1 is complete. The hosted web and API run on two Vercel Hobby projects. Phase 2 began after D4 was selected. Increments 2.1 and 2.2 are complete. D13 must be selected before increment 2.3.
+The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.8. Google sign-in/sign-out, database identity, and profile save/read were verified against the linked Supabase project. The profile isolation check used a synthetic second identity in a rolled-back database transaction. Increments 1.1–1.8 are verified; Phase 1 is complete. The hosted web and API run on two Vercel Hobby projects. Phase 2 began after D4 was selected. Increments 2.1 and 2.2 are complete. D13 Option A (incremental consent and owned primary Calendar) is selected; 2.3 code is implemented, with Google Cloud setup and live consent verification pending.
 
 ## Step 0 — Product and architecture plan
 
@@ -169,10 +169,22 @@ The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, 
 
 **Verification:** All 33 backend tests passed, including random-nonce encryption, AAD/tamper rejection, key rotation, expired-token refresh, preservation of the refresh token, invalid_grant handling, and two competing refresh calls producing only one provider request. The SQL migration was first compiled in a rolled-back linked transaction, then applied to Supabase. Live grant checks confirmed only service_role can execute token RPCs. A second rolled-back SQL probe verified lease exclusivity, successful versioned save, stale-save rejection, and reconnect_required transition. No real Google token or provider request was used.
 
-**Stop point:** Consent and token exchange are still not configured. A decision on D13 is pending before increment 2.3. The API-host service key, encryption keyring, and Google client secret must be set privately before live callback verification in 2.4.
+**Stop point:** Token exchange is not implemented yet. D13 was selected as Option A before increment 2.3. The API-host service key, encryption keyring, and Google client secret must be set privately before live callback verification in 2.4.
 
-**Next gated increment:** 2.3, implement the selected Google consent start flow after D13 is recorded.
+**Next gated increment:** 2.3, implement the selected Google consent start flow.
 
 ## How this log will be maintained
 
 After each future increment, append a dated section with the increment number, purpose, files changed, what was added and why, commands/tests and their results, manual verification, known limitations, and the next gated increment. Keep incomplete live checks explicitly marked as pending. Do not mark plan checklist items complete unless their stated acceptance checks actually passed.
+
+## Increment 2.3 - Session-bound Google consent start
+
+**What changed:** Added a Google consent settings page and authenticated OAuth start/callback routes. The initial grant requests Gmail read-only and read-only events from calendars the user owns, alongside OpenID identity scopes. Calendar write scope is reserved for the later upgrade. The callback uses the fixed app callback URL, PKCE S256, offline access, incremental grants, and a short-lived HttpOnly, callback-path cookie. Its AES-GCM-protected payload binds the random OAuth state and PKCE verifier to the signed-in FocusOS user. The callback validates that binding, strips the provider code from the redirect, clears the one-use cookie, and does not yet exchange or store tokens.
+
+**Why:** Keep this increment focused on validating consent, state, redirect, and scope boundaries before adding a live token exchange. Binding and encrypting state prevents cross-user callback reuse and disclosure of the PKCE verifier through the browser cookie. Incremental consent avoids asking for Calendar write access before scheduling exists; using the known primary Calendar avoids broad calendar-list permission.
+
+**Configuration:** Added `FOCUSOS_GOOGLE_CLIENT_ID` and a distinct 32-byte Base64 `FOCUSOS_GOOGLE_STATE_SECRET` to the web server environment. README documents exact local and hosted callback URLs, API enablement, test-user setup, and key generation. The Google client secret remains only in the FastAPI environment for the token exchange increment.
+
+**Verification:** Web tests pass (14 tests across 4 files). Production Next.js build passes and includes the connection page and both OAuth routes. `git diff --check` passes. Live consent remains pending: register the two callback URIs in Google Cloud, set the two web environment values, then verify the consent return from a signed-in test account. No authorization code or Google token is exchanged or persisted in this increment.
+
+**Next:** Increment 2.4, exchange the authorization code in FastAPI, validate Google identity/scopes, encrypt and persist tokens through the private credential RPC, and verify callback completion end to end.

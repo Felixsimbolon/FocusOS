@@ -1,6 +1,6 @@
 # FocusOS Implementation Plan
 
-Planning status: **D1-D4 are selected; Phase 1 increments 1.1 through 1.8 and Phase 2 increment 2.1 are verified.** Phase 1 is complete; Phase 2 continues at 2.2.
+Planning status: D1-D4 and D13 are selected; Phase 1 increments 1.1-1.8 and Phase 2 increments 2.1-2.2 are verified. Phase 1 is complete; Phase 2 continues at 2.3.
 
 ## 1. Product Goal
 
@@ -10,7 +10,7 @@ The principal Day-7 demonstration is: sync a selected Gmail message; extract and
 
 ## Architecture Decisions Requiring User Input
 
-D1, D2, D3, and D4 are selected; D5 through D13 remain open until their gates. The option descriptions appear at the point of use below. No option is ranked. Agree on choices before their gates; choices due later do not block independent earlier increments. Product scope limits and safety invariants are distinguished from these architectural choices.
+D1, D2, D3, D4, and D13 are selected; D5 through D12 remain open until their gates. The option descriptions appear at the point of use below. No option is ranked. Agree on choices before their gates; choices due later do not block independent earlier increments. Product scope limits and safety invariants are distinguished from these architectural choices.
 
 | ID | Decision | Decide before | Dependent work | Can proceed beforehand |
 |---|---|---|---|---|
@@ -26,7 +26,7 @@ D1, D2, D3, and D4 are selected; D5 through D13 remain open until their gates. T
 | D10 | Per-event approvals or approval of a fixed multi-event batch | 8.1 | Approval payload, partial execution, UI | Steps 1–7 |
 | D11 | Per-run context or persistent conversations | 7.1 | Message retention, follow-up commands, UI | Steps 1–6 |
 | D12 | Existing LLM API/provider, model and embedding capability | 4.3; embedding part by 7.5 | SDK, schema compatibility, eval, vector dimension | Through 4.2 |
-| D13 | Google consent timing and Calendar target/scope | 2.3 | Google grants, Calendar reads/writes and demo account | Through 2.2 |
+| D13 | SELECTED: Option A - incremental consent, owned Calendar events | 2.3 | Google grants, Calendar reads/writes and demo account | Through 2.2 |
 
 Record each selected option and any consequence in this document before implementing dependent work. Selecting Python, custom identity, relational edges, persistent chat, or batch approval changes the relevant increments; it does not authorize implementing multiple increments together.
 
@@ -66,7 +66,7 @@ MVP includes manual tasks, basic projects, Gmail text extraction, task/event can
 
 ### DECISION D1 — Backend runtime and repository shape
 
-**SELECTED: Option B — Next.js UI with Python API. Hosting is undecided and remains a later deployment choice.**
+**SELECTED: Option B - Next.js UI with Python API. Hosting is undecided and remains a later deployment choice.**
 
 **CONDITION**: Next.js can implement the whole web application; Python may better suit the desired AI engineering experience. A second runtime introduces deployment and contract work within a fixed week.
 
@@ -269,7 +269,7 @@ Deletion semantics: disconnect stops sync, revokes/deletes credentials, and expi
 
 ### DECISION D11 — Conversation persistence
 
-**SELECTED: Option B — Next.js UI with Python API. Hosting is undecided and remains a later deployment choice.**
+**NOT SELECTED - choose before the dependent increment listed in the decision table.**
 
 **CONDITION**: A run must survive an approval pause; that does not necessarily require permanent chat history.
 
@@ -336,7 +336,7 @@ Provider Gmail draft creation is an external write and would require approval pl
 
 ### DECISION D12 — Model and embedding contract
 
-**SELECTED: Option B — Next.js UI with Python API. Hosting is undecided and remains a later deployment choice.**
+**NOT SELECTED - choose before the dependent increment listed in the decision table.**
 
 **CONDITION**: Existing LLM access is unspecified. Native schema support, tool calling, data-use terms, latency, and embedding availability cannot be assumed.
 
@@ -428,7 +428,7 @@ Introduce one schema family when its feature appears. Do not create all contract
 
 ### DECISION D13 — Consent timing and Calendar scope
 
-**SELECTED: Option B — Next.js UI with Python API. Hosting is undecided and remains a later deployment choice.**
+**SELECTED: Option A - incremental consent, using an owned Calendar.** Initial consent requests Gmail read and read-only events on calendars the user owns. Calendar write permission is requested in a later consent upgrade when scheduling is enabled.
 
 **CONDITION**: Gmail is needed for extraction, while Calendar writes arrive later. OAuth permission can be broader than the application's tool policy, and consent timing affects the early risk test.
 
@@ -440,7 +440,7 @@ Introduce one schema family when its feature appears. Do not create all contract
 
 **CONS**: A second consent interaction; scope upgrade must be tested early rather than left until Day 6.
 
-**IMPLICATIONS**: 2.6 verifies the scope-upgrade path without creating an event. 8.6 still requires approval for writes. Read/list scopes must match whether selecting calendars or using a known primary calendar ID.
+**IMPLICATIONS**: Initial consent uses gmail.readonly and calendar.events.owned.readonly with the known primary calendar ID; it does not request calendar-list access. A later consent upgrade requests calendar.events.owned. 2.6 verifies that write-capable grant without creating an event. The application still requires approval for each event write in 8.6.
 
 **OPTION B — Combined consent for Gmail read and owned Calendar events**
 
@@ -584,7 +584,7 @@ Search: apply owner and project constraints in the database, discard superseded/
 
 ### DECISION D10 — Approval unit
 
-**SELECTED: Option B — Next.js UI with Python API. Hosting is undecided and remains a later deployment choice.**
+**NOT SELECTED - choose before the dependent increment listed in the decision table.**
 
 **CONDITION**: A three-hour plan may contain several events. Approval granularity affects review effort and partial failures.
 
@@ -1926,10 +1926,11 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 
 ### Phase 2 — Google risk retirement
 
-- [x] Resolve D4 credential protection: Option A, FastAPI encryption key stored outside PostgreSQL; decide D13 before 2.3.
+- [x] Resolve D4 credential protection: Option A, FastAPI encryption key stored outside PostgreSQL.
+- [x] Resolve D13 consent timing and Calendar scope: Option A, incremental consent on the user's owned primary Calendar.
 - [x] 2.1 Add connection metadata and private credential storage with denied browser access.
 - [x] 2.2 Implement/test protection, refresh, token preservation, concurrency and reconnect state.
-- [ ] 2.3 Configure test-user consent and APIs; implement session-bound consent start.
+- [ ] 2.3 Configure Google test-user consent and APIs; implement session-bound consent start. Code is implemented; Google Cloud redirect configuration and live consent verification remain pending.
 - [ ] 2.4 Validate callback/state; store encrypted tokens; display granted connection capabilities.
 - [ ] 2.5 Read one real selected synthetic Gmail message through the backend.
 - [ ] 2.6 Read one Calendar page; verify the final write-grant consent path without a write.
