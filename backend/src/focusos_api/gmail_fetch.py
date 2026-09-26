@@ -55,7 +55,7 @@ def fetch_selected_status(access_token: str, request: SelectedFetchInput) -> Sel
     return SelectedFetchEnvelope(messages=[SelectedFetchStatus(id=m.id, status=m.status) for m in messages])
 
 
-def fetch_selected_with_bearer(client: httpx.Client, bearer: str, label_id: str, ids: list[str]) -> list[RawSelectedMessage]:
+def fetch_selected_with_bearer(client: httpx.Client, bearer: str, label_id: str, ids: list[str], *, allow_unselected: bool = False) -> list[RawSelectedMessage]:
     results: list[RawSelectedMessage] = []
     for message_id in ids:
         url = GMAIL_ROOT + "/messages/" + quote(message_id, safe="")
@@ -63,10 +63,18 @@ def fetch_selected_with_bearer(client: httpx.Client, bearer: str, label_id: str,
             metadata = provider_json(client, url, bearer,
                 [("format", "metadata"), ("metadataHeaders", "Subject"),
                  ("metadataHeaders", "From"), ("metadataHeaders", "Date")], max_bytes=65536)
+            if allow_unselected and isinstance(metadata.get("labelIds"), list) and label_id not in metadata["labelIds"]:
+                results.append(RawSelectedMessage(message_id, "unavailable", None, label_id))
+                continue
             parse_metadata(metadata, message_id, label_id)
             full = provider_json(client, url, bearer, {"format": "full"},
                                  max_bytes=MAX_MESSAGE_BYTES)
-            if full.get("id") != message_id or not isinstance(full.get("labelIds"), list) or label_id not in full["labelIds"]:
+            if full.get("id") != message_id or not isinstance(full.get("labelIds"), list):
+                raise GmailSelectionError("Selected message changed")
+            if label_id not in full["labelIds"]:
+                if allow_unselected:
+                    results.append(RawSelectedMessage(message_id, "unavailable", None, label_id))
+                    continue
                 raise GmailSelectionError("Selected message changed")
             results.append(RawSelectedMessage(message_id, "available", full, label_id))
         except GmailMessageGone:

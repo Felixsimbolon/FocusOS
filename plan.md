@@ -1963,7 +1963,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 5.3 Normalize MIME/text safely with thread/date/truncation/attachment metadata.
 - [x] 5.4 Upsert Gmail sources by provider identity; test concurrent dedupe.
 - [x] 5.5 Process one pending Gmail source through existing extraction/review.
-- [ ] 5.6 Add durable initial/history cursor, atomic lease/checkpoints and rescan/retry recovery.
+- [x] 5.6 Add durable initial/history cursor, atomic lease/checkpoints and rescan/retry recovery.
 - [ ] Resolve D9 sync triggers before 5.7.
 - [ ] 5.7 Add Sync Now/status/resume UI; secure optional daily trigger if selected.
 

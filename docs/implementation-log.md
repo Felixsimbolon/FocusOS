@@ -396,3 +396,11 @@ Keputusan D9: opsi A, sinkronisasi manual satu halaman per request. Tidak ada cr
 **Mengapa:** Crash sebelum checkpoint membuat halaman diulang dengan upsert idempoten; crash setelah checkpoint tidak menghilangkan pesan yang sudah disimpan. Lease mencegah dua tab memajukan cursor bersamaan. Anchor sebelum scan menangkap perubahan yang terjadi di tengah scan saat history diproses berikutnya.
 
 **Verifikasi:** Migration 20260927080000_gmail_sync_state.sql diterapkan. Probe rollback-only membuktikan klaim kedua menjadi busy, checkpoint awal beralih ke history, staging/pengosongan pending menggeser history ID, dan pengguna lain tidak melihat state. Tes service memastikan checkpoint setelah upsert.
+
+### Increment 5.6b - History, retry, dan rescan
+
+**Yang dibuat:** Setelah scan awal, service membaca `history.list` untuk label terpilih. ID dari messageAdded/labelsAdded dideduplikasi dan distage maksimal 30 sebelum fetch; request berikutnya menyimpan maksimal dua sumber, lalu database memotong daftar pending. Cursor history hanya maju setelah daftar pending habis. History 404 memulai scan awal terbatas baru; 429/5xx menjadwalkan retry, tanpa memajukan cursor. Status partial ditampilkan apa adanya.
+
+**Mengapa:** Satu halaman history dapat menyebut lebih banyak ID daripada aman diproses dalam satu fungsi. Staging membuat progress durable, sedangkan replay aman karena upsert sumber idempoten. Reset 404 mengikuti kontrak Gmail ketika history ID kedaluwarsa.
+
+**Verifikasi:** Fixture menguji dedup messageAdded/labelsAdded, staging sebelum pengambilan body, 404 rescan, retry 429, dan checkpoint setelah upsert. Probe SQL 5.6a menegaskan lease, pending, serta RLS. Uji Gmail nyata masih menunggu konfigurasi provider.

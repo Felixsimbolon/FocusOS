@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 from focusos_api.database import DatabaseUnavailable, scoped_client
 from focusos_api.gmail_fetch import fetch_selected_with_bearer
 from focusos_api.gmail_normalize import GmailNormalizationError
-from focusos_api.gmail_selection import (GMAIL_ROOT, ID_PATTERN, GmailSelectionError,
+from focusos_api.gmail_selection import (GMAIL_ROOT, ID_PATTERN, GmailMessageGone, GmailSelectionError,
     GmailSelectionReconnect, GmailSelectionUnavailable, google_bearer,
     provider_json, selected_label_id)
 from focusos_api.gmail_sources import upsert_gmail_source
@@ -109,7 +109,7 @@ def run_one_sync_page(access_token: str, *, http_client: httpx.Client | None = N
             if claim.get("mode") != "initial":
                 raise GmailSelectionError("Invalid Gmail sync mode")
             ids, next_token = _initial_page(client, bearer, label_id, claim.get("initial_page_token"))
-            results = fetch_selected_with_bearer(client, bearer, label_id, ids)
+            results = fetch_selected_with_bearer(client, bearer, label_id, ids, allow_unselected=True)
             imported = unavailable = 0
             for item in results:
                 if item.status == "unavailable":
@@ -132,7 +132,85 @@ def run_one_sync_page(access_token: str, *, http_client: httpx.Client | None = N
             client.close()
 
 
+def _history_ids(data: dict, label_id: str) -> tuple[list[str], str | None, str]:
+    rows = data.get("history", [])
+    if not isinstance(rows, list) or len(rows) > 5:
+        raise GmailSelectionError("Invalid Gmail history page")
+    ids: list[str] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            raise GmailSelectionError("Invalid Gmail history entry")
+        for key in ("messagesAdded", "labelsAdded"):
+            changes = row.get(key, [])
+            if not isinstance(changes, list):
+                raise GmailSelectionError("Invalid Gmail history changes")
+            for change in changes:
+                if not isinstance(change, dict):
+                    raise GmailSelectionError("Invalid Gmail history change")
+                if key == "labelsAdded":
+                    added_labels = change.get("labelIds")
+                    if not isinstance(added_labels, list):
+                        raise GmailSelectionError("Invalid Gmail history labels")
+                    if label_id not in added_labels:
+                        continue
+                message = change.get("message")
+                message_id = message.get("id") if isinstance(message, dict) else None
+                if not isinstance(message_id, str) or not ID_PATTERN.fullmatch(message_id):
+                    raise GmailSelectionError("Invalid Gmail history message ID")
+                if message_id not in ids:
+                    ids.append(message_id)
+                if len(ids) > 30:
+                    raise GmailSelectionError("Gmail history page exceeds staging limit")
+    next_token = data.get("nextPageToken")
+    if next_token is not None and (not isinstance(next_token, str) or
+        len(next_token) > 1024 or not re.fullmatch(r"[A-Za-z0-9_=-]+", next_token)):
+        raise GmailSelectionError("Invalid Gmail history page token")
+    history_id = data.get("historyId")
+    if not isinstance(history_id, str) or not history_id.isdigit() or len(history_id) > 30:
+        raise GmailSelectionError("Invalid Gmail history ID")
+    return ids, next_token, history_id
+
+
 def _run_history_page(access_token: str, connection_id: UUID, client: httpx.Client,
                       bearer: str, label_id: str, claim: dict) -> GmailSyncStep:
-    # Implemented in 5.6b; initial checkpoint is already durable.
-    raise GmailSelectionError("History synchronization is not ready")
+    lease = claim["lease_token"]
+    pending = claim.get("pending_ids") or []
+    if not isinstance(pending, list):
+        raise GmailSelectionError("Invalid staged Gmail IDs")
+    if pending:
+        batch = pending[:2]
+        if any(not isinstance(item, str) or not ID_PATTERN.fullmatch(item) for item in batch):
+            raise GmailSelectionError("Invalid staged Gmail ID")
+        results = fetch_selected_with_bearer(client, bearer, label_id, batch,
+                                             allow_unselected=True)
+        imported = unavailable = 0
+        for item in results:
+            if item.status == "unavailable":
+                unavailable += 1
+            else:
+                upsert_gmail_source(access_token, connection_id, item)
+                imported += 1
+        _finish(access_token, connection_id, lease, "pending_advanced",
+                processed_count=len(batch))
+        return GmailSyncStep(state="partial", mode="history",
+                             imported=imported, unavailable=unavailable)
+    history_id = claim.get("history_id")
+    if not isinstance(history_id, str) or not history_id.isdigit():
+        raise GmailSelectionError("History cursor missing")
+    params = {"startHistoryId": history_id, "labelId": label_id, "maxResults": 5}
+    if claim.get("history_page_token"):
+        params["pageToken"] = claim["history_page_token"]
+    try:
+        data = provider_json(client, GMAIL_ROOT + "/history", bearer, params)
+    except GmailMessageGone:
+        _finish(access_token, connection_id, lease, "rescan",
+                history_id=_history_anchor(client, bearer))
+        return GmailSyncStep(state="rescan_required", mode="initial")
+    ids, next_token, new_history_id = _history_ids(data, label_id)
+    if ids:
+        _finish(access_token, connection_id, lease, "history_staged",
+                page_token=next_token, history_id=new_history_id, pending_ids=ids)
+        return GmailSyncStep(state="partial", mode="history")
+    _finish(access_token, connection_id, lease, "history_page",
+            page_token=next_token, history_id=new_history_id)
+    return GmailSyncStep(state="partial" if next_token else "complete", mode="history")
