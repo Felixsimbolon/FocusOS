@@ -35,6 +35,7 @@ from focusos_api.profiles import (
     read_profile,
     save_profile,
 )
+from focusos_api.extractions import (ExtractionEnvelopeResponse, ExtractionNotFound, ExtractionSourceExpired, ExtractionRateLimited, process_extraction, read_extraction)
 from focusos_api.sources import (ManualSourceInput, SourceConflict, SourceEnvelope, SourceListEnvelope, create_manual_source, list_sources, get_source)
 from focusos_api.tasks import (
     TaskCreate,
@@ -330,3 +331,34 @@ def source_get(source_id: UUID, access_token: str = Depends(require_access_token
         raise HTTPException(status_code=401, detail="Invalid session") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Source unavailable") from exc
+
+
+@app.post("/sources/{source_id}/extract", response_model=ExtractionEnvelopeResponse)
+def source_extract_post(source_id: UUID, access_token: str = Depends(require_access_token)) -> ExtractionEnvelopeResponse:
+    try:
+        return process_extraction(access_token, source_id)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except ExtractionNotFound as exc:
+        raise HTTPException(status_code=404, detail="Source not found") from exc
+    except ExtractionSourceExpired as exc:
+        raise HTTPException(status_code=410, detail="Source text is unavailable") from exc
+    except ExtractionRateLimited as exc:
+        raise HTTPException(status_code=429, detail="Extraction limit reached") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Extraction unavailable") from exc
+
+
+@app.get("/sources/{source_id}/extraction", response_model=ExtractionEnvelopeResponse)
+def source_extraction_get(source_id: UUID, access_token: str = Depends(require_access_token)) -> ExtractionEnvelopeResponse:
+    try:
+        result = read_extraction(access_token, source_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Extraction not found")
+        return ExtractionEnvelopeResponse(extraction=result, replayed=True)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except ExtractionNotFound as exc:
+        raise HTTPException(status_code=404, detail="Source not found") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Extraction unavailable") from exc

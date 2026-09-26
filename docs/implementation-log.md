@@ -318,3 +318,11 @@ Keputusan D12 untuk generasi: opsi A, OpenAI Responses API dengan Structured Out
 **Mengapa:** Kita perlu melihat kegagalan dan biaya penggunaan tanpa menyimpan prompt mentah, isi sumber, access token, atau API key di log. Relasi sumber-pemilik dan RLS mencegah pembacaan run pengguna lain.
 
 **Verifikasi:** Migration 20260927020000_agent_runs.sql diterapkan. Tes kegagalan memastikan status serta kode timeout dicatat tanpa teks sumber atau token.
+
+### Increment 4.5 - Hasil review yang tahan retry
+
+**Yang dibuat:** `extraction_results` unik untuk kombinasi sumber, hash isi, versi skema/prompt/model. RPC klaim memakai lock per pengguna, lease 90 detik, dan batas lima run dalam sepuluh menit; hasil siap dikembalikan ulang tanpa panggilan model baru. Endpoint POST /sources/{id}/extract melakukan klaim, run, lalu menyimpan payload tervalidasi atau kode kegagalan aman; GET /sources/{id}/extraction membaca statusnya.
+
+**Mengapa:** Request dapat terputus saat model bekerja. Status `processing` mencegah panggilan paralel yang sama, sementara lease memungkinkan pemulihan setelah fungsi server berhenti. Hasil kandidat baru bersifat review; belum menjadi tugas.
+
+**Verifikasi:** Migration 20260927030000_extraction_results.sql diterapkan. Tes route menolak pengunjung anonim dan membuktikan hasil `ready` dipakai ulang tanpa provider call. Suite API lulus.
