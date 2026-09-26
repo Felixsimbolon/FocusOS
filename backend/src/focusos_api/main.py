@@ -16,6 +16,7 @@ from focusos_api.google_calendar import (
     CalendarReconnectRequired,
     read_primary_calendar_page,
 )
+from focusos_api.gmail_selection import (GmailSelectedPage, GmailSelectionError, GmailSelectionMissing, GmailSelectionReconnect, GmailSelectionUnavailable, list_selected_metadata)
 from focusos_api.google_gmail import (
     GmailProbeError,
     GmailProbeUnavailable,
@@ -401,3 +402,24 @@ def extraction_ignore_post(
         raise HTTPException(status_code=404, detail="Candidate not found") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Review unavailable") from exc
+
+
+@app.get("/connections/google/gmail/selected", response_model=GmailSelectedPage)
+def gmail_selected_get(
+    page_token: str | None = Query(default=None, max_length=1024),
+    access_token: str = Depends(require_access_token),
+) -> GmailSelectedPage:
+    try:
+        return list_selected_metadata(access_token, page_token)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except GmailSelectionReconnect as exc:
+        raise HTTPException(status_code=409, detail="Reconnect Google with Gmail read access") from exc
+    except GmailSelectionMissing as exc:
+        raise HTTPException(status_code=404, detail="Create a Gmail label named FocusOS") from exc
+    except GmailSelectionUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Gmail temporarily unavailable") from exc
+    except GmailSelectionError as exc:
+        raise HTTPException(status_code=502, detail="Gmail selection unavailable") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Gmail selection unavailable") from exc

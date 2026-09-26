@@ -344,3 +344,15 @@ Keputusan D12 untuk generasi: opsi A, OpenAI Responses API dengan Structured Out
 **Verifikasi:** Migration 20260927050000_extraction_ignore.sql diterapkan. 38 tes web dan 113 tes API lulus; production build Next.js lulus. Probe Supabase rollback-only berhasil melewati source -> claim -> run -> result -> confirm -> replay, membuktikan tugas open tanpa tenggat eligible di Today dan RLS menyembunyikan source/task dari subjek lain. Uji browser end-to-end dan satu panggilan model nyata tetap menunggu key OpenAI dan sesi pengguna.
 
 **Deployment:** On 2026-09-27, API deployment dpl_EsfyXwA2qYj8yP4TVeEx4JnPYH2g and web deployment dpl_EKfqC3R6iPMJ2HFfJCh64zWrwgnR reached READY on their stable aliases. Smoke checks: API health 200, review page 200, anonymous source/read/confirm 401. Vercel API environment names currently contain Supabase URL/publishable key but no OpenAI key. The live model and authenticated browser journey remain outstanding; details are in `docs/deployment.md`.
+
+## Phase 5: sinkronisasi Gmail terbatas
+
+Keputusan D9: opsi A, sinkronisasi manual satu halaman per request. Tidak ada cron atau pekerjaan yang diam-diam terus berjalan ketika halaman ditutup. Email dipilih hanya jika memiliki label Gmail milik pengguna bernama `FocusOS`; pengguna membuat label itu sendiri karena aplikasi hanya meminta izin baca. Google OAuth harus mempunyai scope `gmail.readonly` dan backend harus memiliki rahasia OAuth serta kunci enkripsi token. Handoff ekstraksi model tetap membutuhkan API key.
+
+### Increment 5.1 - Daftar ID dan metadata terpilih
+
+**Yang dibuat:** Klien Gmail memeriksa grant, mengambil ID label `FocusOS`, lalu memanggil `messages.list` maksimal sepuluh ID dan `messages.get(format=metadata)` hanya untuk ID tersebut. API mengembalikan subject, sender, timestamp, thread/history ID, label, dan token halaman; isi pesan/snippet/token Google tidak keluar.
+
+**Mengapa:** Label eksplisit membatasi pilihan sebelum teks pribadi diambil atau dikirim ke model. ID label, bukan pencarian seluruh inbox atau status unread, menjadi batas pemilihan yang konsisten.
+
+**Verifikasi:** Tes provider membuktikan filter label, batas sepuluh, permintaan metadata saja, pagination, label hilang, serta penolakan anonim. Uji Gmail langsung menunggu koneksi/secret production.
