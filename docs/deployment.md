@@ -50,7 +50,7 @@ To verify the signed-in lifecycle, open the web URL, sign in with Google, create
 Phase 4 API and web deployments reached READY on the existing aliases:
 
 - API: https://focusos-api.vercel.app (deployment dpl_EsfyXwA2qYj8yP4TVeEx4JnPYH2g)
-- Web: https://focusos-web-five.vercel.app (deployment dpl_D4oT778d6NFPC2U7RsBEVw2gnBsb)
+- Web: https://focusos-web-five.vercel.app (deployment dpl_EKfqC3R6iPMJ2HFfJCh64zWrwgnR)
 
 Applied Supabase migrations 20260927010000 through 20260927050000. Production checks returned API `/health` 200 and web `/activity` 200. Anonymous `/api/sources`, source extraction reads, and POST confirmation returned 401.
 
