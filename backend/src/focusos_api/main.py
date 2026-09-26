@@ -7,6 +7,7 @@ from focusos_api.agent_continuation import (AgentRunInput, AgentRunState, contin
 from focusos_api.agent_model import AgentModelError
 from focusos_api.agent_tools import ToolValidationError
 from focusos_api.agent_tasks import CommandInput, CommandResult, run_tasks_command
+from focusos_api.memories import (MemoryEvidenceInvalid, MemoryInput, MemoryRecord, MemoryList, confirm_memory, list_memories, supersede_memory)
 from focusos_api.confirmation import (ConfirmInput, ConfirmNotFound, ConfirmStale, ConfirmConflict, ConfirmProjectNotFound, confirm_candidate)
 from focusos_api.connections import GoogleConnectionEnvelope, read_google_connection
 from focusos_api.database import (
@@ -86,6 +87,40 @@ def require_access_token(
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(status_code=401, detail="Authentication required")
     return credentials.credentials
+
+
+@app.post("/memories", response_model=MemoryRecord)
+def memory_confirm_post(request: MemoryInput,
+                        access_token: str = Depends(require_access_token)) -> MemoryRecord:
+    try:
+        return confirm_memory(access_token, request)
+    except MemoryEvidenceInvalid as exc:
+        raise HTTPException(status_code=422, detail="Exact source quote required") from exc
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Memory confirmation unavailable") from exc
+
+
+@app.get("/memories", response_model=MemoryList)
+def memories_get(access_token: str = Depends(require_access_token)) -> MemoryList:
+    try:
+        return list_memories(access_token)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Memories unavailable") from exc
+
+
+@app.post("/memories/{memory_id}/supersede")
+def memory_supersede_post(memory_id: UUID,
+                          access_token: str = Depends(require_access_token)) -> dict:
+    try:
+        return {"superseded": supersede_memory(access_token, memory_id)}
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Memory update unavailable") from exc
 
 
 @app.post("/agent/runs", response_model=AgentRunState)

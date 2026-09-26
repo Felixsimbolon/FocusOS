@@ -1981,7 +1981,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 7.1 Add typed registry/request boundary and owned tool execution ledger.
 - [x] 7.2 Complete one tasks.list model-tool-result round trip. (Live model test pending API key.)
 - [x] 7.3 Add existing Calendar read/slot tool bindings and bounded persisted continuation. (Live Calendar pending OAuth secrets.)
-- [ ] 7.4 Persist small confirmed source-backed memories.
+- [x] 7.4 Persist small confirmed source-backed memories.
 - [ ] Resolve D8 timing and D12 embedding capability/model/dimension before 7.5.
 - [ ] 7.5 Embed selected memories with status/hash/version tracking.
 - [ ] 7.6 Expose owned filtered semantic/SQL memory retrieval and its tool.

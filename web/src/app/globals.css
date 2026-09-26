@@ -322,3 +322,6 @@ main.activity-page { width: min(100%, 64rem); margin-inline: auto; place-content
 .availability-form .availability-check { display: flex; align-items: center; }
 .availability-form button { padding: .65rem .9rem; cursor: pointer; }
 .calendar-availability li { margin-block: .4rem; }
+.memory-review { border-top: 1px solid #d8dee6; padding-top: 1rem; }
+.memory-review li { margin-block: .75rem; }
+.memory-review blockquote { margin: .35rem 0; border-left: .2rem solid #3264a1; padding-left: .7rem; }

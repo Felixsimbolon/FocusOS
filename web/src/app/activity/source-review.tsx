@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { MemoryReview } from "./memory-review";
 
 type Source = {
   id: string; title: string; source_ref: string; normalized_body: string | null;
@@ -244,6 +245,7 @@ export function SourceReview() {
       <p>Received {new Date(selected.received_at).toLocaleString()} · Text expires {new Date(selected.body_expires_at).toLocaleDateString()}</p>
       {selected.normalized_body ? <pre className="source-text">{selected.normalized_body}</pre> :
         <p>Source text has expired. Existing task provenance remains available.</p>}
+      {selected.normalized_body && <MemoryReview sourceId={selected.id} body={selected.normalized_body} projects={projects} />}
       <button type="button" onClick={() => void extract()} disabled={busy || !selected.normalized_body || extraction?.status === "processing"}>
         {extraction?.status === "ready" ? "Use saved extraction" : "Extract candidates"}
       </button>

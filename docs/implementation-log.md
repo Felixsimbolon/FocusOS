@@ -488,3 +488,11 @@ Keputusan rekomendasi: D6-B alur bertahap yang dibatasi backend; D11-A konteks p
 **Mengapa:** Vercel tidak menjamin worker berlanjut setelah respons selesai. Checkpoint per langkah membuat tab yang ditutup dapat dilanjutkan secara eksplisit dan mencegah percobaan ulang memulai budget dari nol. Data kalender yang disimpan hanya interval untuk rencana, bukan isi event.
 
 **Verifikasi:** Tes stage/counter, penolakan anonim, kegagalan Calendar tanpa slot palsu, dan terminal planning tanpa tool tambahan. Uji Calendar nyata menunggu secret OAuth.
+
+### Increment 7.4 - Memori yang dikonfirmasi
+
+**Yang dibuat:** Tabel memori punya referensi source/project milik pengguna, source hash, teks fakta, kutipan persis, status active/superseded, dan request key idempoten. RPC SQL memeriksa sumber masih aktif, isi belum kedaluwarsa, quote substring persis, serta project satu pemilik. Activity menyediakan form konfirmasi, daftar memori dari sumber itu, dan tombol tandai usang. Backend serta proxy web tetap mengulang validasi/otorisasi.
+
+**Mengapa:** Hanya sumber yang dipilih dan fakta yang dinilai benar oleh manusia masuk konteks jangka panjang. Fakta usang tidak perlu dihapus diam-diam; status superseded menjaga riwayat keputusan. Konfirmasi selamat meski embedding nanti gagal.
+
+**Verifikasi:** Migration 20260927110000 diterapkan. Probe SQL rollback-only menolak kutipan palsu dan memperlihatkan nol memori saat berperan sebagai pengguna lain. Tes API/proxy dan build web lulus.
