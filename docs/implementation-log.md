@@ -434,3 +434,11 @@ Tidak perlu akun baru. Phase ini memakai project OAuth/Calendar yang sama dan iz
 **Mengapa:** Satu halaman tidak membuktikan kalender kosong pada halaman berikutnya. Batas ketat menjaga runtime serverless dan mencegah hasil parsial diperlakukan sebagai waktu bebas.
 
 **Verifikasi:** Tes dua halaman, parameter sama, halaman kedua gagal, cursor berulang, jendela terlalu panjang, dan route anonim ditolak.
+
+### Increment 6.3 - Normalisasi waktu Calendar
+
+**Yang dibuat:** Fungsi murni mengubah kejadian timed menjadi interval UTC dan all-day menjadi tengah malam di zona Calendar sampai tanggal akhir eksklusif. Kejadian recurring yang sudah diekspansi tetap menyimpan ID seri/original start. Kejadian cancelled, transparent, dan undangan diri yang declined tidak menjadi busy. Offset yang bertentangan dengan zona serta waktu lokal ambigu/tidak ada pada transisi DST ditolak.
+
+**Mengapa:** Hari all-day tidak selalu 24 jam saat DST. Menggunakan tanggal dan zona aslinya menjaga batas interval; penolakan waktu ambigu lebih aman daripada mengarang satu jam yang mungkin salah.
+
+**Verifikasi:** Fixture all-day, timed, cross-midnight, recurrence exception, filter nonbusy, perubahan DST, offset salah, dan bentuk campuran lulus.
