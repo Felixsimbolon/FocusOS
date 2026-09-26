@@ -1,12 +1,12 @@
 # FocusOS Implementation Log
 
-Last updated: 2026-09-25
+Last updated: 2026-09-26
 
 This log records what was implemented and why, one increment at a time. The detailed product scope, acceptance criteria, architecture tradeoffs, and future increments remain in [plan.md](../plan.md).
 
 ## Current state
 
-The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.5. The live Google login check for 1.4 and the live migration/database identity check for 1.5 remain pending project credentials and provider setup. Increment 1.6 is next after those checks pass.
+The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, Option B). Supabase Auth with Google sign-in is the selected application identity path (D2, Option A). Supabase client access with versioned SQL migrations is selected for persistence (D3, Option A). Code is in place through Increment 1.5. Increment 1.4 now has a completed live Google sign-in and sign-out check. Increment 1.5 has a linked project and matching migration history; its live identity check is recorded in the next update. Increment 1.6 follows after that check.
 
 ## Step 0 — Product and architecture plan
 
@@ -67,7 +67,7 @@ The chosen application shape is a Next.js web UI with a Python/FastAPI API (D1, 
 
 **Verification:** `npm.cmd run test:web` passed with 2 test files and 5 tests, including verified identity projection, invalid sessions, and fail-closed behavior on verification errors. `npm.cmd run build:web` passed, including TypeScript and production compilation. `git diff --check` passed.
 
-**Manual verification still needed:** Create/configure a Supabase project and Google provider, set the values from `.env.example` in `web/.env.local`, add `http://localhost:3000/auth/callback` to Supabase's allowed redirects, run `npm.cmd run dev:web`, then complete Google sign-in and sign-out. No live OAuth credentials were available during implementation, so the login round trip has not been claimed as tested.
+**Live verification (2026-09-26):** The user completed Google sign-in through the real Supabase project; the application callback returned to the signed-in home page. The initial Google `org_internal` rejection was resolved by changing the Google OAuth audience to External. The user then signed out. Server logs showed the authenticated database-check route succeeding before sign-out and returning 401 after sign-out, confirming session removal. The existing focused tests cover invalid identity and rejected redirect handling. No Gmail or Calendar grants were requested.
 
 **Current boundary:** FastAPI still exposes only its initial health route; protected API identity propagation is later work. Gmail and Calendar scopes, Google token storage, and database access are also not implemented here.
 

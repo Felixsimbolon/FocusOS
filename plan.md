@@ -1918,7 +1918,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 1.1 Initialize only minimal selected runtime(s); root page and build work.
 - [x] 1.2 Validate environment boundaries; ignore private files; no secret output.
 - [x] 1.3 Add focused verification harness; environment test passes.
-- [ ] 1.4 Complete selected login/callback/logout; verify session server-side.
+- [x] 1.4 Complete selected login/callback/logout; verify session server-side.
 - [ ] 1.5 Prove restricted database connectivity and identity propagation.
 - [ ] 1.6 Add profiles only; persist timezone/hours; pass two-user isolation test.
 - [ ] 1.7 Add protected `/api/me`; reject anonymous access; return no secrets.
