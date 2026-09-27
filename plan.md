@@ -2006,7 +2006,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 9.2 Add opt-in real extraction runner through the app service and redacted observations. (Live run pending API key.)
 - [x] 9.3 Add exact-field scorer, recorded semantic judgments, and baseline report. (Live metrics pending API key.)
 - [x] 9.4 Pass provider-mocked agent/approval/injection/isolation/recovery regression gates.
-- [ ] 9.5 Verify disconnect/reconnect, retention and imported-data removal across derived stores.
+- [x] 9.5 Add/test disconnect, bounded retention, and single imported-source removal. (Live reconnect pending Google credentials.)
 - [ ] 9.6 Run release checks/CI smoke, hosted auth, and approved live Calendar demo; document setup/limitations.
 
 ### Final acceptance gates

@@ -16,6 +16,7 @@ from focusos_api.memory_embeddings import EmbeddingState, embed_memory
 from focusos_api.memories import (MemoryEvidenceInvalid, MemoryInput, MemoryRecord, MemoryList, confirm_memory, list_memories, supersede_memory)
 from focusos_api.confirmation import (ConfirmInput, ConfirmNotFound, ConfirmStale, ConfirmConflict, ConfirmProjectNotFound, confirm_candidate)
 from focusos_api.connections import GoogleConnectionEnvelope, read_google_connection
+from focusos_api.lifecycle import DisconnectResult, DeleteImportedSourceResult, disconnect_google, delete_imported_source
 from focusos_api.database import (
     DatabaseUnavailable,
     InvalidSession,
@@ -313,6 +314,16 @@ def google_connection_get(
         raise HTTPException(status_code=503, detail="Connection unavailable") from exc
 
 
+@app.delete("/connections/google", response_model=DisconnectResult)
+def google_connection_delete(access_token: str = Depends(require_access_token)) -> DisconnectResult:
+    try:
+        return disconnect_google(access_token)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Google disconnect unavailable") from exc
+
+
 @app.post("/connections/google/authorize", response_model=GoogleConnectionEnvelope)
 def google_connection_authorize(
     request: GoogleAuthorizationInput,
@@ -567,6 +578,19 @@ def source_get(source_id: UUID, access_token: str = Depends(require_access_token
         raise HTTPException(status_code=401, detail="Invalid session") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Source unavailable") from exc
+
+
+@app.delete("/sources/{source_id}", response_model=DeleteImportedSourceResult)
+def source_delete(source_id: UUID, access_token: str = Depends(require_access_token)) -> DeleteImportedSourceResult:
+    try:
+        result = delete_imported_source(access_token, source_id)
+        if not result.deleted:
+            raise HTTPException(status_code=404, detail="Imported source not found")
+        return result
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Imported source removal unavailable") from exc
 
 
 @app.post("/sources/{source_id}/extract", response_model=ExtractionEnvelopeResponse)

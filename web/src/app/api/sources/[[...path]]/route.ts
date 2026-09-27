@@ -6,13 +6,14 @@ export const maxDuration = 60;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NO_STORE = { "Cache-Control": "no-store" };
 
-async function handle(request: NextRequest, segments: string[], method: "GET" | "POST") {
+async function handle(request: NextRequest, segments: string[], method: "GET" | "POST" | "DELETE") {
   const token = await getServerAccessToken();
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401, headers: NO_STORE });
   const valid =
     method === "GET"
       ? segments.length === 0 || (segments.length === 1 && UUID.test(segments[0])) ||
         (segments.length === 2 && UUID.test(segments[0]) && segments[1] === "extraction")
+      : method === "DELETE" ? segments.length === 1 && UUID.test(segments[0])
       : (segments.length === 1 && segments[0] === "manual") ||
         (segments.length === 2 && UUID.test(segments[0]) && segments[1] === "extract");
   if (!valid) return NextResponse.json({ error: "Source route not found" }, { status: 404, headers: NO_STORE });
@@ -52,4 +53,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pat
 }
 export async function POST(request: NextRequest, context: { params: Promise<{ path?: string[] }> }) {
   return handle(request, (await context.params).path ?? [], "POST");
+}
+
+export async function DELETE(request: NextRequest, context: { params: Promise<{ path?: string[] }> }) {
+  return handle(request, (await context.params).path ?? [], "DELETE");
 }

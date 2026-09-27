@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { MemoryReview } from "./memory-review";
 
 type Source = {
-  id: string; title: string; source_ref: string; normalized_body: string | null;
+  id: string; kind: string; title: string; source_ref: string; normalized_body: string | null;
   body_hash: string; received_at: string; body_expires_at: string;
 };
 type Evidence = { source_ref: string; quote: string };
@@ -225,6 +225,19 @@ export function SourceReview() {
     finally { setBusy(false); }
   }
 
+  async function deleteSelectedImportedSource() {
+    if (!selected || selected.kind !== "gmail") return;
+    if (!window.confirm("Delete this imported Gmail source and its linked tasks, extraction, memories, embeddings and run snapshots? Google email and events remain.")) return;
+    setBusy(true); setMessage("");
+    try {
+      await readJson(await fetch("/api/sources/" + selected.id, { method: "DELETE" }));
+      setSources((current) => current.filter((item) => item.id !== selected.id));
+      setSelected(null); setExtraction(null);
+      setMessage("Imported source and linked FocusOS data removed.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not remove imported source"); }
+    finally { setBusy(false); }
+  }
+
   return <section className="source-review">
     <form className="task-form review-panel" onSubmit={(event) => void createSource(event)}>
       <h2>Add a manual source</h2>
@@ -245,6 +258,8 @@ export function SourceReview() {
       <p>Received {new Date(selected.received_at).toLocaleString()} · Text expires {new Date(selected.body_expires_at).toLocaleDateString()}</p>
       {selected.normalized_body ? <pre className="source-text">{selected.normalized_body}</pre> :
         <p>Source text has expired. Existing task provenance remains available.</p>}
+      {selected.kind === "gmail" ? <button type="button" className="secondary-button" disabled={busy}
+        onClick={() => void deleteSelectedImportedSource()}>Delete this imported source and linked data</button> : null}
       {selected.normalized_body && <MemoryReview sourceId={selected.id} body={selected.normalized_body} projects={projects} />}
       <button type="button" onClick={() => void extract()} disabled={busy || !selected.normalized_body || extraction?.status === "processing"}>
         {extraction?.status === "ready" ? "Use saved extraction" : "Extract candidates"}

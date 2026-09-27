@@ -3,6 +3,7 @@ import { getServerAccessToken, getServerUser } from "@/server/auth/session";
 import { requireServerEnv } from "@/server/env";
 import { GmailMessageProbe } from "./gmail-message-probe";
 import { CalendarPageProbe } from "./calendar-page-probe";
+import { DisconnectGoogle } from "./disconnect-google";
 
 export const dynamic = "force-dynamic";
 
@@ -71,7 +72,10 @@ export default async function ConnectionsSettings({
           ) : null}
           <GmailMessageProbe />
           <CalendarPageProbe />
+          <DisconnectGoogle />
         </section>
+      ) : connection?.status === "disconnected" ? (
+        <p role="status">Google is disconnected. Saved tokens were removed; reconnect to resume sync.</p>
       ) : connection?.status === "reconnect_required" ? (
         <p role="status">Google needs to be connected or reauthorized.</p>
       ) : null}
