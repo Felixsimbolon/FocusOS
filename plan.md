@@ -336,7 +336,7 @@ Provider Gmail draft creation is an external write and would require approval pl
 
 ### DECISION D12 â€” Model and embedding contract
 
-**SELECTED: Option A - one approval per event.**
+**SELECTED: Option A - OpenAI Responses API, gpt-4.1-mini, and text-embedding-3-small/256.**
 
 **CONDITION**: Existing LLM access is unspecified. Native schema support, tool calling, data-use terms, latency, and embedding availability cannot be assumed.
 
@@ -584,7 +584,7 @@ Search: apply owner and project constraints in the database, discard superseded/
 
 ### DECISION D10 â€” Approval unit
 
-**NOT SELECTED - choose before the dependent increment listed in the decision table.**
+**SELECTED: Option A - one approval per event.**
 
 **CONDITION**: A three-hour plan may contain several events. Approval granularity affects review effort and partial failures.
 
