@@ -24,7 +24,7 @@ class CalendarAction(BaseModel):
     connection_id: UUID
     calendar_id: str = "primary"
     event_id: str
-    title: str = Field(min_length=1, max_length=120)
+    title: str = Field(min_length=1, max_length=200)
     start: datetime
     end: datetime
     timezone: str = Field(min_length=1, max_length=64)

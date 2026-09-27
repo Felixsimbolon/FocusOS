@@ -4,6 +4,7 @@ from uuid import UUID
 from datetime import datetime
 
 from focusos_api.agent_continuation import (AgentRunInput, AgentRunState, continue_staged_run, load_command_run, list_run_tools, start_staged_run)
+from focusos_api.approval_proposal import ApprovalRecord, ProposalInput, propose_calendar_event
 from focusos_api.agent_model import AgentModelError
 from focusos_api.agent_tools import ToolValidationError
 from focusos_api.agent_tasks import CommandInput, CommandResult, run_tasks_command
@@ -167,6 +168,17 @@ def agent_run_tools_get(run_id: UUID, access_token: str = Depends(require_access
         raise HTTPException(status_code=401, detail="Invalid session") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=404, detail="Run not found") from exc
+
+
+@app.post("/agent/runs/{run_id}/propose-event", response_model=ApprovalRecord)
+def agent_event_proposal_post(run_id: UUID, request: ProposalInput,
+                              access_token: str = Depends(require_access_token)) -> ApprovalRecord:
+    try:
+        return propose_calendar_event(access_token, run_id, request)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=409, detail="Proposal unavailable or stale") from exc
 
 
 @app.post("/agent/runs/{run_id}/continue", response_model=AgentRunState)
