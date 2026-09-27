@@ -6,6 +6,8 @@ from datetime import datetime
 from focusos_api.agent_continuation import (AgentRunInput, AgentRunState, continue_staged_run, load_command_run, list_run_tools, start_staged_run)
 from focusos_api.approval_proposal import ApprovalRecord, ProposalInput, propose_calendar_event
 from focusos_api.approval_decisions import DecisionInput, decide_approval, list_approvals
+from focusos_api.approval_execute import execute_approval
+from focusos_api.approval_preflight import ApprovalStale
 from focusos_api.agent_model import AgentModelError
 from focusos_api.agent_tools import ToolValidationError
 from focusos_api.agent_tasks import CommandInput, CommandResult, run_tasks_command
@@ -179,6 +181,19 @@ def approvals_get(run_id: UUID, access_token: str = Depends(require_access_token
         raise HTTPException(status_code=401, detail="Invalid session") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Approval list unavailable") from exc
+
+
+@app.post("/approvals/{approval_id}/execute", response_model=ApprovalRecord)
+def approval_execute_post(approval_id: UUID,
+                          access_token: str = Depends(require_access_token)) -> ApprovalRecord:
+    try:
+        return execute_approval(access_token, approval_id)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except ApprovalStale as exc:
+        raise HTTPException(status_code=404, detail="Approval not found") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Approval execution unavailable") from exc
 
 
 @app.post("/approvals/{approval_id}/decision", response_model=ApprovalRecord)

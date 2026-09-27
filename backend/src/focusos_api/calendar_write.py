@@ -1,7 +1,7 @@
 ﻿"""One fixed-shape primary Calendar insert with stable-ID reconciliation."""
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 
@@ -26,6 +26,10 @@ class CalendarWriteReconnect(Exception):
 
 
 class CalendarWriteRejected(Exception):
+    pass
+
+
+class CalendarWriteExpired(Exception):
     pass
 
 
@@ -91,7 +95,9 @@ def _get_existing(client: httpx.Client, bearer: str, approval: ApprovalRecord) -
 
 
 def insert_or_reconcile(approval: ApprovalRecord, bearer: str,
-                        *, http_client: httpx.Client | None = None) -> CalendarWriteResult:
+                        *, http_client: httpx.Client | None = None,
+                        preflight: Callable[[], object] | None = None,
+                        allow_insert: bool = True) -> CalendarWriteResult:
     if approval.payload.calendar_id != "primary" or approval.payload.guests or approval.payload.send_updates != "none":
         raise CalendarWriteConflict("Forbidden Calendar action")
     own_client = http_client is None
@@ -100,6 +106,10 @@ def insert_or_reconcile(approval: ApprovalRecord, bearer: str,
         existing = _get_existing(client,bearer,approval)
         if existing:
             return existing
+        if not allow_insert:
+            raise CalendarWriteExpired("Approved action expired without a provider event")
+        if preflight is not None:
+            preflight()
         action = approval.payload
         body = {
             "id": action.event_id,
