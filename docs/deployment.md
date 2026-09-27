@@ -1,6 +1,6 @@
-# Gemini provider update (pending deployment)
+# Gemini provider production status (28 September 2026)
 
-Current code uses GEMINI_API_KEY only in the FastAPI project for extraction, planning, read-only task function calls, and embeddings. Apply migration 20260927160000_gemini_provider.sql before deploying the Gemini backend, then set GEMINI_API_KEY in the API project's Production environment and redeploy that project. Existing OpenAI vectors become pending and may be embedded again without deleting confirmed memories. The earlier OpenAI instructions below describe historical deployments; follow [the current Gemini setup](gemini-setup.md). Do not send personal Gmail/Calendar content to Gemini's unpaid tier; use synthetic data until the data-use terms of your tier are suitable.
+Gemini code and migration `20260927160000_gemini_provider.sql` are deployed/applied. `GEMINI_API_KEY` is still absent from the API project's Production environment; add it there and redeploy the API before expecting extraction, planning, or embeddings to work. Existing OpenAI vectors become pending and may be embedded again without deleting confirmed memories. The earlier OpenAI instructions below describe historical deployments; follow [the current Gemini setup](gemini-setup.md).
 
 # Early deployment probe
 

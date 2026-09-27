@@ -690,3 +690,8 @@ Di home, lingkaran hijau pada teks status login dihapus. Daftar Upcoming/Deadlin
 
 Migrasi diterapkan ke Supabase tertaut. Probe database dalam transaksi yang di-rollback membuktikan satu request membuat task, source, dan memory, lalu retry mengembalikan ID yang sama tanpa duplikasi. Suite backend (234 tes), suite web (65 tes), dan build Next.js lulus. Tidak ada environment variable baru.
 Koreksi urutan Upcoming: prioritas high ditampilkan sebelum normal dan low; deadline terdekat menentukan urutan di dalam prioritas yang sama. Pagination tetap dua task per halaman.
+
+
+### Rilis produksi setelah perubahan Activity, planning, dan deadline (28 September 2026)
+
+Commit `e8165b0` di-push ke GitHub `main`. Karena Git-triggered deploy belum disambungkan, API dan web dideploy lewat Vercel CLI dari direktori masing-masing. API deployment `dpl_FfwPE4Mt3wUJqr4754XR94iEh91H` dan web deployment `dpl_61snW6zQoagJktBVWWQzwscuQU9F` mencapai READY; alias tetap `https://focusos-api.vercel.app` dan `https://focusos-web-five.vercel.app`. Sebelum deploy, dry-run Supabase menyatakan seluruh migration sudah up to date. Pengguna meminta lanjut deploy tanpa mengulang tes; pemeriksaan build dilakukan oleh Vercel saat deploy. Audit nama env produksi menunjukkan API hanya mempunyai URL/publishable key Supabase, sedangkan web masih hanya mempunyai empat env dasar. Secret Gemini, Google integration, token encryption, dan service-role masih harus diisi di Vercel lalu kedua project di-deploy ulang. Belum ada klaim uji browser ber-login atau event Google nyata untuk rilis ini.
