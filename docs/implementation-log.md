@@ -577,3 +577,8 @@ Phase 8 deploy produksi 2026-09-27: API `dpl_Dc14A568vsCLW4G6vyxyfY9WEkWA` dan w
 ### Increment 9.1 — dataset sintetis held-out
 
 `evals/cases.jsonl` berisi 24 kasus sintetis dengan jam/zona acuan tetap: 8 extraction, 4 ambiguitas, 4 scheduling, 4 policy, dan 4 adversarial/ownership. Tiap baris mencatat fakta/task yang diharapkan, kutipan evidence yang harus ada dalam sumber, serta tindakan terlarang. Enam contoh pengembangan terpisah ada di `evals/dev.jsonl`; kasus held-out tidak dipakai untuk tuning. Validator memeriksa distribusi, keunikan, format tanggal, dan kutipan literal. Ini baru label, belum skor model.
+
+
+### Increment 9.2 — runner evaluasi extraction opt-in
+
+`evals/run.py` memanggil service `extract_structured` yang sama dengan aplikasi untuk 16 kasus extraction/ambiguity/adversarial memakai jam/zona tetap. Mode `--dry-run` hanya memvalidasi dan menulis status `skipped`, tanpa call provider atau skor palsu; `--live` eksplisit memerlukan OpenAI API key. Observasi lokal (di-ignore Git) berisi versi model/prompt/schema, status/kode gagal, latency, usage, title/deadline task sintetis, dan hash evidence; tidak berisi body email, kutipan mentah, token, atau respons provider. Tes memverifikasi dry-run tidak memanggil model dan provider yang tidak tersedia tercatat sebagai gagal. Live run menunggu key API yang belum tersedia.

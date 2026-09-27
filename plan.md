@@ -2003,7 +2003,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 ### Phase 9 â€” Evaluation and release
 
 - [x] 9.1 Label 24 held-out synthetic cases with fixed temporal context and expected behavior.
-- [ ] 9.2 Run real extraction evaluation through the app service; save redacted observations.
+- [x] 9.2 Add opt-in real extraction runner through the app service and redacted observations. (Live run pending API key.)
 - [ ] 9.3 Score exact fields/semantic task rubric and publish counts/failures/versions in a report.
 - [ ] 9.4 Pass agent/approval/injection/isolation/recovery regression gates.
 - [ ] 9.5 Verify disconnect/reconnect, retention and imported-data removal across derived stores.
