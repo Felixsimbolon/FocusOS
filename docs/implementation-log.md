@@ -582,3 +582,8 @@ Phase 8 deploy produksi 2026-09-27: API `dpl_Dc14A568vsCLW4G6vyxyfY9WEkWA` dan w
 ### Increment 9.2 — runner evaluasi extraction opt-in
 
 `evals/run.py` memanggil service `extract_structured` yang sama dengan aplikasi untuk 16 kasus extraction/ambiguity/adversarial memakai jam/zona tetap. Mode `--dry-run` hanya memvalidasi dan menulis status `skipped`, tanpa call provider atau skor palsu; `--live` eksplisit memerlukan OpenAI API key. Observasi lokal (di-ignore Git) berisi versi model/prompt/schema, status/kode gagal, latency, usage, title/deadline task sintetis, dan hash evidence; tidak berisi body email, kutipan mentah, token, atau respons provider. Tes memverifikasi dry-run tidak memanggil model dan provider yang tidak tersedia tercatat sebagai gagal. Live run menunggu key API yang belum tersedia.
+
+
+### Increment 9.3 — scoring dan laporan agregat
+
+`evals/score.py` memasangkan task satu-ke-satu berdasarkan judul normalized exact, lalu menerima padanan semantik hanya bila reviewer menulis judgment eksplisit per pasangan. Skor menghitung match, deadline kind/value, fingerprint evidence, task hilang, dan task ekstra; call model gagal tetap menjadi denominator expected. Status `skipped` tidak diperlakukan sebagai keberhasilan atau kegagalan model. Laporan baseline statis `docs/evaluation.md` menyatakan 0/16 live, 16/16 skipped dan akurasi belum diukur. Tes membuktikan exact match, gagal, variasi semantik yang memerlukan judgment, dan dry-run tanpa angka akurasi. Live metric menunggu OpenAI API key.
