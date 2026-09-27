@@ -11,11 +11,11 @@ Tidak perlu akun baru jika project Supabase, Google Cloud, Google AI Studio, dan
 ## Jalur demo sintetis setelah secret tersedia
 
 1. Login ke `https://focusos-web-five.vercel.app`; cek `/api/me` berisi user/profile tanpa token. Simpan zona waktu dan jam kerja di `/settings`.
-2. Hubungkan Google di `/settings/connections` dan aktifkan Calendar write scope. Buat label Gmail `FocusOS`, kirim satu email uji berisi tugas/tenggat, lalu sync secara manual di `/activity`.
-3. Review kutipan extraction dan konfirmasi satu task. Bila model gagal atau evidence salah, berhenti dan catat hasil; jangan edit laporan agar tampak lulus.
-4. Untuk memori, konfirmasi satu fakta sintetis dengan kutipan persis dari source, klik Embed, lalu cari fakta itu di `/memories`. Catat mode semantic atau keyword fallback dan periksa bukti source yang muncul.
-5. Siapkan satu busy event sintetis di primary Calendar. Jalankan `/agent`, lanjutkan semua tahap, dan periksa proposal sesuai task, jam kerja, serta slot bebas. Model harus tetap proposal-only.
-6. Pada halaman run, siapkan approval untuk tepat satu blok, cek title/jam/zona/tanpa tamu, klik Approve lalu Create approved event. Buka tautan provider dan cocokkan ID, title, waktu/zona, guest kosong. Ulangi execute: tetap satu event. Jika status `unknown`, cek Calendar sebelum percobaan lain.
+2. Hubungkan Google di `/settings/connections` dan aktifkan Calendar write scope. Buat label Gmail `FocusOS`, kirim satu email uji berisi tugas/tenggat, lalu gunakan Sync & organize email di `/activity`.
+3. Periksa hasil Activity: satu task harus otomatis tersimpan dengan kutipan email yang benar. Email yang hanya berisi instruksi tugas boleh menghasilkan nol memory. Bila extraction gagal atau kutipan salah, catat hasil sebenarnya.
+4. Untuk memori, gunakan fakta sintetis yang tersimpan dan sudah di-embed. Tanyakan fakta itu di `/memories`; jawaban utama harus satu fakta yang didukung kutipan dan tautan source. Ajukan juga pertanyaan yang tidak dijawab oleh memori; hasilnya harus menyatakan tidak ada jawaban, bukan memilih fakta yang hanya bertopik mirip. Catat mode semantic atau keyword fallback.
+5. Siapkan satu busy event sintetis di primary Calendar. Jalankan `/agent` dengan permintaan menjadwalkan task sebelum tenggat. Satu submit harus menjalankan pembacaan task, Calendar, slot bebas, memory, dan pembuatan blok kerja otomatis. Slot terpilih harus berada dalam jam kerja dan tidak menabrak busy event.
+6. Pada halaman run, periksa tanggal, jam, zona waktu, status tiap blok, dan tautan Google Calendar. Buka tautan provider dan cocokkan judul, waktu/zona, serta tamu kosong. Reload run: event tidak boleh terduplikasi. Jika status `unknown`, cek Calendar sebelum percobaan lain.
 7. Uji disconnect di Settings; sinkronisasi dan tindakan baru harus tertahan. Reconnect, lalu hapus satu source Gmail sintetis di Activity; pastikan task/memori/embedding dan snapshot run terkait hilang, sementara source/run lain tetap ada. Penghapusan di FocusOS tidak menghapus Gmail atau Google Calendar event.
 8. Jalankan `python evals/run.py --live`, review `evals/output/observations.jsonl` (lokal dan di-ignore), catat judgment semantik bila ada, kemudian `python evals/score.py`. Hanya setelah itu publikasikan laporan yang memuat angka live dan versi.
 

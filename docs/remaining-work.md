@@ -21,3 +21,8 @@
 | 6 | **Semantic memory live belum dibuktikan.** Tes vektor dan fallback lulus, tetapi migration Gemini sudah diterapkan tetapi panggilan embedding live belum diverifikasi. | Simpan fakta sintetik berbukti atau task manual, jalankan embedding, lalu cari lewat `/memories`; catat mode `semantic` atau fallback `lexical` secara jujur. | Satu hasil dari memori yang benar-benar dikonfirmasi, sesuai owner/source, terlihat; mode dan kegagalan provider dicatat. |
 
 Tidak perlu membuat akun baru bila project Supabase, Google Cloud, Google AI Studio, dan Vercel lama tetap dipakai. Pengisian env dan consent OAuth memerlukan akses pemilik akun; semua pekerjaan kode yang tidak bergantung padanya sudah dilakukan. Setelah langkah di atas lulus, perbarui [laporan evaluasi](evaluation.md), [log implementasi](implementation-log.md), dan checklist final di `plan.md`. Sampai saat itu, sebut rilis ini **implementation complete, live acceptance pending**.
+
+
+## Temuan demo terbaru
+
+Pada 28 September 2026, pengguna berhasil memproses satu email sintetis menjadi satu task dan menjalankan semantic memory search pada web produksi. Pertanyaan tentang nama kode proyek menampilkan fakta rapat dan fakta Aurora sekaligus, sehingga kualitas jawaban belum terbukti meskipun retrieval semantik berjalan. Perbaikan lokal menambahkan pemilihan satu fakta berbukti atau abstain; masih perlu deploy dan uji sesi produksi dengan pertanyaan yang punya jawaban dan yang tidak. Audit env dan checklist demo di atas adalah snapshot sebelumnya dan perlu diperbarui setelah seluruh bukti live terkumpul.

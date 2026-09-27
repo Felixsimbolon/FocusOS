@@ -6,7 +6,12 @@ type Match = {
   id: string; text: string; evidence_quote: string; source_id: string;
   match_kind: string;
 };
-type SearchResult = { mode: string; matches: Match[] };
+type SearchResult = {
+  mode: string;
+  matches: Match[];
+  answer_status: "not_requested" | "found" | "not_found" | "unavailable";
+  answer: Match | null;
+};
 
 export function MemorySearch() {
   const [query, setQuery] = useState("");
@@ -23,7 +28,7 @@ export function MemorySearch() {
       const response = await fetch("/api/memories/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: query.trim(), limit: 5 }),
+        body: JSON.stringify({ query: query.trim(), limit: 5, answer: true }),
       });
       const data = await response.json() as SearchResult | { error?: string };
       if (!response.ok || !("matches" in data)) {
@@ -37,26 +42,38 @@ export function MemorySearch() {
     }
   }
 
-  return <section className="review-panel">
+  const selectedId = result?.answer?.id;
+  const related = result?.matches.filter((match) => match.id !== selectedId) ?? [];
+  return <section className="review-panel memory-search-panel">
     <form className="task-form" onSubmit={(event) => void search(event)}>
-      <label>Search confirmed memories
+      <label>Ask about a saved fact
         <input value={query} onChange={(event) => setQuery(event.target.value)}
-          maxLength={1000} required placeholder="When does the demo team meet?" />
+          maxLength={1000} required placeholder="What is the code name for the FocusOS demo project?" />
       </label>
-      <button type="submit" disabled={busy || !query.trim()}>{busy ? "Searching..." : "Search memories"}</button>
+      <button type="submit" disabled={busy || !query.trim()}>{busy ? "Finding answer..." : "Find answer"}</button>
     </form>
     {error ? <p role="alert">{error}</p> : null}
     {result ? <>
-      <p role="status">Search mode: {result.mode === "semantic_enabled" ? "semantic" :
-        result.mode === "lexical_fallback" ? "keyword fallback" : result.mode}.
-        {" "}Matches: {result.matches.length}.</p>
-      {result.matches.length ? <ul className="task-list">{result.matches.map((match) =>
-        <li key={match.id}>
+      {result.answer_status === "found" && result.answer ? <article className="memory-answer">
+        <span className="activity-eyebrow">ANSWER FROM SAVED MEMORY</span>
+        <h2>{result.answer.text}</h2>
+        <blockquote>{result.answer.evidence_quote}</blockquote>
+        <a href={"/activity?source=" + result.answer.source_id}>View source</a>
+      </article> : <p role="status" className="memory-answer-empty">
+        {result.answer_status === "unavailable"
+          ? "Could not verify an answer right now. You can inspect the retrieved memories below."
+          : "No confirmed memory directly answers this question."}
+      </p>}
+      {related.length ? <details className="memory-related" open={result.answer_status === "unavailable"}>
+        <summary>Related memories ({related.length})</summary>
+        <ul className="task-list">{related.map((match) => <li key={match.id}>
           <strong>{match.text}</strong>
           <blockquote>{match.evidence_quote}</blockquote>
-          <p>Match: {match.match_kind}</p>
           <a href={"/activity?source=" + match.source_id}>View source</a>
-        </li>)}</ul> : <p>No confirmed memory matched this query.</p>}
+        </li>)}</ul>
+      </details> : null}
+      <p className="memory-search-mode">Search mode: {result.mode === "semantic_enabled" ? "semantic" :
+        result.mode === "lexical_fallback" ? "keyword fallback" : result.mode}.</p>
     </> : null}
   </section>;
 }

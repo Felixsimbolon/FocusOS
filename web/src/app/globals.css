@@ -601,3 +601,18 @@ main.agent-page > a:first-child, main.settings-page > a:first-child { justify-se
 .task-board .deadline-pagination button { justify-self: auto; padding: .5rem .7rem; border: 1px solid #dde4ef; border-radius: .55rem; background: #fff; color: #435989; font-size: .8rem; font-weight: 700; box-shadow: none; }
 .task-board .deadline-pagination button:not(:disabled):hover { border-color: #aabbea; background: #f1f4ff; box-shadow: none; }
 .task-board .deadline-pagination button:disabled { opacity: .45; cursor: default; }
+/* Grounded memory answers */
+.memory-search-panel { gap: 1.2rem; }
+.memory-search-panel .task-form { gap: .9rem; }
+.memory-search-panel .task-form button { justify-self: start; padding: .7rem 1rem; border: 0; border-radius: .65rem; background: #4053ad; color: #fff; font-weight: 650; cursor: pointer; }
+.memory-search-panel .task-form button:hover { background: #344698; }
+.memory-search-panel .task-form button:disabled { opacity: .6; cursor: wait; }
+.memory-answer { display: grid; gap: .7rem; padding: 1.3rem; border: 1px solid #cbd5f5; border-radius: 1rem; background: #f5f7ff; }
+.memory-answer h2 { margin: 0; color: #1c2d4b; font-size: clamp(1.1rem, 2.5vw, 1.4rem); line-height: 1.4; }
+.memory-answer blockquote { margin: 0; padding-left: .85rem; border-left: 3px solid #9aabe6; color: #526681; line-height: 1.55; }
+.memory-answer a, .memory-related a { justify-self: start; color: #4053ad; font-size: .86rem; font-weight: 650; }
+.memory-answer-empty { padding: 1rem 1.15rem; border: 1px solid #e2e8f0; border-radius: .8rem; background: #f8faff; color: #40516b; }
+.memory-related { border-top: 1px solid #e5eaf2; padding-top: .9rem; }
+.memory-related summary { cursor: pointer; color: #425679; font-weight: 650; }
+.memory-related .task-list { margin-top: .9rem; }
+.memory-search-mode { color: #71809b; font-size: .78rem; }

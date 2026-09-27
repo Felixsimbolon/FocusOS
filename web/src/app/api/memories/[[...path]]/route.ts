@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerAccessToken } from "@/server/auth/session";
 import { requireServerEnv } from "@/server/env";
 
-export const maxDuration = 30;
+export const maxDuration = 45;
 
 type Context = { params: Promise<{ path?: string[] }> };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -27,7 +27,7 @@ async function proxy(request: NextRequest, context: Context, method: "GET" | "PO
     const origin = requireServerEnv("FOCUSOS_API_URL").replace(new RegExp("/$"), "");
     const response = await fetch(origin + "/memories" + suffix, {
       method, headers: { Authorization: "Bearer " + token, ...(body ? { "Content-Type": "application/json" } : {}) },
-      body, cache: "no-store", signal: AbortSignal.timeout(suffix.endsWith("/embed") ? 18000 : 12000),
+      body, cache: "no-store", signal: AbortSignal.timeout(suffix === "/search" ? 40000 : suffix.endsWith("/embed") ? 18000 : 12000),
     });
     if (!response.ok) {
       const status = [401, 422, 503].includes(response.status) ? response.status : 502;

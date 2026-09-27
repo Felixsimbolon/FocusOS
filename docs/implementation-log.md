@@ -695,3 +695,12 @@ Koreksi urutan Upcoming: prioritas high ditampilkan sebelum normal dan low; dead
 ### Rilis produksi setelah perubahan Activity, planning, dan deadline (28 September 2026)
 
 Commit `e8165b0` di-push ke GitHub `main`. Karena Git-triggered deploy belum disambungkan, API dan web dideploy lewat Vercel CLI dari direktori masing-masing. API deployment `dpl_FfwPE4Mt3wUJqr4754XR94iEh91H` dan web deployment `dpl_61snW6zQoagJktBVWWQzwscuQU9F` mencapai READY; alias tetap `https://focusos-api.vercel.app` dan `https://focusos-web-five.vercel.app`. Sebelum deploy, dry-run Supabase menyatakan seluruh migration sudah up to date. Pengguna meminta lanjut deploy tanpa mengulang tes; pemeriksaan build dilakukan oleh Vercel saat deploy. Audit nama env produksi menunjukkan API hanya mempunyai URL/publishable key Supabase, sedangkan web masih hanya mempunyai empat env dasar. Secret Gemini, Google integration, token encryption, dan service-role masih harus diisi di Vercel lalu kedua project di-deploy ulang. Belum ada klaim uji browser ber-login atau event Google nyata untuk rilis ini.
+
+
+### Pencarian memori menjadi jawaban berbukti
+
+Demo produksi menunjukkan pertanyaan tentang nama kode proyek mengembalikan dua memori bertopik sama, bahkan fakta rapat dapat muncul sebelum fakta Aurora. Retrieval semantik lama hanya mengurutkan kemiripan vektor dengan ambang 0,2; urutan itu tidak membuktikan sebuah fakta menjawab pertanyaan. Evaluator lama juga belum mengukur relevansi retrieval.
+
+Untuk pencarian yang meminta jawaban, API kini memakai lima kandidat yang tetap difilter berdasarkan pemilik dan source aktif, lalu meminta Gemini memilih tepat satu indeks yang langsung menjawab atau -1 bila tidak ada. Server mengembalikan teks fakta dan kutipan bukti yang sudah tersimpan; model tidak menulis jawaban bebas. Jika seleksi gagal, UI menyatakan jawaban tidak dapat diverifikasi dan membiarkan kandidat dapat diperiksa. Tool memory.search milik planning agent tetap memakai retrieval lama tanpa panggilan seleksi tambahan. Halaman /memories memprioritaskan satu jawaban dengan tautan sumber dan menyembunyikan kandidat lain dalam bagian detail. Header halaman juga dirapikan mengikuti pola Activity.
+
+Tes backend memeriksa fakta yang dipilih, pertanyaan tanpa jawaban, kegagalan provider, dan indeks model tidak valid. TypeScript check lulus. Keakuratan seleksi Gemini pada sesi produksi masih perlu diuji dengan pertanyaan positif dan negatif setelah web/API baru dideploy.
