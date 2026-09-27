@@ -14,6 +14,7 @@ class ApprovalTransition(BaseModel):
     approval_id: UUID
     block_index: int
     status: str
+    authorization_mode: str = "manual"
     status_version: int
     safe_code: str | None = None
     occurred_at: datetime
@@ -54,10 +55,12 @@ def read_run_action_audit(access_token: str, run_id: UUID) -> RunActionAudit:
     run = load_command_run(access_token, run_id)
     approvals = list_approvals(access_token, run_id)
     tools = list_run_tools(access_token, run_id)
-    with scoped_client(access_token) as (user_id, client):
+    # The owned run is checked above. The table's RLS policy restricts rows to auth.uid();
+    # authenticated has no SELECT grant on user_id, so filtering by that column fails.
+    with scoped_client(access_token) as (_, client):
         rows = (client.table("approval_action_events")
-                .select("approval_id,block_index,status,status_version,safe_code,occurred_at")
-                .eq("user_id", user_id).eq("run_id", str(run_id))
+                .select("approval_id,block_index,status,authorization_mode,status_version,safe_code,occurred_at")
+                .eq("run_id", str(run_id))
                 .order("id").limit(128).execute().data)
     if not isinstance(rows, list):
         raise DatabaseUnavailable("Approval audit unavailable")

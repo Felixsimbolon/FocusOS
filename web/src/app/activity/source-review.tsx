@@ -1,289 +1,196 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { MemoryReview } from "./memory-review";
 
 type Source = {
-  id: string; kind: string; title: string; source_ref: string; normalized_body: string | null;
-  body_hash: string; received_at: string; body_expires_at: string;
-};
-type Evidence = { source_ref: string; quote: string };
-type TaskCandidate = {
-  local_ref: string; title: string; description: string;
-  deadline: { kind: "none" | "date" | "datetime" | "unresolved"; value: string | null; timezone: string | null };
-  estimate_minutes: number | null; priority_hint: "low" | "normal" | "high" | "unspecified";
-  confidence: number; evidence: Evidence[]; uncertainties: string[];
+  id: string; kind: string; title: string; normalized_body: string | null;
+  received_at: string; body_expires_at: string;
 };
 type Extraction = {
   id: string; status: "processing" | "ready" | "failed"; safe_error: string | null;
-  ignored_item_keys: string[];
-  confirmed_item_keys?: string[];
+  confirmed_item_keys: string[];
   validated_payload: {
-    tasks: TaskCandidate[]; events: { title: string; uncertainties: string[] }[];
-    facts: { text: string }[]; requests: { text: string }[];
-    uncertainties: string[];
+    tasks: { local_ref: string; title: string; evidence: { quote: string }[] }[];
+    facts: { text: string; evidence: { quote: string }[] }[];
+    events: { title: string }[];
   } | null;
 };
-type Project = { id: string; name: string };
+type Capture = {
+  tasks_saved: number; memories_saved: number; task_failures: number;
+  memory_failures: number; memory_ids: string[];
+};
+type Result = { extraction: Extraction; capture?: Capture };
+type Memory = { id: string; source_id: string; text: string; evidence_quote: string; embedding_status: string };
 
-async function readJson<T>(response: Response): Promise<T> {
+async function json<T>(response: Response): Promise<T> {
   const data = await response.json();
   if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : "Request failed");
   return data as T;
 }
 
-function TaskReviewCard({ task, extractionId, ignored, confirmed, projects, onChanged, onConfirmed }: {
-  task: TaskCandidate; extractionId: string; ignored: boolean; confirmed: boolean; projects: Project[];
-  onChanged: (next?: Extraction) => void; onConfirmed: (localRef: string) => void;
-}) {
-  const [title, setTitle] = useState(task.title);
-  const [description, setDescription] = useState(task.description);
-  const [priority, setPriority] = useState(task.priority_hint === "unspecified" ? "normal" : task.priority_hint);
-  const [dueKind, setDueKind] = useState<"none" | "date" | "datetime">(
-    task.deadline.kind === "unresolved" ? "none" : task.deadline.kind,
-  );
-  const [dueDate, setDueDate] = useState(task.deadline.kind === "date" ? task.deadline.value ?? "" : "");
-  const [dueAt, setDueAt] = useState(task.deadline.kind === "datetime" ? task.deadline.value ?? "" : "");
-  const [dueTimezone, setDueTimezone] = useState(task.deadline.timezone ?? "");
-  const [estimate, setEstimate] = useState(task.estimate_minutes?.toString() ?? "");
-  const [projectId, setProjectId] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-
-  async function confirm(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true); setMessage("");
-    const reviewed = {
-      title: title.trim(), description: description.trim() || null, priority,
-      due_kind: dueKind, due_date: dueKind === "date" ? dueDate : null,
-      due_at: dueKind === "datetime" ? dueAt : null,
-      due_timezone: dueKind === "datetime" ? dueTimezone : null,
-      estimate_minutes: estimate ? Number(estimate) : null,
-      project_id: projectId || null,
-    };
-    try {
-      await readJson(await fetch("/api/extractions/" + extractionId + "/confirm", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ local_ref: task.local_ref, task: reviewed }),
-      }));
-      onConfirmed(task.local_ref);
-      setMessage("Task saved. Tasks with future deadlines appear in Upcoming on Home.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not save task");
-    } finally { setBusy(false); }
+async function embed(ids: string[]) {
+  for (const id of ids) {
+    try { await fetch("/api/memories/" + id + "/embed", { method: "POST" }); }
+    catch { /* Memory remains saved; embedding can be retried. */ }
   }
-
-  async function toggleIgnore() {
-    setBusy(true); setMessage("");
-    try {
-      const next = await readJson<Extraction>(await fetch("/api/extractions/" + extractionId + "/ignore", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ local_ref: task.local_ref, ignored: !ignored }),
-      }));
-      onChanged(next);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not update review");
-    } finally { setBusy(false); }
-  }
-
-  return <article className="review-card">
-    <div className="task-board-heading"><h3>{task.title}</h3><span>{Math.round(task.confidence * 100)}% model confidence</span></div>
-    <div className="review-evidence">
-      <strong>Evidence from source</strong>
-      {task.evidence.map((item, index) => <blockquote key={index}>{item.quote}</blockquote>)}
-    </div>
-    {task.uncertainties.length > 0 && <div className="review-uncertainty"><strong>Needs review</strong>
-      <ul>{task.uncertainties.map((item, index) => <li key={index}>{item}</li>)}</ul>
-    </div>}
-    {task.deadline.kind === "unresolved" && <p className="task-error">The source did not give a clear deadline. Choose one only if you know it.</p>}
-    {confirmed ? <p role="status">Task confirmed. Find it in Today or Upcoming on Home.</p> : ignored ? <p>Ignored for now. You can undo this decision.</p> : <form className="task-form" onSubmit={(event) => void confirm(event)}>
-      <label>Task title<input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={200} required /></label>
-      <label>Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={2000} rows={2} /></label>
-      <div className="review-grid">
-        <label>Priority<select value={priority} onChange={(event) => setPriority(event.target.value as typeof priority)}>
-          <option value="normal">Normal</option><option value="high">High</option><option value="low">Low</option>
-        </select></label>
-        <label>Deadline type<select value={dueKind} onChange={(event) => setDueKind(event.target.value as typeof dueKind)}>
-          <option value="none">No deadline</option><option value="date">Calendar date</option><option value="datetime">Exact date and time</option>
-        </select></label>
-        {dueKind === "date" && <label>Due date<input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} required /></label>}
-        {dueKind === "datetime" && <>
-          <label>ISO timestamp with offset<input value={dueAt} onChange={(event) => setDueAt(event.target.value)} placeholder="2026-09-27T14:00:00+07:00" required /></label>
-          <label>IANA timezone<input value={dueTimezone} onChange={(event) => setDueTimezone(event.target.value)} placeholder="Asia/Jakarta" required /></label>
-        </>}
-        <label>Estimate (minutes)<input type="number" min={1} max={1440} value={estimate} onChange={(event) => setEstimate(event.target.value)} /></label>
-        <label>Project<select value={projectId} onChange={(event) => setProjectId(event.target.value)}>
-          <option value="">No project</option>{projects.map((project) => <option value={project.id} key={project.id}>{project.name}</option>)}
-        </select></label>
-      </div>
-      <button type="submit" disabled={busy || confirmed}>{confirmed ? "Confirmed" : "Confirm task"}</button>
-    </form>}
-    {!confirmed && <button type="button" className="secondary-button" onClick={() => void toggleIgnore()} disabled={busy}>
-      {ignored ? "Undo ignore" : "Ignore candidate"}
-    </button>}
-    {message && <p role="status">{message}</p>}
-  </article>;
 }
 
 export function SourceReview() {
   const [sources, setSources] = useState<Source[]>([]);
   const [selected, setSelected] = useState<Source | null>(null);
   const [extraction, setExtraction] = useState<Extraction | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [title, setTitle] = useState("Synthetic email");
-  const [text, setText] = useState("");
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const pending = useRef<{ key: string; payload: string } | null>(null);
+  const attempted = useRef<Set<string>>(new Set());
 
-  const selectSource = useCallback(async (source: Source) => {
+  const select = useCallback(async (source: Source) => {
     setSelected(source); setExtraction(null);
-    const response = await fetch("/api/sources/" + source.id + "/extraction", { cache: "no-store" });
-    if (response.ok) {
-      const data = await response.json() as { extraction: Extraction };
-      setExtraction(data.extraction);
+    const [extractionResponse, memoryResponse] = await Promise.all([
+      fetch("/api/sources/" + source.id + "/extraction", { cache: "no-store" }),
+      fetch("/api/memories", { cache: "no-store" }),
+    ]);
+    let result = extractionResponse.ok ? (await extractionResponse.json() as Result).extraction : null;
+    let sourceMemories = memoryResponse.ok
+      ? (await memoryResponse.json() as { memories: Memory[] }).memories.filter((memory) => memory.source_id === source.id)
+      : [];
+    const incomplete = result?.status === "ready" && (
+      result.confirmed_item_keys.length < (result.validated_payload?.tasks.length ?? 0) ||
+      sourceMemories.length < (result.validated_payload?.facts.length ?? 0));
+    if (incomplete && source.normalized_body && !attempted.current.has(source.id)) {
+      attempted.current.add(source.id);
+      const retryResponse = await fetch("/api/sources/" + source.id + "/extract", { method: "POST" });
+      if (retryResponse.ok) {
+        const retry = await retryResponse.json() as Result;
+        await embed(retry.capture?.memory_ids ?? []);
+        result = retry.extraction;
+        const latest = await fetch("/api/memories", { cache: "no-store" });
+        if (latest.ok) sourceMemories = (await latest.json() as { memories: Memory[] }).memories.filter((memory) => memory.source_id === source.id);
+      }
     }
+    setExtraction(result); setMemories(sourceMemories);
   }, []);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const [sourceData, projectData] = await Promise.all([
-          readJson<{ sources: Source[] }>(await fetch("/api/sources", { cache: "no-store" })),
-          readJson<{ projects: Project[] }>(await fetch("/api/projects", { cache: "no-store" })),
-        ]);
-        setSources(sourceData.sources); setProjects(projectData.projects);
-        const id = new URLSearchParams(window.location.search).get("source");
-        if (id) {
-          const found = sourceData.sources.find((item) => item.id === id);
-          if (found) {
-            await selectSource(found);
-          } else {
-            const detail = await readJson<{ source: Source }>(await fetch("/api/sources/" + encodeURIComponent(id), { cache: "no-store" }));
-            setSources((current) => [detail.source, ...current]);
-            await selectSource(detail.source);
-          }
+  const reload = useCallback(async () => {
+    const data = await json<{ sources: Source[] }>(await fetch("/api/sources", { cache: "no-store" }));
+    setSources(data.sources);
+    const id = new URLSearchParams(window.location.search).get("source");
+    if (id) {
+      let source = data.sources.find((item) => item.id === id);
+      if (!source) {
+        const detail = await fetch("/api/sources/" + encodeURIComponent(id), { cache: "no-store" });
+        if (detail.ok) {
+          source = (await detail.json() as { source: Source }).source;
+          setSources((current) => [source!, ...current.filter((item) => item.id !== id)]);
         }
-      } catch { setMessage("Could not load sources or projects. Try reloading."); }
-    })();
-  }, [selectSource]);
-
-  useEffect(() => {
-    if (!selected || extraction?.status !== "processing") return;
-    const timer = window.setTimeout(async () => {
-      try {
-        const data = await readJson<{ extraction: Extraction }>(await fetch(
-          "/api/sources/" + selected.id + "/extraction", { cache: "no-store" }));
-        setExtraction(data.extraction);
-      } catch { setMessage("Could not refresh extraction status."); }
-    }, 3000);
-    return () => window.clearTimeout(timer);
-  }, [selected, extraction]);
-
-  useEffect(() => {
-    async function reloadSources() {
-      try {
-        const data = await readJson<{ sources: Source[] }>(await fetch("/api/sources", { cache: "no-store" }));
-        setSources(data.sources);
-        if (selected) {
-          const updated = data.sources.find((item) => item.id === selected.id);
-          if (updated) await selectSource(updated);
-        }
-      } catch { setMessage("Could not refresh saved sources."); }
+      }
+      if (source) await select(source);
     }
-    window.addEventListener("focusos:sources-changed", reloadSources);
-    return () => window.removeEventListener("focusos:sources-changed", reloadSources);
-  }, [selected, selectSource]);
-  async function createSource(event: FormEvent) {
+  }, [select]);
+
+  useEffect(() => { void reload().catch(() => setMessage("Could not load sources.")); }, [reload]);
+  useEffect(() => {
+    const listener = () => { void reload().catch(() => setMessage("Could not refresh sources.")); };
+    window.addEventListener("focusos:sources-changed", listener);
+    return () => window.removeEventListener("focusos:sources-changed", listener);
+  }, [reload]);
+
+  async function create(event: FormEvent) {
     event.preventDefault(); setBusy(true); setMessage("");
-    const payload = JSON.stringify({ title: title.trim(), text });
-    if (!pending.current || pending.current.payload !== payload)
-      pending.current = { key: crypto.randomUUID(), payload };
+    const payload = JSON.stringify({ title: title.trim(), text: body });
+    if (!pending.current || pending.current.payload !== payload) pending.current = { key: crypto.randomUUID(), payload };
     try {
-      const data = await readJson<{ source: Source }>(await fetch("/api/sources/manual", {
+      const data = await json<{ source: Source; extraction?: Result }>(await fetch("/api/sources/manual", {
         method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": pending.current.key },
         body: payload,
       }));
       pending.current = null;
       setSources((current) => [data.source, ...current.filter((item) => item.id !== data.source.id)]);
-      await selectSource(data.source);
-      setText("");
-      setMessage("Source saved. Review its text before extracting.");
+      setBody(""); setTitle("");
+      await embed(data.extraction?.capture?.memory_ids ?? []);
+      await select(data.source);
+      setMessage(data.extraction?.extraction.status === "ready"
+        ? "Source organized. Tasks and grounded memories were saved automatically."
+        : "Source saved. Processing can be retried below.");
+      window.dispatchEvent(new Event("focusos:tasks-changed"));
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not save source"); }
     finally { setBusy(false); }
   }
 
-  async function extract() {
+  async function retry() {
     if (!selected) return;
-    setBusy(true); setMessage("");
+    setBusy(true); setMessage("Processing source...");
     try {
-      const data = await readJson<{ extraction: Extraction }>(await fetch("/api/sources/" + selected.id + "/extract", { method: "POST" }));
-      setExtraction(data.extraction);
-      setMessage(data.extraction.status === "failed" ? "Extraction failed. You can retry." :
-        data.extraction.status === "processing" ? "Extraction is running." : "Candidates are ready for review.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not extract source"); }
+      const data = await json<Result>(await fetch("/api/sources/" + selected.id + "/extract", { method: "POST" }));
+      await embed(data.capture?.memory_ids ?? []);
+      await select(selected);
+      setMessage(data.extraction.status === "ready" ? "Source organized." :
+        data.extraction.status === "failed" ? "Processing failed. Try again later." : "Processing is already running.");
+      window.dispatchEvent(new Event("focusos:tasks-changed"));
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Processing unavailable"); }
     finally { setBusy(false); }
   }
 
-  async function deleteSelectedImportedSource() {
-    if (!selected || selected.kind !== "gmail") return;
-    if (!window.confirm("Delete this imported Gmail source and its linked tasks, extraction, memories, embeddings and run snapshots? Google email and events remain.")) return;
-    setBusy(true); setMessage("");
+  async function remove() {
+    if (!selected || selected.kind !== "gmail" || !window.confirm("Remove this imported source and its linked FocusOS data?")) return;
+    setBusy(true);
     try {
-      await readJson(await fetch("/api/sources/" + selected.id, { method: "DELETE" }));
+      await json(await fetch("/api/sources/" + selected.id, { method: "DELETE" }));
       setSources((current) => current.filter((item) => item.id !== selected.id));
-      setSelected(null); setExtraction(null);
-      setMessage("Imported source and linked FocusOS data removed.");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not remove imported source"); }
+      setSelected(null); setExtraction(null); setMemories([]);
+      setMessage("Imported source removed.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not remove source"); }
     finally { setBusy(false); }
   }
 
   return <section className="source-review">
-    <form className="task-form review-panel" onSubmit={(event) => void createSource(event)}>
-      <h2>Add a manual source</h2>
-      <p>Paste one selected message or document excerpt. Text is available for 30 days, maximum 20 KB; expired text is cleared on a later source request. Extraction sends it to Gemini.</p>
-      <label>Source title<input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={200} required /></label>
-      <label>Plain text<textarea rows={7} value={text} onChange={(event) => setText(event.target.value)} required /></label>
-      <button type="submit" disabled={busy || !text.trim()}>Save source</button>
-    </form>
-    <div className="review-panel">
-      <h2>Saved sources</h2>
-      {sources.length === 0 ? <p>No sources yet.</p> : <ul className="source-list">
-        {sources.map((source) => <li key={source.id}><button type="button" className={selected?.id === source.id ? "selected-source" : "secondary-button"}
-          onClick={() => void selectSource(source)}>{source.title}</button></li>)}
-      </ul>}
+    <div className="activity-columns">
+      <form className="task-form review-panel source-compose" onSubmit={(event) => void create(event)}>
+        <div className="activity-panel-heading"><span className="activity-icon">＋</span><div><h2>Add a source</h2><p>Paste a message or brief. FocusOS finds tasks and sourced facts for you.</p></div></div>
+        <label>Title<input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={200} placeholder="e.g. Project update" required /></label>
+        <label>Content<textarea rows={7} value={body} onChange={(event) => setBody(event.target.value)} placeholder="Paste the source text here..." required /></label>
+        <button type="submit" disabled={busy || !body.trim()}>{busy ? "Organizing..." : "Save and organize"}</button>
+        <p className="activity-hint">Source text is kept for up to 30 days. Tasks and memories keep their source link.</p>
+      </form>
+      <div className="review-panel source-library">
+        <div className="activity-panel-heading"><span className="activity-icon">◫</span><div><h2>Your sources</h2><p>{sources.length} saved {sources.length === 1 ? "source" : "sources"}</p></div></div>
+        {sources.length === 0 ? <div className="activity-empty">No sources yet. Add a note or sync labeled Gmail to begin.</div> :
+          <ul className="source-list">{sources.map((source) => <li key={source.id}>
+            <button type="button" className={selected?.id === source.id ? "selected-source" : "secondary-button"}
+              onClick={() => void select(source)}>
+              <span>{source.title}</span><small>{source.kind === "gmail" ? "Gmail" : source.kind === "task" ? "Manual task" : "Manual"} · {new Date(source.received_at).toLocaleDateString()}</small>
+            </button>
+          </li>)}</ul>}
+      </div>
     </div>
-    {selected && <div className="review-panel">
-      <h2>{selected.title}</h2>
-      <p>Received {new Date(selected.received_at).toLocaleString()} · Text expires {new Date(selected.body_expires_at).toLocaleDateString()}</p>
-      {selected.normalized_body ? <pre className="source-text">{selected.normalized_body}</pre> :
-        <p>Source text has expired. Existing task provenance remains available.</p>}
-      {selected.kind === "gmail" ? <button type="button" className="secondary-button" disabled={busy}
-        onClick={() => void deleteSelectedImportedSource()}>Delete this imported source and linked data</button> : null}
-      {selected.normalized_body && <MemoryReview sourceId={selected.id} body={selected.normalized_body} projects={projects} />}
-      <button type="button" onClick={() => void extract()} disabled={busy || !selected.normalized_body || extraction?.status === "processing"}>
-        {extraction?.status === "ready" ? "Use saved extraction" : "Extract candidates"}
-      </button>
-      {extraction?.status === "processing" && <p role="status">Processing. This page will refresh the result.</p>}
-      {extraction?.status === "failed" && <p role="alert">Extraction failed ({extraction.safe_error ?? "unknown"}). Retry when the provider is available.</p>}
+    {selected && <div className="review-panel source-detail">
+      <div className="activity-panel-heading"><span className="activity-icon">✦</span><div><h2>{selected.title}</h2><p>{selected.kind === "gmail" ? "Gmail source" : selected.kind === "task" ? "Manual task source" : "Manual source"} · {new Date(selected.received_at).toLocaleString()}</p></div></div>
+      {extraction?.status === "ready" && <div className="activity-result-banner">Organized automatically · {extraction.confirmed_item_keys.length} tasks · {memories.length} memories</div>}
+      {extraction?.status === "processing" && <p role="status">Processing is in progress. Reload shortly to see the results.</p>}
+      {extraction?.status === "failed" && <p role="alert">Processing failed ({extraction.safe_error ?? "unknown"}). Your source is saved.</p>}
+      {(!extraction || extraction.status === "failed" || (extraction.status === "ready" && (
+        extraction.confirmed_item_keys.length < (extraction.validated_payload?.tasks.length ?? 0) ||
+        memories.length < (extraction.validated_payload?.facts.length ?? 0)))) && selected.normalized_body && selected.kind !== "task" && <button type="button" onClick={() => void retry()} disabled={busy}>Retry saving</button>}
       {extraction?.status === "ready" && extraction.validated_payload && <>
-        <h2>Review candidates</h2>
-        {extraction.validated_payload.uncertainties.map((item, index) => <p key={index} className="task-error">{item}</p>)}
-        {extraction.validated_payload.tasks.length === 0 && <p>No actionable tasks were found.</p>}
-        {extraction.validated_payload.tasks.map((task) => <TaskReviewCard key={task.local_ref}
-          task={task} extractionId={extraction.id}
-          ignored={extraction.ignored_item_keys.includes(task.local_ref)}
-          confirmed={extraction.confirmed_item_keys?.includes(task.local_ref) ?? false}
-          projects={projects} onChanged={(next) => next && setExtraction(next)}
-          onConfirmed={(localRef) => setExtraction((current) => current && {
-            ...current, confirmed_item_keys: [...new Set([...(current.confirmed_item_keys ?? []), localRef])],
-          })} />)}
-        {extraction.validated_payload.events.length > 0 && <p>{extraction.validated_payload.events.length} event candidate(s) recognized for review only; no Calendar event was created.</p>}
-        {extraction.validated_payload.requests.map((item, index) => <p key={index}>Request: {item.text}</p>)}
-        {extraction.validated_payload.facts.map((item, index) => <p key={index}>Fact: {item.text}</p>)}
+        <div className="activity-results-grid">
+          <div><h3>Tasks</h3>{extraction.validated_payload.tasks.length === 0 ? <p>No tasks found.</p> :
+            extraction.validated_payload.tasks.map((task) => <article className="activity-result" key={task.local_ref}><strong>{task.title}</strong><small>{extraction.confirmed_item_keys.includes(task.local_ref) ? "Saved to tasks" : "Save incomplete"}</small><blockquote>{task.evidence[0]?.quote}</blockquote></article>)}</div>
+          <div><h3>Memories</h3>{memories.length === 0 ? <p>No sourced facts found.</p> :
+            memories.map((memory) => <article className="activity-result" key={memory.id}><strong>{memory.text}</strong><small>{memory.embedding_status === "ready" ? "Searchable" : "Saved"}</small><blockquote>{memory.evidence_quote}</blockquote></article>)}</div>
+        </div>
+        {extraction.validated_payload.events.length > 0 && <p className="activity-hint">Calendar mentions were recognized; no event was created automatically.</p>}
       </>}
+      {selected.kind === "task" && <div className="activity-results-grid">
+        <div><h3>Memory from this task</h3>{memories.map(memory =>
+          <article className="activity-result" key={memory.id}><strong>{memory.text}</strong>
+            <small>{memory.embedding_status === "ready" ? "Searchable" : "Saved"}</small>
+            <blockquote>{memory.evidence_quote}</blockquote></article>)}</div>
+      </div>}      <details className="source-preview"><summary>View original source</summary><pre className="source-text">{selected.normalized_body ?? "Source text has expired."}</pre></details>
+      {selected.kind === "gmail" && <button type="button" className="secondary-button" onClick={() => void remove()} disabled={busy}>Remove imported source</button>}
     </div>}
-    {message && <p role="status">{message}</p>}
-    <a href="/">Back to Today</a>
+    {message && <p className="activity-message" role="status">{message}</p>}
   </section>;
 }

@@ -34,12 +34,14 @@ async function handle(request: NextRequest, segments: string[], method: "GET" | 
     const url = new URL("/sources" + (segments.length ? "/" + segments.join("/") : ""), requireServerEnv("FOCUSOS_API_URL"));
     const response = await fetch(url, {
       method, headers, body, cache: "no-store", redirect: "error",
-      signal: AbortSignal.timeout(segments.at(-1) === "extract" ? 58_000 : 10_000),
+      signal: AbortSignal.timeout((segments.at(-1) === "extract" || segments[0] === "manual") ? 58_000 : 10_000),
     });
     if (!response.ok) {
       const allowed = [400, 401, 404, 409, 410, 413, 422, 429];
       const status = allowed.includes(response.status) ? response.status : 503;
-      return NextResponse.json({ error: status === 401 ? "Authentication required" : "Source request could not be completed" },
+      return NextResponse.json({ error: status === 401 ? "Authentication required" :
+        status === 429 ? "Processing limit reached. The source may already be saved; reload Activity and retry." :
+        "Source request could not be completed" },
         { status, headers: NO_STORE });
     }
     return NextResponse.json(await response.json(), { headers: NO_STORE });

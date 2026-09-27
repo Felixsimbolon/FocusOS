@@ -9,6 +9,7 @@ from focusos_api.connections import GoogleConnection
 from focusos_api.google_calendar import (
     CALENDAR_EVENTS_API,
     CALENDAR_READ_SCOPE,
+    CalendarProbeError,
     CalendarReconnectRequired,
     read_primary_calendar_page,
 )
@@ -72,6 +73,10 @@ class CalendarProbeTests(unittest.TestCase):
         self.assertEqual((page.window_end - page.window_start).days, 7)
         self.assertNotIn("Private event title", page.model_dump_json())
         self.assertNotIn("event-1", page.model_dump_json())
+
+    def test_provider_rejection_reports_only_http_status(self):
+        with self.assertRaisesRegex(CalendarProbeError, r"Google Calendar request failed \(HTTP 403\)"):
+            self._probe(FakeCalendarHttp(status_code=403))
 
     def test_missing_calendar_scope_fails_before_provider_call(self):
         self.connection = self.connection.model_copy(update={"granted_scopes": []})

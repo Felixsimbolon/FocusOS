@@ -26,6 +26,7 @@ class ApprovalRecord(BaseModel):
     payload: CalendarAction
     payload_hash: str
     status: str
+    authorization_mode: str = "manual"
     status_version: int
     expires_at: datetime
     lease_until: datetime | None = None
@@ -38,7 +39,25 @@ class ApprovalRecord(BaseModel):
 
 
 class ProposalRejected(ValueError):
-    pass
+    def __init__(self, code: str):
+        self.code = code
+        super().__init__(code)
+
+
+PROPOSAL_REASONS = {
+    "Calendar grant unavailable": "calendar_write_required",
+    "Scheduling profile unavailable": "profile_required",
+    "No active proposal": "plan_expired",
+    "Run proposal unavailable": "plan_expired",
+    "Task changed": "task_changed",
+    "Timed deadline required": "timed_deadline_required",
+    "Invalid proposed interval": "slot_expired",
+    "Invalid approval time": "slot_expired",
+    "Block is not a saved free slot": "plan_stale",
+    "Invalid approval identity": "plan_stale",
+    "Unknown proposal block": "invalid_block",
+    "Invalid block": "invalid_block",
+}
 
 
 def propose_calendar_event(access_token: str, run_id: UUID, request: ProposalInput) -> ApprovalRecord:
@@ -55,3 +74,10 @@ def propose_calendar_event(access_token: str, run_id: UUID, request: ProposalInp
         return approval
     except ValidationError as exc:
         raise DatabaseUnavailable("Invalid approval record") from exc
+    except DatabaseUnavailable as exc:
+        cause = exc.__cause__
+        message = getattr(cause, "message", None)
+        code = PROPOSAL_REASONS.get(message) if isinstance(message, str) else None
+        if code:
+            raise ProposalRejected(code) from exc
+        raise

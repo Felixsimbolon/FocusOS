@@ -46,7 +46,23 @@ export async function GET(request: NextRequest) {
           }),
           cache: "no-store",
         });
-        outcome = apiResponse.ok ? (calendarWriteUpgrade ? "calendar_write_granted" : "connected") : "exchange_failed";
+        if (apiResponse.ok) {
+          outcome = calendarWriteUpgrade ? "calendar_write_granted" : "connected";
+        } else {
+          const body: unknown = await apiResponse.json().catch(() => null);
+          const detail = body && typeof body === "object" && "detail" in body ? body.detail : null;
+          const knownErrors: Record<string, string> = {
+            "Google callback URL is not allowed": "callback_not_allowed",
+            "Google authorization code was rejected": "code_rejected",
+            "Google did not grant the required read permissions": "permissions_incomplete",
+            "Google did not issue offline access": "offline_access_missing",
+            "Google OAuth server configuration is missing": "api_config_missing",
+            "Google token encryption is not configured": "encryption_config_missing",
+            "Google connection setup is unavailable": "connection_storage_unavailable",
+            "Google connection storage is unavailable": "connection_storage_unavailable",
+          };
+          outcome = typeof detail === "string" ? knownErrors[detail] ?? "exchange_failed" : "exchange_failed";
+        }
       } catch {
         outcome = "exchange_failed";
       }

@@ -1,4 +1,4 @@
-﻿import unittest
+import unittest
 from unittest.mock import Mock, patch
 from uuid import UUID
 
@@ -66,14 +66,12 @@ class ProjectRepositoryTests(unittest.TestCase):
         payload = TaskCreate(title="Draft", project_id=PROJECT_ID)
         with patch("focusos_api.tasks.scoped_client") as scoped:
             client = Mock()
-            client.rpc.return_value.execute.return_value.data = [
-                {
-                    "task": None,
-                    "replayed": False,
-                    "stored_request_hash": _payload_hash(payload),
-                    "project_available": False,
-                }
-            ]
+            client.rpc.return_value.execute.return_value.data = {
+                "task": None,
+                "replayed": False,
+                "stored_request_hash": _payload_hash(payload),
+                "project_available": False,
+            }
             scoped.return_value.__enter__.return_value = ("owner-123", client)
 
             with self.assertRaises(TaskProjectNotFound):
@@ -83,7 +81,7 @@ class ProjectRepositoryTests(unittest.TestCase):
                     payload,
                 )
         args = client.rpc.call_args.args[1]
-        self.assertEqual(args["p_project_id"], PROJECT_ID)
+        self.assertEqual(args["p_task"]["project_id"], PROJECT_ID)
 
     def test_project_creation_uses_the_owner_derived_rpc_and_safe_dto(self):
         with patch("focusos_api.tasks.scoped_client") as scoped:

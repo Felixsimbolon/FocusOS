@@ -22,11 +22,19 @@ export function ApprovalPanel({ runId, blocks }: { runId: string; blocks: PlanBl
   const [busy, setBusy] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const refresh = useCallback(async () => {
-    const [nextApprovals, nextAudit] = await Promise.all([
+    const [approvalResult, auditResult] = await Promise.allSettled([
       readJson(await fetch(`/api/approvals?run_id=${runId}`, { cache: "no-store" })),
       readJson(await fetch(`/api/agent/runs/${runId}/audit`, { cache: "no-store" })),
     ]);
-    setApprovals(nextApprovals); setAudit(nextAudit);
+    if (approvalResult.status === "rejected") throw approvalResult.reason;
+    setApprovals(approvalResult.value as Approval[]);
+    if (auditResult.status === "fulfilled") {
+      setAudit(auditResult.value as Audit);
+      setError((current) => current?.startsWith("Action history is temporarily unavailable") ? null : current);
+    } else {
+      setAudit(null);
+      setError("Action history is temporarily unavailable; approval controls are still available.");
+    }
   }, [runId]);
   useEffect(() => { refresh().catch(() => setError("Approval list unavailable")); }, [refresh]);
   async function propose(index: number) {

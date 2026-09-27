@@ -1,4 +1,4 @@
-﻿import json
+import json
 import os
 import unittest
 from datetime import datetime
@@ -35,6 +35,18 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(call.call_count, 1)
         self.assertEqual(call.call_args.kwargs["headers"]["x-goog-api-key"], "test-secret")
         self.assertEqual(call.call_args.kwargs["json"]["generationConfig"]["responseFormat"]["text"]["mimeType"], "APPLICATION_JSON")
+
+    def test_first_timeout_retries_once_and_can_succeed(self):
+        response = Mock(content=b"ok")
+        response.json.return_value = {"candidates": [{"finishReason": "STOP",
+            "content": {"parts": [{"text": json.dumps(sample())}]}}]}
+        timeout = __import__("httpx").ReadTimeout("slow")
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-secret"}), patch(
+            "focusos_api.gemini.httpx.post", side_effect=[timeout, response]
+        ) as call:
+            result = extract_structured("source-1", BODY, REF, "Asia/Jakarta")
+        self.assertEqual(result.attempts, 2)
+        self.assertEqual(call.call_count, 2)
 
     def test_bad_evidence_repairs_once_then_fails(self):
         bad = sample()

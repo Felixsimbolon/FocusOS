@@ -322,9 +322,6 @@ main.activity-page { width: min(100%, 64rem); margin-inline: auto; place-content
 .availability-form .availability-check { display: flex; align-items: center; }
 .availability-form button { padding: .65rem .9rem; cursor: pointer; }
 .calendar-availability li { margin-block: .4rem; }
-.memory-review { border-top: 1px solid #d8dee6; padding-top: 1rem; }
-.memory-review li { margin-block: .75rem; }
-.memory-review blockquote { margin: .35rem 0; border-left: .2rem solid #3264a1; padding-left: .7rem; }
 main.agent-page { width: min(100%, 64rem); margin-inline: auto; place-content: start; padding-block: 3rem; }
 .agent-console { display: grid; gap: 1rem; width: 100%; }
 .agent-console .review-panel label { display: grid; gap: .35rem; }
@@ -333,3 +330,274 @@ main.agent-page { width: min(100%, 64rem); margin-inline: auto; place-content: s
 .agent-console button:disabled { opacity: .6; cursor: wait; }
 .agent-console .secondary-button { color: #2158a5; background: #e8eef7; }
 @media (max-width: 36rem) { main.agent-page { padding: 1.5rem 1rem; } }
+
+/* Activity: automatic capture workspace */
+main.activity-page {
+  width: min(100%, 76rem);
+  gap: 1.25rem;
+  padding: 1.5rem 2rem 4rem;
+  background: radial-gradient(circle at 90% 3%, #e6e9ff 0, transparent 32%),
+              radial-gradient(circle at 6% 42%, #eaf5f0 0, transparent 34%);
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+}
+.activity-hero {
+  display: grid;
+  gap: .65rem;
+  padding: 0 0 1.4rem;
+}
+.activity-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2.5rem;
+  color: #697481;
+  font-size: .77rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+}
+.activity-nav a { color: #324f8f; text-decoration: none; letter-spacing: 0; font-size: .9rem; }
+.activity-nav a:hover { text-decoration: underline; }
+.activity-eyebrow { color: #435aba; font-size: .72rem; font-weight: 800; letter-spacing: .18em; }
+.activity-hero h1 { color: #172338; font-size: clamp(2.2rem, 5vw, 4rem); line-height: 1.04; letter-spacing: -.055em; }
+.activity-hero p { max-width: 37rem; font-size: 1.05rem; }
+.activity-page .review-panel {
+  gap: 1.1rem;
+  padding: 1.5rem;
+  border: 1px solid #e1e6ee;
+  border-radius: 1.2rem;
+  box-shadow: 0 1rem 2.5rem rgb(33 49 80 / 6%);
+}
+.activity-panel-heading { display: flex; align-items: flex-start; gap: .85rem; }
+.activity-panel-heading h2 { color: #1a2a41; font-size: 1.18rem; letter-spacing: -.025em; }
+.activity-panel-heading p { font-size: .89rem; }
+.activity-icon {
+  display: grid;
+  flex: 0 0 2.6rem;
+  width: 2.6rem;
+  height: 2.6rem;
+  place-items: center;
+  border-radius: .8rem;
+  background: #edf0ff;
+  color: #4056af;
+  font-size: 1.3rem;
+}
+.activity-stats { display: flex; gap: .5rem; }
+.activity-stats > div {
+  display: grid;
+  flex: 1;
+  gap: .15rem;
+  padding: .9rem 1rem;
+  border-radius: .8rem;
+  background: #f4f6fb;
+}
+.activity-stats strong { color: #182944; font-size: 1.55rem; line-height: 1.15; }
+.activity-stats span { color: #667588; font-size: .8rem; }
+.activity-page button {
+  transition: transform .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.activity-page button:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 .4rem .9rem rgb(35 62 112 / 13%); }
+.activity-page button:focus-visible, .activity-page a:focus-visible,
+.activity-page input:focus-visible, .activity-page textarea:focus-visible,
+.activity-page summary:focus-visible { outline: 3px solid #95a9fa; outline-offset: 2px; }
+.gmail-sync-actions { align-items: center; }
+.gmail-sync-actions span { color: #718092; font-size: .82rem; }
+.gmail-sync-actions button, .source-review button:not(.secondary-button) {
+  padding: .75rem 1.05rem;
+  border-radius: .65rem;
+  background: #3c50b0;
+  font-weight: 650;
+}
+.activity-columns { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(18rem, .85fr); gap: 1rem; }
+.source-compose textarea { min-height: 10rem; }
+.source-compose input, .source-compose textarea { border-color: #d4dce8; border-radius: .65rem; }
+.activity-hint { font-size: .8rem; color: #748295; }
+.activity-empty { padding: 1.2rem; border: 1px dashed #cbd5e3; border-radius: .75rem; color: #67778b; background: #f9fafd; line-height: 1.6; }
+.source-library { align-content: start; }
+.source-list { display: grid; align-content: start; gap: .5rem; max-height: 25rem; overflow-y: auto; }
+.source-list li { min-width: 0; }
+.source-review .source-list button {
+  display: grid;
+  gap: .22rem;
+  width: 100%;
+  text-align: left;
+  border-radius: .7rem;
+  padding: .8rem .9rem;
+}
+.source-list button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-list button small { font-size: .75rem; opacity: .78; }
+.source-review .selected-source { background: #33478f !important; }
+.source-detail { margin-top: .2rem; }
+.activity-result-banner { padding: .7rem .9rem; border-radius: .7rem; background: #eaf6ef; color: #286247; font-size: .9rem; font-weight: 700; }
+.activity-results-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.activity-results-grid h3 { margin: 0 0 .65rem; font-size: .95rem; color: #4c5a6e; }
+.activity-result { display: grid; gap: .45rem; margin-bottom: .6rem; padding: .85rem; border: 1px solid #e3e8f0; border-radius: .75rem; background: #fcfdff; }
+.activity-result strong { color: #1d2d44; }
+.activity-result small { color: #3f6954; }
+.activity-result blockquote { margin: .2rem 0 0; padding-left: .7rem; border-left: 2px solid #b5c4e8; color: #63748a; font-size: .82rem; line-height: 1.5; }
+.activity-message { padding: .8rem 1rem; border-radius: .7rem; background: #edf1fa; color: #334d80; }
+.source-preview { padding: .8rem 0; border-top: 1px solid #e5eaf0; }
+.source-preview summary { color: #465a75; cursor: pointer; font-weight: 600; }
+@media (max-width: 47rem) {
+  main.activity-page { padding: 1.25rem 1rem 3rem; }
+  .activity-nav { margin-bottom: 1.5rem; }
+  .activity-columns, .activity-results-grid { grid-template-columns: 1fr; }
+  .activity-page .review-panel { padding: 1.15rem; }
+}
+
+/* Shared polish for the Today workspace */
+main.home-page {
+  width: min(100%, 72rem);
+  gap: 1.15rem;
+  padding: 2.2rem 2rem 4rem;
+  background: radial-gradient(circle at 94% 0%, #e9edff 0, transparent 30%),
+              radial-gradient(circle at 3% 45%, #edf7f1 0, transparent 33%);
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+}
+.home-header {
+  padding: 1.3rem 0 1.1rem;
+}
+.home-header h1 {
+  color: #172338;
+  font-size: clamp(2.8rem, 6vw, 4.3rem);
+  line-height: 1;
+  letter-spacing: -.06em;
+}
+.home-header p { font-size: 1.05rem; }
+.home-page .task-board,
+.home-page .calendar-availability {
+  border-color: #e1e6ee;
+  border-radius: 1.15rem;
+  box-shadow: 0 1rem 2.5rem rgb(33 49 80 / 6%);
+}
+.home-links { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+.home-links a {
+  display: grid;
+  align-content: start;
+  gap: .4rem;
+  min-height: 6.2rem;
+  padding: 1rem;
+  border: 1px solid #e1e6ee;
+  border-radius: .85rem;
+  background: white;
+  color: #243a64;
+  text-decoration: none;
+  box-shadow: 0 .35rem 1rem rgb(33 49 80 / 4%);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.home-links a:hover { transform: translateY(-2px); box-shadow: 0 .6rem 1.2rem rgb(33 49 80 / 10%); }
+.home-links a:focus-visible { outline: 3px solid #95a9fa; outline-offset: 2px; }
+.home-links strong { font-size: .95rem; }
+.home-links span { color: #738094; font-size: .78rem; line-height: 1.45; }
+@media (max-width: 52rem) {
+  .home-links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 36rem) {
+  main.home-page { padding: 1.4rem 1rem 3rem; }
+}
+.agent-alert { padding: .9rem 1rem; border: 1px solid #e6b4a6; border-radius: .7rem; background: #fff2ec; color: #7d271e; }
+.agent-progress { color: #2158a5; font-weight: 700; }
+.agent-block-list { display: grid; gap: .85rem; }
+.agent-block-list .review-card { background: #f7fbff; }
+
+/* FocusOS visual system and deadline workspace */
+:root { font-family: Inter, "Segoe UI", Arial, sans-serif; color: #17253d; background: #f5f7fb; }
+body { background: #f5f7fb; }
+a { color: #344eaa; text-underline-offset: .18em; }
+button, input, textarea, select { font: inherit; }
+button { transition: transform .16s ease, box-shadow .16s ease, background .16s ease, border-color .16s ease; }
+button:not(:disabled):hover { transform: translateY(-1px); }
+button:focus-visible, a:focus-visible, summary:focus-visible,
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 3px solid #9eb4ff; outline-offset: 3px;
+}
+.section-eyebrow { color: #5362b5; font-size: .72rem; font-weight: 800; letter-spacing: .18em; }
+main.home-page { width: min(100%, 80rem); gap: 1.5rem; padding: 2.3rem 2rem 5rem; }
+.home-header { gap: .7rem; padding: 1.8rem 0 .25rem; }
+.home-header h1 { font-size: clamp(2.7rem, 6vw, 4.5rem); }
+.home-header p { max-width: 38rem; }
+.home-account { display: inline-flex; align-items: center; gap: .5rem; font-size: .82rem; color: #60728b; }
+.home-signout { justify-self: end; }
+.home-signout button { padding: .7rem 1rem; border: 1px solid #d7dfea; border-radius: .7rem; background: #fff; color: #526278; cursor: pointer; }
+.home-signout button:hover { border-color: #aebbe5; box-shadow: 0 .35rem 1rem rgb(39 59 106 / 9%); }
+.home-links a { min-height: 6.8rem; padding: 1.1rem; border-radius: 1rem; }
+.home-links a:hover { border-color: #bfccf1; }
+.home-page .task-board { padding: clamp(1rem, 2.2vw, 1.8rem); gap: 1.45rem; }
+.task-board h2 { color: #1b2a43; font-size: 1.3rem; letter-spacing: -.025em; }
+.task-board-heading button, .task-board .task-form button,
+.task-board .project-form button, .task-board .task-actions button {
+  padding: .7rem 1rem; border-radius: .65rem; background: #4053ad; font-weight: 650;
+}
+.task-board-heading button:hover, .task-board .task-form button:hover,
+.task-board .project-form button:hover, .task-board .task-actions button:hover {
+  background: #344698; box-shadow: 0 .4rem .95rem rgb(53 73 153 / 16%);
+}
+.task-board .task-actions button:first-child { background: #eef1fb; color: #4053a2; }
+.task-board .task-actions button:first-child:hover { background: #e0e6fa; }
+.task-list li { border-color: #e6eaf1; border-radius: .85rem; background: #fff; }
+.task-list-title strong { color: #20304b; }
+.task-meta { gap: .5rem; }
+.task-meta span { padding: .2rem .55rem; border-radius: .4rem; background: #f2f5fa; }
+.task-composer { border: 1px solid #dbe2ef; border-radius: .9rem; background: #f9faff; }
+.task-composer > summary { display: flex; align-items: center; gap: .7rem; padding: .9rem 1rem; cursor: pointer; color: #263c6a; font-weight: 720; list-style: none; }
+.task-composer > summary::-webkit-details-marker { display: none; }
+.task-composer > summary span { display: grid; place-items: center; width: 1.9rem; height: 1.9rem; border-radius: .5rem; background: #e8edff; color: #4457af; }
+.task-composer > summary small { margin-left: auto; color: #71809b; font-size: .75rem; font-weight: 500; }
+.task-composer-body { display: grid; gap: 1.2rem; padding: 0 1rem 1.2rem; }
+.task-form, .project-form { padding: 1rem; border: 1px solid #e7ebf4; border-radius: .75rem; background: #fff; }
+.task-form input, .task-form textarea, .task-form select, .project-form input,
+.task-edit-form input, .settings-form input[type="text"], .settings-form input[type="time"] {
+  border-color: #d2dbea; border-radius: .6rem; background: #fff;
+}
+.deadline-section { display: grid; gap: 1.1rem; padding-top: .3rem; }
+.deadline-heading { display: flex; justify-content: space-between; align-items: end; gap: 1rem; }
+.deadline-heading h2 { margin: .15rem 0 .2rem; font-size: 1.6rem; }
+.deadline-heading p { font-size: .88rem; }
+.deadline-count { flex: none; padding: .45rem .7rem; border-radius: 99px; background: #eef1fb; color: #4d5eaa; font-size: .78rem; font-weight: 750; }
+.deadline-layout { display: grid; grid-template-columns: minmax(17rem, .95fr) minmax(18rem, 1.05fr); gap: 1rem; align-items: start; }
+.deadline-calendar, .deadline-list-panel { min-width: 0; padding: 1.2rem; border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; box-shadow: 0 .45rem 1.2rem rgb(26 48 85 / 4%); }
+.deadline-calendar { display: grid; gap: 1rem; }
+.deadline-calendar-nav, .deadline-nav-actions { display: flex; align-items: center; justify-content: space-between; gap: .35rem; }
+.deadline-calendar-nav h3, .deadline-list-heading h3 { margin: .2rem 0 0; color: #202f49; font-size: 1.13rem; letter-spacing: -.025em; }
+.task-board .deadline-nav-actions button { display: grid; place-items: center; justify-self: auto; min-width: 2rem; height: 2rem; padding: 0 .45rem; border: 1px solid #e1e6f0; border-radius: .55rem; background: #fff; color: #4b5b7b; font-size: 1.1rem; font-weight: 650; }
+.task-board .deadline-nav-actions button:hover { background: #f0f3fc; box-shadow: none; }
+.task-board .deadline-nav-actions .deadline-today { padding: 0 .65rem; font-size: .72rem; }
+.deadline-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .24rem; }
+.deadline-weekday { padding: .4rem 0; text-align: center; color: #8491a5; font-size: .7rem; font-weight: 750; }
+.task-board .deadline-day { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; justify-self: stretch; min-width: 0; height: 2.7rem; padding: .25rem 0 .35rem; border: 1px solid transparent; border-radius: .65rem; background: transparent; color: #475772; font-size: .86rem; font-weight: 650; box-shadow: none; }
+.task-board .deadline-day:hover, .task-board .deadline-day.is-active { border-color: #c8d3f5; background: #eef2ff; color: #314ba5; box-shadow: none; }
+.task-board .deadline-day.is-today { border-color: #d7dded; }
+.task-board .deadline-day.has-deadline { color: #ad3441; font-weight: 780; }
+.task-board .deadline-day.has-deadline:hover, .task-board .deadline-day.has-deadline.is-active { border-color: #f1c9ce; background: #fff0f1; color: #9d2935; }
+.deadline-day i { position: absolute; bottom: .25rem; width: .28rem; height: .28rem; border-radius: 50%; background: #e44e5b; }
+.deadline-day-preview { min-height: 5.7rem; padding: .85rem 1rem; border-radius: .8rem; background: #f7f8fc; }
+.deadline-day-preview strong { color: #253753; font-size: .85rem; }
+.deadline-day-preview p { font-size: .82rem; }
+.deadline-day-preview ul { display: grid; gap: .25rem; margin: .45rem 0 0; padding-left: 1.1rem; color: #35476a; font-size: .83rem; }
+.deadline-list-panel { display: grid; gap: .9rem; }
+.deadline-list-heading { display: grid; }
+.deadline-task-list { max-height: 35rem; overflow: auto; padding-right: .25rem; }
+.deadline-task-list li { padding: .9rem; background: #fbfcff; }
+.deadline-notice { padding: .7rem; border-radius: .6rem; background: #fff3e8; color: #865a28; font-size: .8rem; }
+main.agent-page, main.settings-page { width: min(100%, 68rem); min-height: 100vh; margin-inline: auto; place-content: start; align-content: start; gap: 1.15rem; padding: 2.3rem 2rem 4rem; background: radial-gradient(circle at 90% 0%, #e9edff 0, transparent 34%); }
+main.agent-page h1, main.settings-page h1 { color: #172338; font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.1; letter-spacing: -.045em; }
+main.agent-page > a:first-child, main.settings-page > a:first-child { justify-self: start; padding: .55rem .8rem; border: 1px solid #e1e6f1; border-radius: .6rem; background: #fff; color: #42588d; text-decoration: none; font-size: .84rem; font-weight: 650; }
+.review-panel { border-color: #e2e8f0; border-radius: 1rem; box-shadow: 0 .6rem 1.6rem rgb(29 47 78 / 5%); }
+.agent-console button, .settings-page button, .calendar-availability button,
+.gmail-sync-actions button, .source-review button { border-radius: .65rem; background: #4053ad; color: #fff; font-weight: 650; }
+.agent-console button:hover, .settings-page button:hover, .calendar-availability button:hover,
+.gmail-sync-actions button:hover, .source-review button:hover { background: #344698; box-shadow: 0 .4rem .95rem rgb(53 73 153 / 16%); }
+.settings-page .settings-form { padding: 1.4rem; border: 1px solid #e2e8f0; border-radius: 1rem; background: #fff; box-shadow: 0 .6rem 1.6rem rgb(29 47 78 / 5%); }
+.settings-page fieldset { border-color: #dde4ef; border-radius: .7rem; }
+.settings-page button { border: 0; padding: .75rem 1rem; cursor: pointer; }
+.calendar-availability { display: grid; gap: .9rem; }
+.calendar-availability h2, .calendar-availability h3 { margin: 0; }
+.calendar-availability input, .calendar-availability select, .agent-console textarea,
+.agent-console input[type="number"] { border: 1px solid #d2dbea; border-radius: .6rem; background: #fff; }
+@media (max-width: 54rem) { .deadline-layout { grid-template-columns: 1fr; } .deadline-task-list { max-height: none; } }
+@media (max-width: 40rem) { main.home-page, main.agent-page, main.settings-page { padding: 1.3rem 1rem 3rem; } .deadline-heading { align-items: start; flex-direction: column; } .home-links { grid-template-columns: repeat(2, minmax(0, 1fr)); } .task-composer > summary small { display: none; } .deadline-calendar, .deadline-list-panel { padding: 1rem; } }
+@media (prefers-reduced-motion: reduce) { button, a { transition: none !important; } }
+.deadline-pagination { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding-top: .2rem; }
+.deadline-pagination span { color: #63728a; font-size: .8rem; font-weight: 650; }
+.task-board .deadline-pagination button { justify-self: auto; padding: .5rem .7rem; border: 1px solid #dde4ef; border-radius: .55rem; background: #fff; color: #435989; font-size: .8rem; font-weight: 700; box-shadow: none; }
+.task-board .deadline-pagination button:not(:disabled):hover { border-color: #aabbea; background: #f1f4ff; box-shadow: none; }
+.task-board .deadline-pagination button:disabled { opacity: .45; cursor: default; }

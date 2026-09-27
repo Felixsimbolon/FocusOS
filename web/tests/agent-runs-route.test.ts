@@ -1,4 +1,4 @@
-﻿import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { getServerAccessToken } from "../src/server/auth/session";
 import { requireServerEnv } from "../src/server/env";
@@ -31,7 +31,24 @@ describe("agent run proxy", () => {
     expect(response.status).toBe(404);
     expect(await response.text()).not.toContain("secret");
   });
-  it("forwards a bounded start command and continuation", async () => {
+  it("explains a known Calendar proposal reason without leaking unknown upstream details", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ detail: "calendar_write_required" }, { status: 409 }));
+    const known = await POST(new NextRequest("http://localhost/api/agent/runs/" + id + "/propose-event",
+      { method: "POST", body: JSON.stringify({ block_index: 0 }) }), context([id, "propose-event"]));
+    expect(known.status).toBe(409);
+    expect((await known.json()).error).toContain("Calendar write access");
+
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ detail: "private SQL detail" }, { status: 409 }));
+    const unknown = await POST(new NextRequest("http://localhost/api/agent/runs/" + id + "/propose-event",
+      { method: "POST", body: JSON.stringify({ block_index: 0 }) }), context([id, "propose-event"]));
+    expect(unknown.status).toBe(409);
+    expect(await unknown.text()).not.toContain("private SQL detail");
+  });
+  it("only forwards bounded automatic Calendar block paths", async () => {
+    expect((await POST(new NextRequest(`http://localhost/api/agent/runs/${id}/blocks/0/auto`, { method: "POST" }), context([id,"blocks","0","auto"]))).status).toBe(200);
+    expect((await POST(new NextRequest(`http://localhost/api/agent/runs/${id}/blocks/16/auto`, { method: "POST" }), context([id,"blocks","16","auto"]))).status).toBe(404);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });  it("forwards a bounded start command and continuation", async () => {
     expect((await POST(new NextRequest("http://localhost/api/agent/runs", { method:"POST",body:"{}" }), context())).status).toBe(200);
     expect((await POST(new NextRequest(`http://localhost/api/agent/runs/${id}/continue`, { method:"POST" }), context([id,"continue"]))).status).toBe(200);
     expect(fetch).toHaveBeenCalledTimes(2);

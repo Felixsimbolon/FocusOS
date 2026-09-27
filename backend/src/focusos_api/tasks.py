@@ -1,4 +1,4 @@
-﻿"""Validated task schemas and owner-scoped persistence."""
+"""Validated task schemas and owner-scoped persistence."""
 
 from datetime import date, datetime, time, timedelta, timezone
 import hashlib
@@ -179,6 +179,7 @@ class TaskListEnvelope(BaseModel):
 
 class TaskCreateEnvelope(BaseModel):
     task: TaskRecord
+    memory_id: UUID
     replayed: bool
 
 
@@ -289,42 +290,27 @@ def create_task(
 ) -> TaskCreateEnvelope:
     payload_hash = _payload_hash(task)
     with scoped_client(access_token) as (_, supabase):
-        rows = (
-            supabase.rpc(
-                "focusos_create_task",
-                {
-                    "p_create_request_id": str(request_id),
-                    "p_create_request_hash": payload_hash,
-                    "p_title": task.title,
-                    "p_description": task.description,
-                    "p_priority": task.priority,
-                    "p_due_kind": task.due_kind,
-                    "p_due_date": task.due_date.isoformat() if task.due_date else None,
-                    "p_due_at": task.due_at.isoformat() if task.due_at else None,
-                    "p_due_timezone": task.due_timezone,
-                    "p_estimate_minutes": task.estimate_minutes,
-                    "p_project_id": str(task.project_id) if task.project_id else None,
-                },
-            )
-            .execute()
-            .data
-        )
+        row = supabase.rpc("focusos_create_task_with_memory", {
+            "p_request_id": str(request_id),
+            "p_request_hash": payload_hash,
+            "p_task": task.model_dump(mode="json"),
+        }).execute().data
 
-    if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict):
+    if not isinstance(row, dict):
         raise DatabaseUnavailable("Unexpected task create response")
-    row = rows[0]
     if row.get("project_available") is False:
         raise TaskProjectNotFound()
     if row.get("stored_request_hash") != payload_hash:
         raise TaskRequestConflict()
     task_data = row.get("task")
-    if not isinstance(task_data, dict):
-        raise DatabaseUnavailable("Unexpected task create response")
+    memory_id = row.get("memory_id")
+    if not isinstance(task_data, dict) or not isinstance(memory_id, str):
+        raise DatabaseUnavailable("Task or memory unavailable")
     return TaskCreateEnvelope(
         task=TaskRecord.model_validate(task_data),
+        memory_id=UUID(memory_id),
         replayed=row.get("replayed") is True,
     )
-
 
 def list_projects(access_token: str) -> ProjectListEnvelope:
     with scoped_client(access_token) as (user_id, supabase):

@@ -11,7 +11,7 @@ export default async function MemoriesPage() {
   return <main className="agent-page">
     <a href="/">Back to Today</a>
     <h1>Search memories</h1>
-    <p>Find facts you confirmed from a source. Results include the exact quote used as evidence.</p>
+    <p>Find saved facts and manually added tasks. Results include the source quote used as evidence.</p>
     <MemorySearch />
   </main>;
 }

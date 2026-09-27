@@ -3,7 +3,8 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 from uuid import uuid4
 from fastapi.testclient import TestClient
-from focusos_api.approval_proposal import ProposalInput, propose_calendar_event
+from focusos_api.approval_proposal import ProposalInput, ProposalRejected, propose_calendar_event
+from focusos_api.database import DatabaseUnavailable
 from focusos_api.approval_decisions import DecisionInput
 from focusos_api.main import app
 
@@ -30,6 +31,26 @@ class ApprovalProposalTests(unittest.TestCase):
         self.assertEqual(result.status,"pending")
         self.assertEqual(rpc.call_args.args[1],"focusos_propose_calendar_action")
         provider.assert_not_called()
+    def test_calendar_write_failure_gets_safe_reason(self):
+        class RemoteError(Exception):
+            message = "Calendar grant unavailable"
+
+        def fail(*_args):
+            raise DatabaseUnavailable("Restricted database operation failed") from RemoteError()
+
+        with patch("focusos_api.approval_proposal._rpc", side_effect=fail):
+            with self.assertRaises(ProposalRejected) as caught:
+                propose_calendar_event("session", uuid4(), ProposalInput(block_index=0))
+        self.assertEqual(caught.exception.code, "calendar_write_required")
+
+    def test_unknown_database_failure_is_not_exposed(self):
+        with patch("focusos_api.main.propose_calendar_event",
+                   side_effect=DatabaseUnavailable("private database detail")):
+            result = TestClient(app).post(f"/agent/runs/{uuid4()}/propose-event",
+                json={"block_index": 0}, headers={"Authorization": "Bearer session"})
+        self.assertEqual(result.status_code, 503)
+        self.assertNotIn("private database detail", result.text)
+
     def test_decision_body_cannot_replace_action(self):
         from pydantic import ValidationError
         for body in ({"decision":"approve","title":"Other"},{"decision":"approved"}):

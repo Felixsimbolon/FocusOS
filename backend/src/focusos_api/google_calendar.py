@@ -102,7 +102,7 @@ def read_primary_calendar_page(
         if response.status_code == 401:
             raise CalendarReconnectRequired("Google connection needs authorization")
         if response.status_code != 200:
-            raise CalendarProbeError("Google Calendar could not read the primary calendar")
+            raise CalendarProbeError(f"Google Calendar request failed (HTTP {response.status_code})")
         try:
             result: Any = response.json()
         except ValueError as exc:

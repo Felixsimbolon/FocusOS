@@ -12,7 +12,7 @@ class HandoffTests(unittest.TestCase):
         @contextmanager
         def client(_):
             yield ("owner",Mock(rpc=lambda name,args:Mock(execute=lambda:Mock(data=None))))
-        with patch("focusos_api.gmail_processing.scoped_client",client), patch("focusos_api.gmail_processing.process_extraction") as extract:
+        with patch("focusos_api.gmail_processing.scoped_client",client), patch("focusos_api.gmail_processing.process_and_capture") as extract:
             result=process_one_gmail_source("token")
         self.assertEqual(result.state,"no_pending")
         extract.assert_not_called()
@@ -29,7 +29,7 @@ class HandoffTests(unittest.TestCase):
           schema_version="1",prompt_version="1",model_version="gpt-4.1-mini",
           status="ready",validated_payload={"tasks":[]},safe_error=None,
           run_id=None,created_at=now,updated_at=now,reviewed_at=None)
-        with patch("focusos_api.gmail_processing.scoped_client",client), patch("focusos_api.gmail_processing.process_extraction",return_value=ExtractionEnvelopeResponse(extraction=record,replayed=False)) as extract:
+        with patch("focusos_api.gmail_processing.scoped_client",client), patch("focusos_api.gmail_processing.process_and_capture",return_value=ExtractionEnvelopeResponse(extraction=record,replayed=False)) as extract:
             result=process_one_gmail_source("token")
         self.assertEqual(result.state,"ready")
         extract.assert_called_once_with("token",source_id)

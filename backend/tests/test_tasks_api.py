@@ -1,4 +1,4 @@
-﻿import unittest
+import unittest
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 from uuid import UUID
@@ -62,9 +62,10 @@ class TaskRepositoryTests(unittest.TestCase):
         request_id = UUID("9f4cdd59-ab23-4f8c-85fd-6ef4cc872718")
         with patch("focusos_api.tasks.scoped_client") as scoped:
             client = Mock()
-            client.rpc.return_value.execute.return_value.data = [
-                {"task": TASK_ROW, "replayed": False, "stored_request_hash": _payload_hash(TaskCreate(title="Write demo"))}
-            ]
+            client.rpc.return_value.execute.return_value.data = {
+                "task": TASK_ROW, "memory_id": TASK_ID, "replayed": False,
+                "stored_request_hash": _payload_hash(TaskCreate(title="Write demo")),
+            }
             scoped.return_value.__enter__.return_value = ("owner-123", client)
 
             result = create_task("user-token", request_id, TaskCreate(title="Write demo"))
@@ -72,18 +73,20 @@ class TaskRepositoryTests(unittest.TestCase):
         self.assertEqual(result.task.id, UUID(TASK_ID))
         self.assertFalse(result.replayed)
         args = client.rpc.call_args.args[1]
-        self.assertEqual(args["p_create_request_id"], str(request_id))
-        self.assertEqual(len(args["p_create_request_hash"]), 64)
-        self.assertEqual(args["p_title"], "Write demo")
+        self.assertEqual(client.rpc.call_args.args[0], "focusos_create_task_with_memory")
+        self.assertEqual(args["p_request_id"], str(request_id))
+        self.assertEqual(len(args["p_request_hash"]), 64)
+        self.assertEqual(args["p_task"]["title"], "Write demo")
+        self.assertEqual(result.memory_id, UUID(TASK_ID))
         self.assertNotIn("user_id", args)
         self.assertNotIn("status", args)
 
     def test_create_rejects_mismatched_replay_hash(self):
         with patch("focusos_api.tasks.scoped_client") as scoped:
             client = Mock()
-            client.rpc.return_value.execute.return_value.data = [
-                {"task": TASK_ROW, "replayed": True, "stored_request_hash": "0" * 64}
-            ]
+            client.rpc.return_value.execute.return_value.data = {
+                "task": TASK_ROW, "memory_id": TASK_ID, "replayed": True, "stored_request_hash": "0" * 64
+            }
             scoped.return_value.__enter__.return_value = ("owner-123", client)
             with self.assertRaises(TaskRequestConflict):
                 create_task(
@@ -123,6 +126,7 @@ class TaskRouteTests(unittest.TestCase):
     def test_create_route_returns_replay_status_but_no_internal_hash(self):
         result = {
             "task": TASK_ROW,
+            "memory_id": TASK_ID,
             "replayed": True,
         }
         with patch("focusos_api.main.create_task", return_value=result) as create:

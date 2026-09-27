@@ -120,6 +120,15 @@ class GoogleOAuthExchangeTests(unittest.TestCase):
         self.assertEqual(saved[7], datetime(2026, 9, 26, 1, tzinfo=timezone.utc))
 
 
+    def test_accepts_google_userinfo_scope_aliases_without_changing_saved_grants(self):
+        canonical_scopes = SCOPES.replace(
+            "openid email profile ", "openid https://www.googleapis.com/auth/userinfo.email "
+            "https://www.googleapis.com/auth/userinfo.profile "
+        )
+        result, writer, _ = self._exchange(scopes=canonical_scopes)
+        self.assertEqual(result.status, "connected")
+        self.assertEqual(writer.saved[4], sorted(canonical_scopes.split()))
+
     def test_supabase_writer_calls_service_only_rpc_and_returns_safe_metadata(self):
         client = Mock()
         client.rpc.side_effect = [
@@ -223,6 +232,18 @@ class CalendarWriteUpgradeTests(unittest.TestCase):
                 writer=writer, http_client=http, now=datetime(2026, 9, 26, tzinfo=timezone.utc),
             )
         return result, writer, http
+
+    def test_write_upgrade_accepts_google_userinfo_scope_aliases(self):
+        canonical_scopes = SCOPES.replace(
+            "openid email profile ", "openid https://www.googleapis.com/auth/userinfo.email "
+            "https://www.googleapis.com/auth/userinfo.profile "
+        )
+        self.connection = self.connection.model_copy(update={"granted_scopes": canonical_scopes.split()})
+        result, writer, _ = self._run(
+            scopes=canonical_scopes + " " + GOOGLE_CALENDAR_WRITE_SCOPE
+        )
+        self.assertEqual(result.status, "connected")
+        self.assertEqual(writer.saved[4], sorted((canonical_scopes + " " + GOOGLE_CALENDAR_WRITE_SCOPE).split()))
 
     def test_write_upgrade_checks_same_account_and_preserves_refresh_token(self):
         result, writer, http = self._run()

@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { DeadlineCalendar, deadlineDay } from "./deadline-calendar";
 
-type Task = {
+export type Task = {
   id: string;
   title: string;
   description: string | null;
@@ -26,13 +27,13 @@ type TaskList = {
   timezone?: string;
 };
 
-function readableDue(task: Task): string | null {
+function readableDue(task: Task, timezone: string): string | null {
   if (task.due_kind === "date" && task.due_date) return task.due_date;
   if (task.due_kind === "datetime" && task.due_at) {
     return new Intl.DateTimeFormat(undefined, {
       dateStyle: "medium",
       timeStyle: "short",
-      timeZone: task.due_timezone ?? undefined,
+      timeZone: timezone || task.due_timezone || undefined,
     }).format(new Date(task.due_at));
   }
   return null;
@@ -46,6 +47,9 @@ export function TaskBoard() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [todayContext, setTodayContext] = useState("");
+  const [today, setToday] = useState(() => new Date().toISOString().slice(0, 10));
+  const [timezone, setTimezone] = useState("Asia/Jakarta");
+  const [taskListTruncated, setTaskListTruncated] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
@@ -77,8 +81,15 @@ export function TaskBoard() {
         return;
       }
       setTasks(result.tasks);
-      const todayIds = new Set(result.tasks.map((task) => task.id));
-      setUpcomingTasks(openResult.tasks.filter((task) => !todayIds.has(task.id)));
+      const taskTimezone = result.timezone ?? "Asia/Jakarta";
+      const currentDay = result.today ?? new Date().toISOString().slice(0, 10);
+      setUpcomingTasks(openResult.tasks.filter((task) => {
+        const due = deadlineDay(task, taskTimezone);
+        return due !== null && due > currentDay;
+      }));
+      setToday(currentDay);
+      setTimezone(taskTimezone);
+      setTaskListTruncated(openResult.truncated);
       setTodayContext(
         result.today && result.timezone
           ? "Showing tasks due on or before " + result.today + " in " + result.timezone + "."
@@ -219,16 +230,17 @@ export function TaskBoard() {
         },
         body: payload,
       });
-      const result = (await response.json()) as { error?: string; task?: Task };
-      if (!response.ok || !result.task) {
-        setError(result.error ?? "Task could not be saved.");
-        if (response.status < 500) setPendingRequest(null);
+      const result = (await response.json()) as { error?: string; task?: Task; memory_id?: string };
+      if (!response.ok || !result.task || !result.memory_id) {
+        setError(result.error ?? "Task or its memory could not be confirmed. Retry with the same details.");
+        if (response.status < 500 && !response.ok) setPendingRequest(null);
         return;
       }
       form.reset();
       setPendingRequest(null);
       await refresh();
-      setMessage("Task saved.");
+      setMessage("Task and memory saved.");
+      void fetch(`/api/memories/${result.memory_id}/embed`, { method: "POST" }).catch(() => {});
     } catch {
       setError("The save result is unknown. Retry the same details to avoid creating a duplicate.");
     } finally {
@@ -250,7 +262,7 @@ export function TaskBoard() {
       ) : null}
       {task.source_id ? <a href={"/activity?source=" + task.source_id}>View source evidence</a> : null}
       <div className="task-meta">
-        {readableDue(task) ? <span>Due {readableDue(task)}</span> : null}
+        {readableDue(task, timezone) ? <span>Due {readableDue(task, timezone)}</span> : null}
         {task.estimate_minutes ? <span>{task.estimate_minutes} min estimate</span> : null}
       </div>
       {editingTaskId === task.id ? (
@@ -313,7 +325,8 @@ export function TaskBoard() {
         </button>
       </div>
 
-      <form className="task-form" onSubmit={create}>
+      <details className="task-composer"><summary><span>✦</span> Add a task or project <small>Open composer</small></summary>
+      <div className="task-composer-body"><form className="task-form" onSubmit={create}>
         <label>
           Task
           <input name="title" type="text" maxLength={200} required placeholder="What needs to get done?" />
@@ -374,6 +387,7 @@ export function TaskBoard() {
           {projectSaving ? "Saving…" : "Add project"}
         </button>
       </form>
+      </div></details>
       {projectError ? <p className="task-error" role="alert">{projectError}</p> : null}
       {projectMessage ? <p className="task-message" role="status">{projectMessage}</p> : null}
       {error ? <p className="task-error" role="alert">{error}</p> : null}
@@ -388,15 +402,9 @@ export function TaskBoard() {
       ) : (
         <p className="task-empty">No tasks due today or earlier, or without a deadline.</p>
       )}
-      <div className="task-board-heading">
-        <div>
-          <h2>Upcoming</h2>
-          <p>Open tasks due after today.</p>
-        </div>
-      </div>
-      {loading ? <p>Loading upcoming tasks…</p> : upcomingTasks.length ? (
-        <ul className="task-list">{upcomingTasks.map(renderTask)}</ul>
-      ) : <p className="task-empty">No upcoming tasks.</p>}
+      {loading ? <p>Loading deadlines…</p> :
+        <DeadlineCalendar tasks={upcomingTasks} timezone={timezone} today={today}
+          renderTask={renderTask} truncated={taskListTruncated} />}
     </section>
   );
 }

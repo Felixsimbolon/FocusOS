@@ -25,6 +25,16 @@ REQUIRED_SCOPES = frozenset({
 })
 
 
+def _has_required_scopes(granted: frozenset[str] | set[str], required: frozenset[str]) -> bool:
+    # Google may return these equivalent full URI scopes instead of OIDC short names.
+    normalized = set(granted)
+    if "https://www.googleapis.com/auth/userinfo.email" in normalized:
+        normalized.add("email")
+    if "https://www.googleapis.com/auth/userinfo.profile" in normalized:
+        normalized.add("profile")
+    return required.issubset(normalized)
+
+
 class GoogleOAuthError(Exception):
     """Safe provider or grant validation error."""
 
@@ -242,7 +252,7 @@ def complete_google_authorization(
             raise GoogleOAuthError("Google token response was invalid") from exc
 
         granted_scopes = frozenset(grant.scope.split())
-        if not REQUIRED_SCOPES.issubset(granted_scopes) or grant.token_type.lower() != "bearer":
+        if not _has_required_scopes(granted_scopes, REQUIRED_SCOPES) or grant.token_type.lower() != "bearer":
             raise GoogleOAuthError("Google did not grant the required read permissions")
 
         try:
@@ -311,7 +321,7 @@ def complete_calendar_write_upgrade(
     connection = read_google_connection(access_token)
     if connection is None or connection.status != "connected":
         raise GoogleOAuthError("Connect Google before upgrading Calendar permissions")
-    if not REQUIRED_SCOPES.issubset(set(connection.granted_scopes)):
+    if not _has_required_scopes(set(connection.granted_scopes), REQUIRED_SCOPES):
         raise GoogleOAuthError("Existing Google read permissions are incomplete")
 
     client_id, client_secret, redirect_uris = _google_client_settings()
@@ -343,7 +353,7 @@ def complete_calendar_write_upgrade(
         except (ValidationError, ValueError) as exc:
             raise GoogleOAuthError("Google token response was invalid") from exc
         granted_scopes = frozenset(grant.scope.split())
-        if not CALENDAR_WRITE_SCOPES.issubset(granted_scopes) or grant.token_type.lower() != "bearer":
+        if not _has_required_scopes(granted_scopes, CALENDAR_WRITE_SCOPES) or grant.token_type.lower() != "bearer":
             raise GoogleOAuthError("Google did not grant the Calendar write permission")
 
         try:

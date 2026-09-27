@@ -50,6 +50,7 @@ class ExtractionRecord(BaseModel):
 class ExtractionEnvelopeResponse(BaseModel):
     extraction: ExtractionRecord
     replayed: bool
+    capture: dict | None = None
 
 
 def _with_confirmed_items(record: ExtractionRecord, owner: str, client: object) -> ExtractionRecord:

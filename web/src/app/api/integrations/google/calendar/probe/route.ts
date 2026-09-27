@@ -16,8 +16,13 @@ export async function GET() {
     });
     if (!response.ok) {
       const status = response.status === 409 ? 409 : response.status === 401 ? 401 : 502;
+      const body: unknown = await response.json().catch(() => null);
+      const detail = body && typeof body === "object" && "detail" in body ? body.detail : null;
+      const safeDetail = typeof detail === "string" &&
+        /^Google Calendar request failed \(HTTP [1-5][0-9]{2}\)$/.test(detail)
+        ? detail : null;
       return NextResponse.json(
-        { error: status === 409 ? "Google reconnection required" : "Calendar probe failed" },
+        { error: status === 409 ? "Google reconnection required" : safeDetail ?? "Calendar probe failed" },
         { status, headers: { "Cache-Control": "no-store" } },
       );
     }

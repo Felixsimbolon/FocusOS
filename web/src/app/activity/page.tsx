@@ -7,14 +7,15 @@ export const dynamic = "force-dynamic";
 export default async function ActivityPage() {
   const me = await getMe();
   if (me.kind !== "ok") {
-    return <main><h1>Extraction review</h1><p>Sign in to review your sources.</p><a href="/">Go to sign in</a></main>;
+    return <main><h1>Activity</h1><p>Sign in to organize your sources.</p><a href="/">Go to sign in</a></main>;
   }
   return (
     <main className="activity-page">
-      <header>
-        <a href="/">← Today</a>
-        <h1>Extraction review</h1>
-        <p>Sync selected Gmail messages or paste one source, then review evidence before saving tasks.</p>
+      <header className="activity-hero">
+        <nav className="activity-nav"><a href="/">? Today</a><span>FOCUSOS / ACTIVITY</span></nav>
+        <span className="activity-eyebrow">YOUR SECOND BRAIN, IN MOTION</span>
+        <h1>Turn inputs into progress.</h1>
+        <p>Bring in selected email or paste a source. FocusOS saves grounded tasks and memories automatically.</p>
       </header>
       <GmailSyncPanel />
       <SourceReview />

@@ -9,8 +9,15 @@ export const dynamic = "force-dynamic";
 
 const messages: Record<string, string> = {
   connected: "Google is connected. Granted access is shown below.",
-  calendar_write_granted: "Google Calendar write permission is enabled. FocusOS will still require approval before any event changes.",
+  calendar_write_granted: "Google Calendar write permission is enabled. Planning submissions can now create focus events automatically.",
   exchange_failed: "Google consent returned, but FocusOS could not complete the secure connection. Try again.",
+  callback_not_allowed: "The API does not allow this Google callback URL. Check FOCUSOS_GOOGLE_REDIRECT_URIS in the API process.",
+  code_rejected: "Google rejected the authorization code. Check that the API client ID and secret belong to the same OAuth Web client used by the web app, then reconnect.",
+  permissions_incomplete: "Google did not grant all requested Gmail and Calendar read permissions. Reconnect and approve both.",
+  offline_access_missing: "Google did not issue offline access. Reconnect and approve the requested access.",
+  api_config_missing: "The API is missing its Google OAuth client ID, secret, or allowed callback URL.",
+  encryption_config_missing: "The API token encryption keys are missing or invalid.",
+  connection_storage_unavailable: "The API could not save the Google connection. Check its Supabase secret key and database migrations.",
   cancelled: "Google consent was cancelled. No connection was created.",
   invalid_state: "The Google authorization response was invalid or expired. Start again.",
   unavailable: "Google connection setup is not configured on this server yet.",
@@ -65,7 +72,7 @@ export default async function ConnectionsSettings({
           <ul>
             {connection.granted_scopes.includes("https://www.googleapis.com/auth/gmail.readonly") ? <li>Gmail read access</li> : null}
             {connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned.readonly") ? <li>Read events on calendars you own</li> : null}
-            {connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned") ? <li>Calendar event write access (FocusOS requires approval for writes and does not delete events)</li> : null}
+            {connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned") ? <li>Calendar event write access (Planning submissions can create events automatically; FocusOS does not delete events)</li> : null}
           </ul>
           {!connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned") ? (
             <p><a href="/api/integrations/google/calendar-write/start">Enable Calendar event writes</a></p>

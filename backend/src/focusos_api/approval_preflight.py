@@ -1,4 +1,4 @@
-﻿"""Fresh owner, grant, task and Calendar checks before any external mutation."""
+"""Fresh owner, grant, task and Calendar checks before any external mutation."""
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from uuid import UUID
@@ -35,7 +35,7 @@ class PreflightResult:
 def load_approval(access_token: str, approval_id: UUID) -> ApprovalRecord:
     with scoped_client(access_token) as (user_id, client):
         rows = (client.table("approval_requests")
-                .select("id,run_id,block_index,task_id,connection_id,calendar_id,event_id,payload,payload_hash,status,status_version,expires_at,lease_until,provider_event_id,provider_link,safe_code,created_at,decided_at,updated_at")
+                .select("id,run_id,block_index,task_id,connection_id,calendar_id,event_id,payload,payload_hash,status,authorization_mode,status_version,expires_at,lease_until,provider_event_id,provider_link,safe_code,created_at,decided_at,updated_at")
                 .eq("id", str(approval_id)).eq("user_id", user_id).limit(1).execute().data)
     if not isinstance(rows, list) or len(rows) != 1:
         raise ApprovalStale("approval_missing")

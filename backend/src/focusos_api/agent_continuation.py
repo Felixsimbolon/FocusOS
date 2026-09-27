@@ -22,9 +22,14 @@ from focusos_api.tasks import list_tasks
 MAX_CHECKPOINT_EVENTS = 80
 
 
+class CommandRunNotFound(DatabaseUnavailable):
+    pass
+
+
 class AgentRunInput(CommandInput):
     duration_minutes: int = Field(default=60, ge=15, le=480)
     allow_split: bool = False
+    auto_calendar: bool = False
 
 
 class AgentRunState(BaseModel):
@@ -49,7 +54,7 @@ def load_command_run(access_token: str, run_id: UUID) -> AgentRunState:
                 .select("id,command,status,stage,version,model_turns,tool_calls_count,checkpoint,result,safe_error,expires_at,updated_at")
                 .eq("id", str(run_id)).eq("user_id", user_id).limit(1).execute().data)
     if not isinstance(rows, list) or len(rows) != 1:
-        raise DatabaseUnavailable("Command run not found")
+        raise CommandRunNotFound("Command run not found")
     return AgentRunState.model_validate(rows[0])
 
 
@@ -67,6 +72,7 @@ def start_staged_run(access_token: str, request: AgentRunInput) -> AgentRunState
     if initial["status"] == "pending":
         _checkpoint(access_token, run_id, int(initial["version"]), "waiting", "start",
             {"duration_minutes": request.duration_minutes, "allow_split": request.allow_split,
+             "auto_calendar": request.auto_calendar,
              "window_start": window_start, "timezone": profile.timezone},
             None, 0, 0)
     return load_command_run(access_token, run_id)

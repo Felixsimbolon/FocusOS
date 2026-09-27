@@ -3,10 +3,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from uuid import UUID
 from datetime import datetime
 
-from focusos_api.agent_continuation import (AgentRunInput, AgentRunState, continue_staged_run, load_command_run, list_run_tools, start_staged_run)
-from focusos_api.approval_proposal import ApprovalRecord, ProposalInput, propose_calendar_event
+from focusos_api.agent_continuation import (AgentRunInput, AgentRunState, CommandRunNotFound, continue_staged_run, load_command_run, list_run_tools, start_staged_run)
+from focusos_api.approval_proposal import ApprovalRecord, ProposalInput, ProposalRejected, propose_calendar_event
 from focusos_api.approval_decisions import DecisionInput, decide_approval, list_approvals
 from focusos_api.approval_execute import execute_approval
+from focusos_api.automatic_calendar import AutomaticCalendarUnavailable, schedule_automatic_block
 from focusos_api.approval_preflight import ApprovalStale
 from focusos_api.approval_audit import RunActionAudit, read_run_action_audit
 from focusos_api.agent_model import AgentModelError
@@ -61,7 +62,8 @@ from focusos_api.profiles import (
     read_profile,
     save_profile,
 )
-from focusos_api.extractions import (ExtractionEnvelopeResponse, ExtractionNotFound, ExtractionSourceExpired, ExtractionRateLimited, IgnoreInput, ExtractionRecord, process_extraction, read_extraction, set_extraction_ignored)
+from focusos_api.auto_capture import process_and_capture
+from focusos_api.extractions import (ExtractionEnvelopeResponse, ExtractionNotFound, ExtractionSourceExpired, ExtractionRateLimited, IgnoreInput, ExtractionRecord, read_extraction, set_extraction_ignored)
 from focusos_api.sources import (ManualSourceInput, SourceConflict, SourceEnvelope, SourceListEnvelope, create_manual_source, list_sources, get_source)
 from focusos_api.tasks import (
     TaskCreate,
@@ -173,8 +175,10 @@ def agent_run_get(run_id: UUID,
         return load_command_run(access_token, run_id)
     except InvalidSession as exc:
         raise HTTPException(status_code=401, detail="Invalid session") from exc
-    except DatabaseUnavailable as exc:
+    except CommandRunNotFound as exc:
         raise HTTPException(status_code=404, detail="Run not found") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Agent run unavailable") from exc
 
 
 @app.get("/agent/runs/{run_id}/audit", response_model=RunActionAudit)
@@ -184,8 +188,10 @@ def agent_run_audit_get(run_id: UUID,
         return read_run_action_audit(access_token, run_id)
     except InvalidSession as exc:
         raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except CommandRunNotFound as exc:
+        raise HTTPException(status_code=404, detail="Run not found") from exc
     except DatabaseUnavailable as exc:
-        raise HTTPException(status_code=404, detail="Run audit unavailable") from exc
+        raise HTTPException(status_code=503, detail="Run audit unavailable") from exc
 
 
 @app.get("/agent/runs/{run_id}/tools")
@@ -194,8 +200,10 @@ def agent_run_tools_get(run_id: UUID, access_token: str = Depends(require_access
         return list_run_tools(access_token, run_id)
     except InvalidSession as exc:
         raise HTTPException(status_code=401, detail="Invalid session") from exc
-    except DatabaseUnavailable as exc:
+    except CommandRunNotFound as exc:
         raise HTTPException(status_code=404, detail="Run not found") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Tool history unavailable") from exc
 
 
 @app.get("/approvals", response_model=list[ApprovalRecord])
@@ -239,8 +247,27 @@ def agent_event_proposal_post(run_id: UUID, request: ProposalInput,
         return propose_calendar_event(access_token, run_id, request)
     except InvalidSession as exc:
         raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except ProposalRejected as exc:
+        raise HTTPException(status_code=409, detail=exc.code) from exc
     except DatabaseUnavailable as exc:
-        raise HTTPException(status_code=409, detail="Proposal unavailable or stale") from exc
+        raise HTTPException(status_code=503, detail="Proposal unavailable") from exc
+
+
+@app.post("/agent/runs/{run_id}/blocks/{block_index}/auto", response_model=ApprovalRecord)
+def agent_automatic_calendar_post(run_id: UUID, block_index: int,
+                                  access_token: str = Depends(require_access_token)) -> ApprovalRecord:
+    try:
+        return schedule_automatic_block(access_token, run_id, block_index)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except CommandRunNotFound as exc:
+        raise HTTPException(status_code=404, detail="Run not found") from exc
+    except (AutomaticCalendarUnavailable, ProposalRejected) as exc:
+        raise HTTPException(status_code=409, detail=exc.code) from exc
+    except ApprovalStale as exc:
+        raise HTTPException(status_code=409, detail=exc.code) from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Automatic Calendar action unavailable") from exc
 
 
 @app.post("/agent/runs/{run_id}/continue", response_model=AgentRunState)
@@ -560,13 +587,19 @@ def sources_manual_post(
     access_token: str = Depends(require_access_token),
 ) -> SourceEnvelope:
     try:
-        return create_manual_source(access_token, request_id, source)
+        saved = create_manual_source(access_token, request_id, source)
+        extraction = process_and_capture(access_token, saved.source.id)
+        return saved.model_copy(update={"extraction": extraction.model_dump(mode="json")})
     except InvalidSession as exc:
         raise HTTPException(status_code=401, detail="Invalid session") from exc
     except SourceConflict as exc:
         raise HTTPException(status_code=409, detail="Source request key conflict") from exc
+    except ExtractionRateLimited as exc:
+        raise HTTPException(status_code=429, detail="Extraction limit reached; source was saved") from exc
+    except (ExtractionNotFound, ExtractionSourceExpired) as exc:
+        raise HTTPException(status_code=409, detail="Source saved but processing could not finish") from exc
     except DatabaseUnavailable as exc:
-        raise HTTPException(status_code=503, detail="Source unavailable") from exc
+        raise HTTPException(status_code=503, detail="Source saved or processing unavailable; retry with the same request key") from exc
 
 
 @app.get("/sources", response_model=SourceListEnvelope)
@@ -608,7 +641,7 @@ def source_delete(source_id: UUID, access_token: str = Depends(require_access_to
 @app.post("/sources/{source_id}/extract", response_model=ExtractionEnvelopeResponse)
 def source_extract_post(source_id: UUID, access_token: str = Depends(require_access_token)) -> ExtractionEnvelopeResponse:
     try:
-        return process_extraction(access_token, source_id)
+        return process_and_capture(access_token, source_id)
     except InvalidSession as exc:
         raise HTTPException(status_code=401, detail="Invalid session") from exc
     except ExtractionNotFound as exc:

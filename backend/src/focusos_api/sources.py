@@ -79,6 +79,7 @@ class SourceRecord(BaseModel):
 class SourceEnvelope(BaseModel):
     source: SourceRecord
     replayed: bool
+    extraction: dict | None = None
 
 
 class SourceListEnvelope(BaseModel):
