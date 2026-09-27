@@ -570,3 +570,10 @@ Semua increment 8.1–8.7 telah diimplementasikan, dimigrasikan, dan diuji denga
 
 
 Phase 8 deploy produksi 2026-09-27: API `dpl_Dc14A568vsCLW4G6vyxyfY9WEkWA` dan web `dpl_4FtWd3C46736RJEukMhS6bXVwWLK` berstatus READY pada alias lama. Smoke test API `/health` 200, web `/agent` 200, dan route audit/eksekusi/list approval tanpa sesi 401. Seluruh 212 tes backend, 55 tes web, dan build web lulus. Audit *nama* env production menunjukkan API masih hanya mempunyai URL/publishable Supabase; web mempunyai empat env dasar Supabase/app/API. Secret Google integration, key enkripsi token, service-role key, dan OpenAI key belum ada, sehingga alur event Google sungguhan tetap belum teruji. Deploy pertama API sempat ditolak Vercel sebagai `Not authorized`; retry dengan `--yes` berhasil tanpa perubahan kode.
+
+
+## Phase 9: evaluasi, recovery, dan kesiapan rilis
+
+### Increment 9.1 — dataset sintetis held-out
+
+`evals/cases.jsonl` berisi 24 kasus sintetis dengan jam/zona acuan tetap: 8 extraction, 4 ambiguitas, 4 scheduling, 4 policy, dan 4 adversarial/ownership. Tiap baris mencatat fakta/task yang diharapkan, kutipan evidence yang harus ada dalam sumber, serta tindakan terlarang. Enam contoh pengembangan terpisah ada di `evals/dev.jsonl`; kasus held-out tidak dipakai untuk tuning. Validator memeriksa distribusi, keunikan, format tanggal, dan kutipan literal. Ini baru label, belum skor model.
