@@ -46,6 +46,17 @@ class ExecuteTests(unittest.TestCase):
              patch("focusos_api.approval_execute._get_bearer") as bearer:
             self.assertEqual(execute_approval("session",before.id).status,"executing")
         bearer.assert_not_called()
+    def test_unapproved_action_never_reaches_google(self):
+        before=fixture().model_copy(update={"status":"pending","status_version":1})
+        with patch("focusos_api.approval_execute.scoped_client",owner),\
+             patch("focusos_api.approval_execute.load_approval",return_value=before),\
+             patch("focusos_api.approval_execute._service_rpc",return_value={"claimed":False,"approval":before.model_dump(mode="json")}),\
+             patch("focusos_api.approval_execute._get_bearer") as bearer,\
+             patch("focusos_api.approval_execute.insert_or_reconcile") as provider:
+            self.assertEqual(execute_approval("session",before.id).status,"pending")
+        bearer.assert_not_called()
+        provider.assert_not_called()
+
     def test_unknown_provider_result_is_not_success(self):
         before=fixture(); claimed=before.model_copy(update={"status":"executing","status_version":3})
         unknown=claimed.model_copy(update={"status":"unknown"})

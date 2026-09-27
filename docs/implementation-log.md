@@ -587,3 +587,8 @@ Phase 8 deploy produksi 2026-09-27: API `dpl_Dc14A568vsCLW4G6vyxyfY9WEkWA` dan w
 ### Increment 9.3 — scoring dan laporan agregat
 
 `evals/score.py` memasangkan task satu-ke-satu berdasarkan judul normalized exact, lalu menerima padanan semantik hanya bila reviewer menulis judgment eksplisit per pasangan. Skor menghitung match, deadline kind/value, fingerprint evidence, task hilang, dan task ekstra; call model gagal tetap menjadi denominator expected. Status `skipped` tidak diperlakukan sebagai keberhasilan atau kegagalan model. Laporan baseline statis `docs/evaluation.md` menyatakan 0/16 live, 16/16 skipped dan akurasi belum diukur. Tes membuktikan exact match, gagal, variasi semantik yang memerlukan judgment, dan dry-run tanpa angka akurasi. Live metric menunggu OpenAI API key.
+
+
+### Increment 9.4 — gerbang regresi keamanan dan recovery
+
+`evals/safety_gate.py` menjalankan suite terpilih untuk tool allowlist/injection, budget continuation, proposal dan preflight, approval belum disetujui, satu claim winner, timeout/lost response, marker konflik, serta audit unknown. Tes baru memastikan approval pending tidak mengambil token dan tidak menyentuh adapter Google. Gerbang ini berjalan dengan provider mock dan tidak mengklaim uji Google nyata. Semua suite terpilih lulus.

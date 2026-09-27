@@ -9,3 +9,6 @@ Run `python evals/validate.py` to check count, category split, unique IDs/text, 
 
 
 Run `python evals/score.py` after the runner. The scorer requires one observation per extraction case, matches tasks one-to-one by normalized exact title, then uses optional reviewer judgments from ignored `evals/output/judgments.jsonl` (`case_id`, `observed_title`, `expected_title`, `equivalent`: boolean). Record a judgment only after reading the synthetic case and output. Missing or failed outputs count as misses; `skipped` records never produce an accuracy claim. The report states task match, exact deadline and evidence fingerprint counts, versions, case failures, and limitations. `docs/evaluation.md` is the current static, unmeasured baseline until a live key is available.
+
+
+`python evals/safety_gate.py` runs the named provider-mocked agent, approval, Calendar write, and audit regression suites. It checks denied tools, bounded continuation, stale permissions, unapproved writes, one claim winner, timeout reconciliation, and unknown outcomes independently of extraction quality. It does not assert a real provider event was created.
