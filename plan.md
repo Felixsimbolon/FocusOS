@@ -2009,6 +2009,8 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 9.5 Add/test disconnect, bounded retention, and single imported-source removal. (Live reconnect pending Google credentials.)
 - [ ] 9.6 Run release checks/CI smoke, hosted auth, and approved live Calendar demo; document setup/limitations. (CI, deployment, anonymous smoke and docs done; authenticated/provider demo pending private credentials.)
 
+Phase 9 is the final planned phase. The remaining live acceptance work is tracked in `docs/remaining-work.md`; there is no Phase 10.
+
 ### Final acceptance gates
 
 - [ ] Real Gmail -> reviewed task -> agent availability -> exact approval -> one Google event -> audit demonstrated.

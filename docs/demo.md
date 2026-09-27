@@ -34,3 +34,6 @@ Dari repo root: `npm ci`, `npm ci --prefix web`, `python -m venv .venv`, instal 
 ## Bukti rilis otomatis terakhir
 
 GitHub Actions [FocusOS checks — success](https://github.com/Felixsimbolon/FocusOS/actions/runs/36298773031) menjalankan suite tanpa secret. API deployment `dpl_5s6k6nHCXXruEK2puumZz4K81v6f` dan web `dpl_HALEESKPyjPWrgZ635mvG9g3xsHN` READY. Smoke tanpa sesi lulus 7/7; ini belum menggantikan langkah demo login/provider di atas.
+
+
+Rincian setiap gerbang yang belum lulus, konfigurasi yang masih hilang, dan bukti penerimaannya tersedia di [catatan pekerjaan tersisa](remaining-work.md).
