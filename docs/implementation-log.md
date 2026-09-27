@@ -528,3 +528,11 @@ Halaman `/agent` menerima perintah, durasi, dan pilihan pembagian blok. Setiap l
 ### Penutupan Phase 7 — deploy dan batas penerimaan
 
 Pada 2026-09-27, API (`dpl_YefXM6YF9KBUneRzzjHffojMFL3Q`) dan web (`dpl_52wdPVvCWgGeqePyWjLbHAQ7hkoD`) mencapai READY di alias produksi yang sama. Smoke test: API `/health` 200, web `/agent` 200, dan endpoint run tanpa sesi 401. Semua 192 tes backend, 52 tes web, dan build web lulus. Audit nama variabel Vercel memperlihatkan API hanya memiliki URL serta publishable key Supabase; web hanya memiliki empat variabel Supabase/app/API awal. Karena OpenAI key dan kredensial Google integrasi belum ada, belum ada uji live perintah dengan Calendar dan model. Ini batas verifikasi yang nyata, bukan kegagalan tes mock. Setelah variabel privat diisi dan kedua project dideploy ulang, uji sintetik harus dilakukan dari akun yang login.
+
+## Phase 8: persetujuan tepat dan tindakan Calendar
+
+Keputusan D10-A: satu approval per event. Setiap blok rencana punya payload, keputusan, dan hasil terpisah sehingga kegagalan atau retry satu blok tidak menyembunyikan status blok lain. Rencana split memang membutuhkan beberapa persetujuan. Uji provider langsung masih memerlukan secret integrasi Google di Vercel.
+
+### Increment 8.1 — penyimpanan approval immutable
+
+Migration `20260927140000_approval_requests.sql` membuat row approval milik pengguna dengan FK gabungan ke run/task/koneksi pemilik, payload JSON terbatas, hash, ID event stabil, expiry, versi status dan ruang untuk lease/hasil provider. Authenticated hanya mendapat SELECT milik sendiri melalui RLS; trigger menolak perubahan payload/identitas/expiry, dan perubahan status nanti harus lewat RPC. Kontrak Pydantic CalendarAction menolak tamu, kalender selain primary, notifikasi, interval invalid, dan field tambahan. Hash SHA-256 dari JSON canonical mengikat persetujuan ke aksi persis. Migration sudah diterapkan; tes payload backend lulus. Tahap ini belum membuat approval atau memanggil Google.

@@ -23,7 +23,7 @@ D1-D5, D7 Option A, D12 Option A for generation, and D13 are selected. D12 embed
 | D7 | **SELECTED: Option A - Relational projects, tasks, sources, and memories** | 3.5 | Project association, memory queries | 3.1-3.4 |
 | D8 | Chosen A: embed confirmed memory in one follow-on request | 7.5 | One-item lease, retry status, no worker | Resolved |
 | D9 | Chosen A: user-triggered bounded sync only | 5.7 | Manual Sync Now/Continue and one-source processing; no cron | Resolved |
-| D10 | Per-event approvals or approval of a fixed multi-event batch | 8.1 | Approval payload, partial execution, UI | Steps 1â€“7 |
+| D10 | **SELECTED: Option A - one approval per event** | 8.1 | Approval payload, partial execution, UI | Steps 1â€“7 |
 | D11 | Per-run context or persistent conversations | 7.1 | Message retention, follow-up commands, UI | Steps 1â€“6 |
 | D12 | **SELECTED: Option A - OpenAI Responses API, gpt-4.1-mini; text-embedding-3-small/256 for memories** | 4.3; embedding part by 7.5 | SDK, schema compatibility, eval, vector dimension | Through 4.2 |
 | D13 | SELECTED: Option A - incremental consent, owned Calendar events | 2.3 | Google grants, Calendar reads/writes and demo account | Through 2.2 |
@@ -336,7 +336,7 @@ Provider Gmail draft creation is an external write and would require approval pl
 
 ### DECISION D12 â€” Model and embedding contract
 
-**NOT SELECTED - choose before the dependent increment listed in the decision table.**
+**SELECTED: Option A - one approval per event.**
 
 **CONDITION**: Existing LLM access is unspecified. Native schema support, tool calling, data-use terms, latency, and embedding availability cannot be assumed.
 
@@ -1991,8 +1991,8 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 
 ### Phase 8 â€” Approved external action
 
-- [ ] Resolve D10 approval unit before 8.1; split batch-specific additions if selected.
-- [ ] 8.1 Persist immutable owned approval payload/hash/expiry/state.
+- [x] Resolve D10 approval unit before 8.1: Option A, one approval per event.
+- [x] 8.1 Persist immutable owned approval payload/hash/expiry/state.
 - [ ] 8.2 Add proposal-only calendar.create_event tool; prove it performs zero writes.
 - [ ] 8.3 Add exact-action preview and atomic approve/reject endpoint.
 - [ ] 8.4 Revalidate permissions, task version, payload, expiry and fresh Calendar conflicts.
