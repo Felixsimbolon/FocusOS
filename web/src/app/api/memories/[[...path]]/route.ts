@@ -10,13 +10,14 @@ async function proxy(request: NextRequest, context: Context, method: "GET" | "PO
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   const { path = [] } = await context.params;
   const suffix = path.length === 0 ? "" :
+    path.length === 1 && path[0] === "search" ? "/search" :
     path.length === 2 && UUID.test(path[0]) && ["supersede", "embed"].includes(path[1])
       ? "/" + path[0] + "/" + path[1] : null;
   if (suffix === null || (method === "GET" && suffix)) {
     return NextResponse.json({ error: "Memory route not found" }, { status: 404 });
   }
   let body: string | undefined;
-  if (method === "POST" && !suffix) {
+  if (method === "POST" && (!suffix || suffix === "/search")) {
     body = await request.text();
     if (body.length > 4096) return NextResponse.json({ error: "Memory request too large" }, { status: 413 });
   }
@@ -28,7 +29,7 @@ async function proxy(request: NextRequest, context: Context, method: "GET" | "PO
     });
     if (!response.ok) {
       const status = [401, 422, 503].includes(response.status) ? response.status : 502;
-      return NextResponse.json({ error: status === 422 ? "Memory evidence is invalid" : "Memory unavailable" },
+      return NextResponse.json({ error: status === 422 ? suffix === "/search" ? "Search query is invalid" : "Memory evidence is invalid" : "Memory unavailable" },
         { status, headers: { "Cache-Control": "no-store" } });
     }
     return NextResponse.json(await response.json(), { headers: { "Cache-Control": "no-store" } });

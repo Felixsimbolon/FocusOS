@@ -29,13 +29,15 @@ export async function getServerUser(): Promise<ServerUser | null> {
 export async function getServerAccessToken(): Promise<string | null> {
   try {
     const supabase = await createClient();
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError || !userData.user) return null;
-
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !sessionData.session) return null;
-    if (sessionData.session.user.id !== userData.user.id) return null;
-    return sessionData.session.access_token;
+    const token = sessionData.session?.access_token;
+    if (sessionError || !token) return null;
+
+    // Verify the exact token forwarded to FastAPI. The tokens-only cookie
+    // need not carry a full or current session.user object.
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !userData.user) return null;
+    return token;
   } catch {
     return null;
   }

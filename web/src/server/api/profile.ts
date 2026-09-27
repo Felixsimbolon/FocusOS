@@ -1,7 +1,6 @@
 import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
-import { getServerUser } from "@/server/auth/session";
+import { getServerAccessToken } from "@/server/auth/session";
 import { requireServerEnv } from "@/server/env";
 
 export type WorkingHours = {
@@ -23,22 +22,12 @@ type ReadResult =
 
 type SaveResult = "ok" | "unauthorized" | "invalid" | "unavailable";
 
-async function verifiedAccessToken(): Promise<string | null> {
-  const user = await getServerUser();
-  if (!user) return null;
-
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.getSession();
-  if (error || !data.session) return null;
-  return data.session.access_token;
-}
-
 function profileUrl(): URL {
   return new URL("/profile", requireServerEnv("FOCUSOS_API_URL"));
 }
 
 export async function readProfile(): Promise<ReadResult> {
-  const token = await verifiedAccessToken();
+  const token = await getServerAccessToken();
   if (!token) return { kind: "unauthorized" };
 
   try {
@@ -59,7 +48,7 @@ export async function readProfile(): Promise<ReadResult> {
 export async function writeProfile(
   profile: Omit<Profile, "id">,
 ): Promise<SaveResult> {
-  const token = await verifiedAccessToken();
+  const token = await getServerAccessToken();
   if (!token) return "unauthorized";
 
   try {

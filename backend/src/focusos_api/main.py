@@ -13,6 +13,7 @@ from focusos_api.agent_model import AgentModelError
 from focusos_api.agent_tools import ToolValidationError
 from focusos_api.agent_tasks import CommandInput, CommandResult, run_tasks_command
 from focusos_api.memory_embeddings import EmbeddingState, embed_memory
+from focusos_api.memory_search import MemorySearchInput, MemorySearchResult, search_memories
 from focusos_api.memories import (MemoryEvidenceInvalid, MemoryInput, MemoryRecord, MemoryList, confirm_memory, list_memories, supersede_memory)
 from focusos_api.confirmation import (ConfirmInput, ConfirmNotFound, ConfirmStale, ConfirmConflict, ConfirmProjectNotFound, confirm_candidate)
 from focusos_api.connections import GoogleConnectionEnvelope, read_google_connection
@@ -117,6 +118,17 @@ def memories_get(access_token: str = Depends(require_access_token)) -> MemoryLis
         raise HTTPException(status_code=401, detail="Invalid session") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=503, detail="Memories unavailable") from exc
+
+
+@app.post("/memories/search", response_model=MemorySearchResult)
+def memories_search_post(request: MemorySearchInput,
+                         access_token: str = Depends(require_access_token)) -> MemorySearchResult:
+    try:
+        return search_memories(access_token, request)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Memory search unavailable") from exc
 
 
 @app.post("/memories/{memory_id}/embed", response_model=EmbeddingState)

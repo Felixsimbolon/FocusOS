@@ -1,11 +1,10 @@
 ﻿"""One structured, read-only planning turn over bounded server-owned context."""
 import json
-import os
 
 import httpx
 
 from focusos_api.calendar_free_time import FreeTimeResult
-from focusos_api.extractor import MODEL, URL
+from focusos_api.gemini import GeminiResponseError, api_key, output_text, request, structured_payload
 from focusos_api.planning_contract import PlanningResponse, task_handles, slot_handles
 
 
@@ -22,6 +21,8 @@ def _schema() -> dict:
         if isinstance(node, dict):
             for key in remove:
                 node.pop(key, None)
+            if "const" in node:
+                node["enum"] = [node.pop("const")]
             if node.get("type") == "object":
                 node["additionalProperties"] = False
                 node["required"] = list(node.get("properties", {}).keys())
@@ -37,8 +38,7 @@ def _schema() -> dict:
 
 def propose_plan(command: str, tasks: list[dict], free: FreeTimeResult,
                  memory_search: dict, calendar_fetched_at: str) -> dict:
-    key = os.environ.get("FOCUSOS_OPENAI_API_KEY", "").strip()
-    if not key:
+    if not api_key():
         raise PlanningModelError("provider_unconfigured")
     task_data = [{"ref": ref, "title": task["title"], "due_kind": task.get("due_kind"),
                   "due_at": task.get("due_at"), "due_date": task.get("due_date"),
@@ -66,28 +66,14 @@ def propose_plan(command: str, tasks: list[dict], free: FreeTimeResult,
         "For non-proposals set scheduled_minutes to 0 and shortfall_minutes to requested_minutes. "
         "The backend independently validates all fields."
     )
-    payload = {"model": MODEL, "store": False, "max_output_tokens": 1600,
-        "text": {"format": {"type": "json_schema", "name": "focusos_planning_v1",
-                            "strict": True, "schema": _schema()}},
-        "input": [{"role": "developer", "content": instruction}, {"role": "user", "content": body}]}
+    payload = structured_payload(instruction, body, _schema(), 1600)
     try:
-        response = httpx.post(URL, headers={"Authorization": "Bearer " + key}, json=payload, timeout=20.0)
-        response.raise_for_status()
-        if len(response.content) > 131072:
-            raise PlanningModelError("oversize_response")
-        result = response.json()
+        result = request(payload, timeout=20.0, max_bytes=131072)
+        value = json.loads(output_text(result))
     except (httpx.HTTPError, ValueError) as exc:
         raise PlanningModelError("provider_unavailable") from exc
-    if not isinstance(result, dict) or result.get("status") != "completed":
-        raise PlanningModelError("incomplete_response")
-    pieces = [part.get("text") for item in result.get("output", []) if isinstance(item, dict) and item.get("type") == "message"
-              for part in item.get("content", []) if isinstance(part, dict) and part.get("type") == "output_text"]
-    if len(pieces) != 1 or not isinstance(pieces[0], str):
-        raise PlanningModelError("invalid_response")
-    try:
-        value = json.loads(pieces[0])
-    except ValueError as exc:
-        raise PlanningModelError("invalid_response") from exc
+    except GeminiResponseError as exc:
+        raise PlanningModelError(exc.code) from exc
     if not isinstance(value, dict):
         raise PlanningModelError("invalid_response")
     return value

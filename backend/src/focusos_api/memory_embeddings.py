@@ -1,19 +1,19 @@
-﻿"""Bounded OpenAI embedding for one explicitly confirmed memory."""
+﻿"""Bounded Gemini embedding for one explicitly confirmed memory."""
 
 import hashlib
 import json
 import math
-import os
 from uuid import UUID
 
 import httpx
 from pydantic import BaseModel
 
 from focusos_api.database import DatabaseUnavailable, scoped_client
+from focusos_api.gemini import api_key, url
 
-EMBED_MODEL = "text-embedding-3-small"
+EMBED_MODEL = "gemini-embedding-2"
 EMBED_DIM = 256
-EMBED_URL = "https://api.openai.com/v1/embeddings"
+EMBED_URL = url(EMBED_MODEL, "embedContent")
 
 
 class EmbeddingError(Exception):
@@ -32,25 +32,26 @@ def embedding_content(text: str, quote: str) -> str:
 
 
 def embed_text(text: str) -> list[float]:
-    key = os.environ.get("FOCUSOS_OPENAI_API_KEY", "").strip()
+    key = api_key()
     if not key:
         raise EmbeddingError("provider_unconfigured")
     if not text or len(text.encode("utf-8")) > 2500:
         raise EmbeddingError("invalid_vector")
     try:
-        response = httpx.post(EMBED_URL, headers={"Authorization": "Bearer " + key},
-            json={"model": EMBED_MODEL, "input": text, "dimensions": EMBED_DIM,
-                  "encoding_format": "float"}, timeout=12.0)
+        response = httpx.post(EMBED_URL, headers={"x-goog-api-key": key},
+            json={"model": "models/" + EMBED_MODEL,
+                  "content": {"parts": [{"text": text}]},
+                  "embedContentConfig": {"outputDimensionality": EMBED_DIM}}, timeout=12.0)
         response.raise_for_status()
         if len(response.content) > 65536:
             raise EmbeddingError("invalid_vector")
         data = response.json()
     except (httpx.HTTPError, ValueError) as exc:
         raise EmbeddingError("provider_unavailable") from exc
-    if not isinstance(data, dict) or data.get("model") != EMBED_MODEL:
+    if not isinstance(data, dict):
         raise EmbeddingError("invalid_vector")
-    rows = data.get("data")
-    vector = rows[0].get("embedding") if isinstance(rows, list) and len(rows) == 1 and isinstance(rows[0], dict) else None
+    embedding = data.get("embedding")
+    vector = embedding.get("values") if isinstance(embedding, dict) else None
     if not isinstance(vector, list) or len(vector) != EMBED_DIM:
         raise EmbeddingError("invalid_vector")
     if any(not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value)

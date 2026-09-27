@@ -8,19 +8,17 @@ from focusos_api.memory_embeddings import EmbeddingError, EMBED_DIM, embed_text,
 class EmbeddingTests(unittest.TestCase):
     def test_valid_256_vector(self):
         response = Mock(status_code=200, content=b'{}')
-        response.json.return_value = {"model": "text-embedding-3-small",
-            "data": [{"embedding": [0.1] * EMBED_DIM}]}
-        with patch.dict("os.environ", {"FOCUSOS_OPENAI_API_KEY": "synthetic-key"}), \
+        response.json.return_value = {"embedding": {"values": [0.1] * EMBED_DIM}}
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "synthetic-key"}), \
              patch("focusos_api.memory_embeddings.httpx.post", return_value=response) as post:
             vector = embed_text("Confirmed fact\nEvidence: exact quote")
         self.assertEqual(len(vector), EMBED_DIM)
-        self.assertEqual(post.call_args.kwargs["json"]["dimensions"], 256)
+        self.assertEqual(post.call_args.kwargs["json"]["embedContentConfig"]["outputDimensionality"], 256)
 
     def test_dimension_mismatch_fails(self):
         response = Mock(status_code=200, content=b'{}')
-        response.json.return_value = {"model": "text-embedding-3-small",
-            "data": [{"embedding": [0.1] * 255}]}
-        with patch.dict("os.environ", {"FOCUSOS_OPENAI_API_KEY": "synthetic-key"}), \
+        response.json.return_value = {"embedding": {"values": [0.1] * 255}}
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "synthetic-key"}), \
              patch("focusos_api.memory_embeddings.httpx.post", return_value=response):
             with self.assertRaises(EmbeddingError):
                 embed_text("Fact")

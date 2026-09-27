@@ -100,3 +100,5 @@ For the two-project Vercel deployment probe, follow [docs/deployment.md](docs/de
 ## Evaluation and release status
 
 The synthetic held-out cases, opt-in extraction runner, scorer, safety gate, and honest baseline report are documented in [evals/README.md](evals/README.md) and [docs/evaluation.md](docs/evaluation.md). See [docs/demo.md](docs/demo.md) for the end-to-end synthetic demo, data-removal controls, required server-only environment, and current live-verification limits. The exact remaining acceptance gaps are in [docs/remaining-work.md](docs/remaining-work.md). CI runs unit, safety, dataset, dry-run evaluation, and web build without provider secrets. `python evals/hosted_smoke.py` checks the deployed public and anonymous-auth boundaries.
+
+Current Gemini setup: [docs/gemini-setup.md](docs/gemini-setup.md). Backend uses GEMINI_API_KEY; never add it to browser variables.

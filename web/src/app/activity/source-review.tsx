@@ -17,6 +17,7 @@ type TaskCandidate = {
 type Extraction = {
   id: string; status: "processing" | "ready" | "failed"; safe_error: string | null;
   ignored_item_keys: string[];
+  confirmed_item_keys?: string[];
   validated_payload: {
     tasks: TaskCandidate[]; events: { title: string; uncertainties: string[] }[];
     facts: { text: string }[]; requests: { text: string }[];
@@ -31,9 +32,9 @@ async function readJson<T>(response: Response): Promise<T> {
   return data as T;
 }
 
-function TaskReviewCard({ task, extractionId, ignored, projects, onChanged }: {
-  task: TaskCandidate; extractionId: string; ignored: boolean; projects: Project[];
-  onChanged: (next?: Extraction) => void;
+function TaskReviewCard({ task, extractionId, ignored, confirmed, projects, onChanged, onConfirmed }: {
+  task: TaskCandidate; extractionId: string; ignored: boolean; confirmed: boolean; projects: Project[];
+  onChanged: (next?: Extraction) => void; onConfirmed: (localRef: string) => void;
 }) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
@@ -48,7 +49,6 @@ function TaskReviewCard({ task, extractionId, ignored, projects, onChanged }: {
   const [projectId, setProjectId] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [confirmed, setConfirmed] = useState(false);
 
   async function confirm(event: FormEvent) {
     event.preventDefault();
@@ -66,8 +66,8 @@ function TaskReviewCard({ task, extractionId, ignored, projects, onChanged }: {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ local_ref: task.local_ref, task: reviewed }),
       }));
-      setConfirmed(true);
-      setMessage("Task saved. Open Today to see tasks due now or earlier.");
+      onConfirmed(task.local_ref);
+      setMessage("Task saved. Tasks with future deadlines appear in Upcoming on Home.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save task");
     } finally { setBusy(false); }
@@ -96,7 +96,7 @@ function TaskReviewCard({ task, extractionId, ignored, projects, onChanged }: {
       <ul>{task.uncertainties.map((item, index) => <li key={index}>{item}</li>)}</ul>
     </div>}
     {task.deadline.kind === "unresolved" && <p className="task-error">The source did not give a clear deadline. Choose one only if you know it.</p>}
-    {ignored ? <p>Ignored for now. You can undo this decision.</p> : <form className="task-form" onSubmit={(event) => void confirm(event)}>
+    {confirmed ? <p role="status">Task confirmed. Find it in Today or Upcoming on Home.</p> : ignored ? <p>Ignored for now. You can undo this decision.</p> : <form className="task-form" onSubmit={(event) => void confirm(event)}>
       <label>Task title<input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={200} required /></label>
       <label>Description<textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={2000} rows={2} /></label>
       <div className="review-grid">
@@ -118,9 +118,9 @@ function TaskReviewCard({ task, extractionId, ignored, projects, onChanged }: {
       </div>
       <button type="submit" disabled={busy || confirmed}>{confirmed ? "Confirmed" : "Confirm task"}</button>
     </form>}
-    <button type="button" className="secondary-button" onClick={() => void toggleIgnore()} disabled={busy || confirmed}>
+    {!confirmed && <button type="button" className="secondary-button" onClick={() => void toggleIgnore()} disabled={busy}>
       {ignored ? "Undo ignore" : "Ignore candidate"}
-    </button>
+    </button>}
     {message && <p role="status">{message}</p>}
   </article>;
 }
@@ -241,7 +241,7 @@ export function SourceReview() {
   return <section className="source-review">
     <form className="task-form review-panel" onSubmit={(event) => void createSource(event)}>
       <h2>Add a manual source</h2>
-      <p>Paste one selected message or document excerpt. Text is available for 30 days, maximum 20 KB; expired text is cleared on a later source request. Extraction sends it to OpenAI.</p>
+      <p>Paste one selected message or document excerpt. Text is available for 30 days, maximum 20 KB; expired text is cleared on a later source request. Extraction sends it to Gemini.</p>
       <label>Source title<input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={200} required /></label>
       <label>Plain text<textarea rows={7} value={text} onChange={(event) => setText(event.target.value)} required /></label>
       <button type="submit" disabled={busy || !text.trim()}>Save source</button>
@@ -273,7 +273,11 @@ export function SourceReview() {
         {extraction.validated_payload.tasks.map((task) => <TaskReviewCard key={task.local_ref}
           task={task} extractionId={extraction.id}
           ignored={extraction.ignored_item_keys.includes(task.local_ref)}
-          projects={projects} onChanged={(next) => next && setExtraction(next)} />)}
+          confirmed={extraction.confirmed_item_keys?.includes(task.local_ref) ?? false}
+          projects={projects} onChanged={(next) => next && setExtraction(next)}
+          onConfirmed={(localRef) => setExtraction((current) => current && {
+            ...current, confirmed_item_keys: [...new Set([...(current.confirmed_item_keys ?? []), localRef])],
+          })} />)}
         {extraction.validated_payload.events.length > 0 && <p>{extraction.validated_payload.events.length} event candidate(s) recognized for review only; no Calendar event was created.</p>}
         {extraction.validated_payload.requests.map((item, index) => <p key={index}>Request: {item.text}</p>)}
         {extraction.validated_payload.facts.map((item, index) => <p key={index}>Fact: {item.text}</p>)}

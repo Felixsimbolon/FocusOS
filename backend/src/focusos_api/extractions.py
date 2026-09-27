@@ -40,6 +40,7 @@ class ExtractionRecord(BaseModel):
     validated_payload: dict | None
     safe_error: str | None
     ignored_item_keys: list[str] = Field(default_factory=list)
+    confirmed_item_keys: list[str] = Field(default_factory=list)
     run_id: UUID | None
     created_at: datetime
     updated_at: datetime
@@ -51,12 +52,26 @@ class ExtractionEnvelopeResponse(BaseModel):
     replayed: bool
 
 
+def _with_confirmed_items(record: ExtractionRecord, owner: str, client: object) -> ExtractionRecord:
+    if record.status != "ready":
+        return record
+    rows = (client.table("tasks").select("extraction_item_key")
+            .eq("user_id", owner).eq("extraction_result_id", str(record.id))
+            .limit(10).execute().data)
+    if not isinstance(rows, list):
+        raise DatabaseUnavailable("Unexpected confirmed candidate list")
+    return record.model_copy(update={
+        "confirmed_item_keys": [row["extraction_item_key"] for row in rows
+                                if isinstance(row, dict) and isinstance(row.get("extraction_item_key"), str)]
+    })
+
+
 def _read_result(access_token: str, result_id: UUID) -> ExtractionRecord:
     with scoped_client(access_token) as (owner, client):
         rows = client.table("extraction_results").select(SELECT).eq("user_id", owner).eq("id", str(result_id)).limit(1).execute().data
-    if not isinstance(rows, list) or not rows:
-        raise DatabaseUnavailable("Extraction result missing")
-    return ExtractionRecord.model_validate(rows[0])
+        if not isinstance(rows, list) or not rows:
+            raise DatabaseUnavailable("Extraction result missing")
+        return _with_confirmed_items(ExtractionRecord.model_validate(rows[0]), owner, client)
 
 
 def read_extraction(access_token: str, source_id: UUID) -> ExtractionRecord | None:
@@ -70,7 +85,9 @@ def read_extraction(access_token: str, source_id: UUID) -> ExtractionRecord | No
                 .eq("schema_version", SCHEMA_VERSION)
                 .eq("prompt_version", PROMPT_VERSION)
                 .eq("model_version", MODEL).limit(1).execute().data)
-    return ExtractionRecord.model_validate(rows[0]) if isinstance(rows, list) and rows else None
+        if not isinstance(rows, list) or not rows:
+            return None
+        return _with_confirmed_items(ExtractionRecord.model_validate(rows[0]), owner, client)
 
 
 def process_extraction(access_token: str, source_id: UUID) -> ExtractionEnvelopeResponse:

@@ -22,15 +22,15 @@ def run():
 
 class PlannerTests(unittest.TestCase):
     def test_model_receives_bounded_handles_and_no_tools(self):
-        response=Mock(); response.content=b"{}"; response.json.return_value={"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":json.dumps(RAW)}]}]}
-        with patch.dict("os.environ",{"FOCUSOS_OPENAI_API_KEY":"test"}),patch("focusos_api.agent_planner.httpx.post",return_value=response) as post:
+        response=Mock(); response.content=b"{}"; response.json.return_value={"candidates":[{"finishReason":"STOP","content":{"parts":[{"text":json.dumps(RAW)}]}}]}
+        with patch.dict("os.environ",{"GEMINI_API_KEY":"test"}),patch("focusos_api.gemini.httpx.post",return_value=response) as post:
             self.assertEqual(propose_plan("Find one hour",[TASK],FREE,{"matches":[]},START.isoformat()),RAW)
         payload=post.call_args.kwargs["json"]
-        self.assertFalse(payload["store"])
+        self.assertEqual(payload["generationConfig"]["responseFormat"]["text"]["mimeType"], "APPLICATION_JSON")
         self.assertNotIn("tools",payload)
-        self.assertIn("task-1",payload["input"][1]["content"])
+        self.assertIn("task-1",payload["contents"][0]["parts"][0]["text"])
     def test_missing_key_fails_closed(self):
-        with patch.dict("os.environ",{"FOCUSOS_OPENAI_API_KEY":""}):
+        with patch.dict("os.environ",{"GEMINI_API_KEY":""}):
             with self.assertRaises(PlanningModelError): propose_plan("x",[TASK],FREE,{},START.isoformat())
     def test_success_checkpoint_is_proposal_only(self):
         initial=run(); leased=initial.model_copy(update={"version":3,"status":"running"}); done=leased.model_copy(update={"version":4,"status":"succeeded"})

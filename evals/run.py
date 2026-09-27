@@ -47,11 +47,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--dry-run", action="store_true", help="validate and emit skipped records; no provider call")
-    group.add_argument("--live", action="store_true", help="call the actual OpenAI extraction service")
+    group.add_argument("--live", action="store_true", help="call the actual Gemini extraction service")
     parser.add_argument("--out", type=Path, default=ROOT / "evals" / "output" / "observations.jsonl")
     args = parser.parse_args()
-    if args.live and not os.environ.get("FOCUSOS_OPENAI_API_KEY", "").strip():
-        parser.error("FOCUSOS_OPENAI_API_KEY is required for --live")
+    if args.live and not os.environ.get("GEMINI_API_KEY", "").strip():
+        parser.error("GEMINI_API_KEY is required for --live")
     rows = [row for row in load_cases() if row["category"] in EVAL_CATEGORIES]
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open("w", encoding="utf-8") as stream:

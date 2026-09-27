@@ -40,6 +40,7 @@ function readableDue(task: Task): string | null {
 
 export function TaskBoard() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -63,21 +64,27 @@ export function TaskBoard() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/tasks/today", {
-        cache: "no-store",
-      });
-      const result = (await response.json()) as TaskList | { error?: string };
-      if (!response.ok || !("tasks" in result)) {
+      const [response, openResponse] = await Promise.all([
+        fetch("/api/tasks/today", { cache: "no-store" }),
+        fetch("/api/tasks?status=open", { cache: "no-store" }),
+      ]);
+      const [result, openResult] = await Promise.all([
+        response.json() as Promise<TaskList | { error?: string }>,
+        openResponse.json() as Promise<TaskList | { error?: string }>,
+      ]);
+      if (!response.ok || !openResponse.ok || !("tasks" in result) || !("tasks" in openResult)) {
         setError("Tasks could not be loaded. Please try again.");
         return;
       }
       setTasks(result.tasks);
+      const todayIds = new Set(result.tasks.map((task) => task.id));
+      setUpcomingTasks(openResult.tasks.filter((task) => !todayIds.has(task.id)));
       setTodayContext(
         result.today && result.timezone
           ? "Showing tasks due on or before " + result.today + " in " + result.timezone + "."
           : "",
       );
-      setMessage(result.truncated ? "Showing the first 100 matching tasks." : "");
+      setMessage(result.truncated || openResult.truncated ? "Showing the first 100 matching tasks. Older tasks may not appear." : "");
     } catch {
       setError("Tasks could not be loaded. Please try again.");
     } finally {
@@ -229,6 +236,64 @@ export function TaskBoard() {
     }
   }
 
+  const renderTask = (task: Task) => (
+    <li key={task.id}>
+      <div className="task-list-title">
+        <strong>{task.title}</strong>
+        <span className={"task-priority priority-" + task.priority}>{task.priority}</span>
+      </div>
+      {task.description ? <p>{task.description}</p> : null}
+      {task.project_id ? (
+        <p className="task-project">
+          Project: {projects.find((project) => project.id === task.project_id)?.name ?? "Project"}
+        </p>
+      ) : null}
+      {task.source_id ? <a href={"/activity?source=" + task.source_id}>View source evidence</a> : null}
+      <div className="task-meta">
+        {readableDue(task) ? <span>Due {readableDue(task)}</span> : null}
+        {task.estimate_minutes ? <span>{task.estimate_minutes} min estimate</span> : null}
+      </div>
+      {editingTaskId === task.id ? (
+        <form className="task-edit-form" onSubmit={(event) => void saveTitle(event, task)}>
+          <label>
+            Edit task title
+            <input
+              value={editTitle}
+              onChange={(event) => setEditTitle(event.target.value)}
+              maxLength={200}
+              required
+              autoFocus
+            />
+          </label>
+          <div className="task-actions">
+            <button type="submit" disabled={updatingTaskId === task.id}>Save changes</button>
+            <button type="button" onClick={() => setEditingTaskId(null)}>Cancel</button>
+          </div>
+        </form>
+      ) : (
+        <div className="task-actions">
+          <button
+            type="button"
+            onClick={() => {
+              setEditingTaskId(task.id);
+              setEditTitle(task.title);
+            }}
+            disabled={updatingTaskId === task.id}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => void patchTask(task, { status: "done" })}
+            disabled={updatingTaskId === task.id}
+          >
+            Mark complete
+          </button>
+        </div>
+      )}
+    </li>
+  );
+
   return (
     <section className="task-board" aria-labelledby="tasks-heading">
       <div className="task-board-heading">
@@ -318,67 +383,20 @@ export function TaskBoard() {
         <p>Loading tasks…</p>
       ) : tasks.length ? (
         <ul className="task-list">
-          {tasks.map((task) => (
-            <li key={task.id}>
-              <div className="task-list-title">
-                <strong>{task.title}</strong>
-                <span className={"task-priority priority-" + task.priority}>{task.priority}</span>
-              </div>
-              {task.description ? <p>{task.description}</p> : null}
-              {task.project_id ? (
-                <p className="task-project">
-                  Project: {projects.find((project) => project.id === task.project_id)?.name ?? "Project"}
-                </p>
-              ) : null}
-              {task.source_id ? <a href={"/activity?source=" + task.source_id}>View source evidence</a> : null}
-              <div className="task-meta">
-                {readableDue(task) ? <span>Due {readableDue(task)}</span> : null}
-                {task.estimate_minutes ? <span>{task.estimate_minutes} min estimate</span> : null}
-              </div>
-              {editingTaskId === task.id ? (
-                <form className="task-edit-form" onSubmit={(event) => void saveTitle(event, task)}>
-                  <label>
-                    Edit task title
-                    <input
-                      value={editTitle}
-                      onChange={(event) => setEditTitle(event.target.value)}
-                      maxLength={200}
-                      required
-                      autoFocus
-                    />
-                  </label>
-                  <div className="task-actions">
-                    <button type="submit" disabled={updatingTaskId === task.id}>Save changes</button>
-                    <button type="button" onClick={() => setEditingTaskId(null)}>Cancel</button>
-                  </div>
-                </form>
-              ) : (
-                <div className="task-actions">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingTaskId(task.id);
-                      setEditTitle(task.title);
-                    }}
-                    disabled={updatingTaskId === task.id}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void patchTask(task, { status: "done" })}
-                    disabled={updatingTaskId === task.id}
-                  >
-                    Mark complete
-                  </button>
-                </div>
-              )}
-            </li>
-          ))}
+          {tasks.map(renderTask)}
         </ul>
       ) : (
         <p className="task-empty">No tasks due today or earlier, or without a deadline.</p>
       )}
+      <div className="task-board-heading">
+        <div>
+          <h2>Upcoming</h2>
+          <p>Open tasks due after today.</p>
+        </div>
+      </div>
+      {loading ? <p>Loading upcoming tasks…</p> : upcomingTasks.length ? (
+        <ul className="task-list">{upcomingTasks.map(renderTask)}</ul>
+      ) : <p className="task-empty">No upcoming tasks.</p>}
     </section>
   );
 }

@@ -611,3 +611,41 @@ Migration 9.5 terpasang. Deploy API `dpl_5s6k6nHCXXruEK2puumZz4K81v6f` dan web `
 ### Audit penutupan phase terakhir — pekerjaan yang masih kurang
 
 `plan.md` berakhir pada Phase 9; tidak ada increment Phase 10. Audit ulang pada 2026-09-27 menegaskan [CI commit akhir Phase 9 berhasil](https://github.com/Felixsimbolon/FocusOS/actions/runs/36298871570), alias produksi masih merespons smoke 7/7, dan env Vercel integrasi tetap belum ada (API dua nama dasar, web empat nama dasar). Dokumen `docs/remaining-work.md` memetakan enam gap: secret, consent Google, skor extraction live, demo Gmail→Calendar, browser/lifecycle live, dan semantic memory live. Untuk setiap gap dicatat tindakan serta bukti lulus yang perlu dikumpulkan. Kotak 9.6 dan final acceptance tetap terbuka; tidak ada event Google atau skor model yang direka dari mock.
+
+## Migrasi provider AI ke Gemini (27 September 2026)
+
+Setelah key Gemini dibuat, adapter ekstraksi, planner, fungsi baca tugas, dan embedding dipindah dari OpenAI Responses/Embeddings ke Gemini GenerateContent/EmbedContent. Backend memakai GEMINI_API_KEY; model generasi gemini-3.5-flash-lite dan embedding gemini-embedding-2 256 dimensi. Prompt versi 2; kontrak schema versi 1 tetap. Validasi bukti, owner, batas panggilan, dan pemeriksaan keluaran tetap di backend. Migration baru mengubah metadata provider dan fungsi pgvector, serta mengembalikan embedding lama ke pending karena model vektor berbeda; fakta terkonfirmasi tidak dihapus. Tes mock backend 217 lulus. Migration produksi, key Vercel, panggilan provider live, dan evaluasi kualitas masih pending. Setup lengkap ada di [gemini-setup.md](gemini-setup.md).
+
+## Perbaikan sesi lokal untuk route aksi (27 September 2026)
+
+Saat /api/me sukses tetapi Save source dan aksi lain menjawab Authentication required, pemeriksaan token aksi ternyata membaca session.user.id dari cookie Supabase yang dikonfigurasi tokens-only. Server sekarang membaca access token dari sesi, memverifikasi token yang tepat dengan Supabase Auth, lalu meneruskannya ke FastAPI. Route profil memakai helper yang sama agar hasil login dan izin aksi konsisten. Uji regresi cookie tokens-only dan penolakan token invalid lulus (5 tes auth-session); typecheck web lulus. Uji ulang melalui browser dengan sesi pengguna masih perlu dilakukan.
+
+## Diagnostik provider Gemini saat ekstraksi gagal (27 September 2026)
+
+Ketika UI menampilkan provider_error, adapter kini mencatat hanya status HTTP, status error resmi Gemini, nama model, atau tipe error transport ke terminal FastAPI. Isi request, respons lengkap, dan API key tidak dicatat. Ini membedakan key/permission, model, kuota, schema request, dan gangguan jaringan saat uji lokal.
+
+## Perbaikan schema Gemini pada request ekstraksi (27 September 2026)
+
+Uji lokal mengembalikan HTTP 400 INVALID_ARGUMENT dari Gemini. Audit schema menemukan keyword const yang berasal dari Pydantic pada schema_version, sedangkan subset JSON Schema Gemini mendukung enum. Adapter ekstraksi dan planner kini mengubah const menjadi enum satu nilai sebelum mengirim request. Validasi Pydantic lokal tetap memakai kontrak aslinya. Panggilan Gemini live setelah perubahan masih perlu dicoba ulang; pembatasan ekstraksi database adalah lima run per sepuluh menit.
+
+## Audit lanjutan HTTP 400 Gemini (27 September 2026)
+
+Setelah penggantian const ke enum, panggilan ekstraksi masih mendapat HTTP 400 INVALID_ARGUMENT. Ini belum cukup untuk menyimpulkan schema bermasalah: dokumentasi Google memakai status yang sama untuk API key tidak valid. Adapter kini mencatat reason ErrorInfo dan field violation resmi bila tersedia, tanpa pesan error mentah. Probe lokal privat di .temp/gemini_probe.py mencoba model lookup, generate sederhana, schema sederhana, lalu schema FocusOS dengan input sintetis; outputnya hanya status, reason, field, dan kategori error. Hasil probe pengguna masih pending.
+
+## Perbaikan MIME output JSON Gemini (27 September 2026)
+
+Probe dengan key pengguna membuktikan model lookup dan generate sederhana HTTP 200, tetapi schema JSON sederhana HTTP 400 pada generation_config.response_format.text.mime_type. Field ini memakai enum APPLICATION_JSON pada GenerateContent REST; adapter sebelumnya mengirim string MIME application/json. Nilai adapter dan ekspektasi tes diubah ke APPLICATION_JSON. Hasil panggilan setelah perubahan masih perlu diverifikasi melalui probe lokal; tidak ada key yang dicatat atau disimpan di repo.
+
+
+## Perbaikan visibilitas tugas hasil extraction (27 September 2026)
+
+Pada uji source sintetis, dua kandidat dikonfirmasi. Tugas tanpa deadline muncul di Home, sedangkan tugas "Send the project brief" bertenggat 2 Oktober 2026 tidak muncul karena Home hanya memuat Today: tugas jatuh tempo hari ini, terlewat, atau tanpa deadline. Setelah tugas Today ditandai selesai, Home terlihat kosong walaupun tugas masa depan masih aktif. Home kini memuat daftar Upcoming dari task terbuka dan menampilkan task masa depan di kartu yang sama, termasuk bukti source dan aksi edit/complete. Daftar task terbuka dibatasi 100 terbaru; UI memberi tahu bila hasil terpotong.
+
+Halaman Activity sebelumnya hanya menyimpan status Confirmed dalam state browser. Setelah reload tombol Confirm task kembali muncul meski database sudah menyimpan task dengan identitas extraction/local_ref yang unik. Respons extraction sekarang membaca local_ref task terkonfirmasi milik pengguna, termasuk task berstatus done, lalu kartu review menampilkan status Confirmed dari data tersebut. Tidak perlu migration baru. TypeScript check dan 60 tes web lulus; sintaks Python lulus. Tes backend untuk kasus reload ditambahkan tetapi run-nya ditolak auto-review sesi, sehingga masih perlu dijalankan bila diizinkan. Perlu uji ulang browser lokal setelah restart API untuk membuktikan brief muncul di Upcoming dan kedua kandidat tetap Confirmed setelah reload.
+
+
+## Pencarian memori langsung tanpa Calendar (27 September 2026)
+
+Uji lokal menunjukkan run Planning agent berada di status waiting/start setelah pertanyaan fakta diajukan. Ini perilaku staged run: tombol Continue run baru mengeksekusi pembacaan task, Calendar, slot bebas, lalu memory.search sebelum proposal. Planning agent dirancang untuk menyusun blok kerja dan bukan antarmuka tanya jawab fakta; arahan sebelumnya untuk menguji memori lewat pertanyaan di /agent kurang tepat, terutama bila Google Calendar belum terhubung.
+
+Untuk menguji memori yang sudah dikonfirmasi dan di-embed tanpa ketergantungan Calendar, FastAPI kini menyediakan POST /memories/search memakai fungsi owner-scoped search_memories yang sudah dipakai agent. Proxy Next.js hanya mengizinkan path search yang dikenal dan meneruskan token sesi server. Halaman /memories menerima query, menampilkan mode semantic atau keyword fallback, fakta yang cocok, kutipan bukti, serta tautan source. Ini menampilkan hasil retrieval, bukan menghasilkan jawaban chat atau event Calendar. Panduan Gemini dan demo diperbarui. TypeScript check, sintaks Python, dan git diff check lulus; browser dengan sesi login dan provider live masih perlu diuji.

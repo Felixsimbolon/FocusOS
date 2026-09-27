@@ -1,3 +1,7 @@
+# Gemini provider update (pending deployment)
+
+Current code uses GEMINI_API_KEY only in the FastAPI project for extraction, planning, read-only task function calls, and embeddings. Apply migration 20260927160000_gemini_provider.sql before deploying the Gemini backend, then set GEMINI_API_KEY in the API project's Production environment and redeploy that project. Existing OpenAI vectors become pending and may be embedded again without deleting confirmed memories. The earlier OpenAI instructions below describe historical deployments; follow [the current Gemini setup](gemini-setup.md). Do not send personal Gmail/Calendar content to Gemini's unpaid tier; use synthetic data until the data-use terms of your tier are suitable.
+
 # Early deployment probe
 
 Increment 1.8 deploys the current identity/profile slice as **two Vercel projects** from this repository: `web/` (Next.js) and `backend/` (FastAPI). Choose the Hobby plan only for a personal, noncommercial portfolio demo. The Python runtime is still beta. The deployed API runs as a bounded function; no background worker is assumed.

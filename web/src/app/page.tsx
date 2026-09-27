@@ -45,6 +45,7 @@ export default async function Home({
           {me.kind === "ok" ? <><TaskBoard /><CalendarAvailability /></> : null}
           <a href="/agent">Planning agent</a>
           <a href="/activity">Review extracted sources</a>
+          <a href="/memories">Search memories</a>
           <a href="/settings">Scheduling preferences</a>
           <form action={signOut}>
             <button type="submit">Sign out</button>
