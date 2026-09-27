@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { ApprovalPanel } from "./approval-panel";
 
 type Block = { task_ref: string; title: string; start: string; end: string; reason: string; evidence_refs: string[] };
 type Plan = { status: string; summary: string; requested_minutes: number; scheduled_minutes: number;
@@ -83,6 +84,7 @@ export function AgentConsole({ initialRunId }: { initialRunId?: string }) {
       {run.result.questions.map((question, index) => <p key={index}>Question: {question}</p>)}
       {run.result.assumptions.map((assumption, index) => <p key={index}>Assumption: {assumption}</p>)}
       <p>Proposal only. No calendar event has been created.</p></div> : null}
+    {run?.result?.status === "proposed" ? <ApprovalPanel runId={run.id} blocks={run.result.blocks} /> : null}
     {run ? <div className="review-panel"><h2>Read tool history</h2>{tools.length ? <ol>{tools.map(tool => <li key={tool.ordinal}>{tool.name}: {tool.status}{tool.safe_code ? ` (${tool.safe_code})` : ""}</li>)}</ol> : <p>No completed read tool recorded yet.</p>}</div> : null}
   </section>;
 }

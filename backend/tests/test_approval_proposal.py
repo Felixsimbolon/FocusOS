@@ -4,6 +4,7 @@ from unittest.mock import patch
 from uuid import uuid4
 from fastapi.testclient import TestClient
 from focusos_api.approval_proposal import ProposalInput, propose_calendar_event
+from focusos_api.approval_decisions import DecisionInput
 from focusos_api.main import app
 
 class ApprovalProposalTests(unittest.TestCase):
@@ -29,5 +30,11 @@ class ApprovalProposalTests(unittest.TestCase):
         self.assertEqual(result.status,"pending")
         self.assertEqual(rpc.call_args.args[1],"focusos_propose_calendar_action")
         provider.assert_not_called()
+    def test_decision_body_cannot_replace_action(self):
+        from pydantic import ValidationError
+        for body in ({"decision":"approve","title":"Other"},{"decision":"approved"}):
+            with self.assertRaises(ValidationError): DecisionInput.model_validate(body)
     def test_anonymous_proposal_is_denied(self):
         self.assertEqual(TestClient(app).post(f"/agent/runs/{uuid4()}/propose-event",json={"block_index":0}).status_code,401)
+        self.assertEqual(TestClient(app).get(f"/approvals?run_id={uuid4()}").status_code,401)
+        self.assertEqual(TestClient(app).post(f"/approvals/{uuid4()}/decision",json={"decision":"approve"}).status_code,401)

@@ -1994,7 +1994,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] Resolve D10 approval unit before 8.1: Option A, one approval per event.
 - [x] 8.1 Persist immutable owned approval payload/hash/expiry/state.
 - [x] 8.2 Add proposal-only calendar.create_event tool; prove it performs zero writes.
-- [ ] 8.3 Add exact-action preview and atomic approve/reject endpoint.
+- [x] 8.3 Add exact-action preview and atomic approve/reject endpoint.
 - [ ] 8.4 Revalidate permissions, task version, payload, expiry and fresh Calendar conflicts.
 - [ ] 8.5 Add stable-ID insert/reconciliation adapter; test lost-response/duplicate cases.
 - [ ] 8.6 Claim/execute one approved action; verify one real event and no replay duplicate.
