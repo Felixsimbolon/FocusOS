@@ -29,3 +29,8 @@ Dari repo root: `npm ci`, `npm ci --prefix web`, `python -m venv .venv`, instal 
 - Tidak ada background worker; Gmail sync dan run agent dilanjutkan secara manual. Cold start/timeout Vercel dapat membuat hasil Google sementara `unknown`, lalu perlu rekonsiliasi stable event ID.
 - Body source disimpan maksimal 30 hari dan dibersihkan secara lazy pada request berikutnya, maksimal 100 per panggilan. Task/memori yang sudah dikonfirmasi tetap ada sampai source Gmail terkait dihapus secara eksplisit.
 - Disconnect menghapus token FocusOS, bukan mencabut akses di Google Cloud atau menghapus event/provider data. Request yang sudah in-flight mungkin mencapai Google sebelum token hilang; audit akan menjaga hasil yang tidak pasti sebagai `unknown`.
+
+
+## Bukti rilis otomatis terakhir
+
+GitHub Actions [FocusOS checks — success](https://github.com/Felixsimbolon/FocusOS/actions/runs/36298773031) menjalankan suite tanpa secret. API deployment `dpl_5s6k6nHCXXruEK2puumZz4K81v6f` dan web `dpl_HALEESKPyjPWrgZ635mvG9g3xsHN` READY. Smoke tanpa sesi lulus 7/7; ini belum menggantikan langkah demo login/provider di atas.

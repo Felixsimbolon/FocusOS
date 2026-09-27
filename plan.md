@@ -2007,7 +2007,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 9.3 Add exact-field scorer, recorded semantic judgments, and baseline report. (Live metrics pending API key.)
 - [x] 9.4 Pass provider-mocked agent/approval/injection/isolation/recovery regression gates.
 - [x] 9.5 Add/test disconnect, bounded retention, and single imported-source removal. (Live reconnect pending Google credentials.)
-- [ ] 9.6 Run release checks/CI smoke, hosted auth, and approved live Calendar demo; document setup/limitations.
+- [ ] 9.6 Run release checks/CI smoke, hosted auth, and approved live Calendar demo; document setup/limitations. (CI, deployment, anonymous smoke and docs done; authenticated/provider demo pending private credentials.)
 
 ### Final acceptance gates
 
