@@ -24,6 +24,7 @@ describe("agent run proxy", () => {
   });
   it("allows only owned-run-shaped paths and hides arbitrary upstream details", async () => {
     expect((await GET(new NextRequest(`http://localhost/api/agent/runs/${id}/tools`), context([id,"tools"]))).status).toBe(200);
+    expect((await GET(new NextRequest(`http://localhost/api/agent/runs/${id}/audit`), context([id,"audit"]))).status).toBe(200);
     expect((await GET(new NextRequest("http://localhost/api/agent/runs/invalid"), context(["invalid"]))).status).toBe(404);
     vi.mocked(fetch).mockResolvedValue(Response.json({ detail: "secret" }, { status: 404 }));
     const response = await GET(new NextRequest(`http://localhost/api/agent/runs/${id}`), context([id]));

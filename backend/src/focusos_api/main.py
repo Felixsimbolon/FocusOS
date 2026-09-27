@@ -8,6 +8,7 @@ from focusos_api.approval_proposal import ApprovalRecord, ProposalInput, propose
 from focusos_api.approval_decisions import DecisionInput, decide_approval, list_approvals
 from focusos_api.approval_execute import execute_approval
 from focusos_api.approval_preflight import ApprovalStale
+from focusos_api.approval_audit import RunActionAudit, read_run_action_audit
 from focusos_api.agent_model import AgentModelError
 from focusos_api.agent_tools import ToolValidationError
 from focusos_api.agent_tasks import CommandInput, CommandResult, run_tasks_command
@@ -161,6 +162,17 @@ def agent_run_get(run_id: UUID,
         raise HTTPException(status_code=401, detail="Invalid session") from exc
     except DatabaseUnavailable as exc:
         raise HTTPException(status_code=404, detail="Run not found") from exc
+
+
+@app.get("/agent/runs/{run_id}/audit", response_model=RunActionAudit)
+def agent_run_audit_get(run_id: UUID,
+                        access_token: str = Depends(require_access_token)) -> RunActionAudit:
+    try:
+        return read_run_action_audit(access_token, run_id)
+    except InvalidSession as exc:
+        raise HTTPException(status_code=401, detail="Invalid session") from exc
+    except DatabaseUnavailable as exc:
+        raise HTTPException(status_code=404, detail="Run audit unavailable") from exc
 
 
 @app.get("/agent/runs/{run_id}/tools")

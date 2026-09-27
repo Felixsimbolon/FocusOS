@@ -10,16 +10,16 @@ async function proxy(request: NextRequest, context: Context, method: "GET" | "PO
   const { path = [] } = await context.params;
   const runId = request.nextUrl.searchParams.get("run_id");
   const valid = method === "GET" ? path.length === 0 && !!runId && UUID.test(runId)
-    : path.length === 2 && UUID.test(path[0]) && path[1] === "decision";
+    : path.length === 2 && UUID.test(path[0]) && ["decision", "execute"].includes(path[1]);
   if (!valid) return NextResponse.json({ error: "Approval route not found" }, { status: 404 });
   let body: string | undefined;
-  if (method === "POST") {
+  if (method === "POST" && path[1] === "decision") {
     body = await request.text();
     if (body.length > 128) return NextResponse.json({ error: "Decision too large" }, { status: 413 });
   }
   try {
     const origin = requireServerEnv("FOCUSOS_API_URL").replace(/\/$/, "");
-    const suffix = method === "GET" ? `?run_id=${runId}` : `/${path[0]}/decision`;
+    const suffix = method === "GET" ? `?run_id=${runId}` : `/${path[0]}/${path[1]}`;
     const response = await fetch(origin + "/approvals" + suffix, {
       method, headers: { Authorization: "Bearer " + token, ...(body ? { "Content-Type": "application/json" } : {}) },
       body, cache: "no-store", signal: AbortSignal.timeout(12000),

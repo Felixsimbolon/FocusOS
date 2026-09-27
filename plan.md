@@ -1998,7 +1998,7 @@ Decision gates are checked at the appropriate time, not all necessarily before 1
 - [x] 8.4 Revalidate permissions, task version, payload, expiry and fresh Calendar conflicts.
 - [x] 8.5 Add stable-ID insert/reconciliation adapter; test lost-response/duplicate cases.
 - [x] 8.6 Claim/execute one approved action; replay/claim verified in mocks and rollback SQL. (One real event pending private Google credentials.)
-- [ ] 8.7 Display truthful result/provider link and complete approval/tool audit.
+- [x] 8.7 Display truthful result/provider link and complete approval/tool audit. (Live provider acceptance pending private credentials.)
 
 ### Phase 9 â€” Evaluation and release
 

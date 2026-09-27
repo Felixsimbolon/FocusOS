@@ -11,7 +11,7 @@ async function proxy(request: NextRequest, context: Context, method: "GET" | "PO
   const { path = [] } = await context.params;
   const valid = method === "POST"
     ? path.length === 0 || (path.length === 2 && UUID.test(path[0]) && ["continue", "propose-event"].includes(path[1]))
-    : path.length === 1 && UUID.test(path[0]) || path.length === 2 && UUID.test(path[0]) && path[1] === "tools";
+    : path.length === 1 && UUID.test(path[0]) || path.length === 2 && UUID.test(path[0]) && ["tools", "audit"].includes(path[1]);
   if (!valid) return NextResponse.json({ error: "Run route not found" }, { status: 404 });
   let body: string | undefined;
   if (method === "POST" && (path.length === 0 || path[1] === "propose-event")) {

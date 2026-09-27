@@ -25,4 +25,11 @@ describe("approval proxy",()=>{
     const result=await GET(new NextRequest(`http://localhost/api/approvals?run_id=${id}`),context());
     expect(result.status).toBe(409); expect(await result.text()).not.toContain("private payload");
   });
+  it("executes only a UUID approval without forwarding a replacement event",async()=>{
+    const response=await POST(new NextRequest(`http://localhost/api/approvals/${id}/execute`,
+      {method:"POST",body:'{"title":"replacement"}'}),context([id,"execute"]));
+    expect(response.status).toBe(200);
+    expect(fetch).toHaveBeenCalledWith(`https://api.example.test/approvals/${id}/execute`,
+      expect.objectContaining({method:"POST",body:undefined}));
+  });
 });
