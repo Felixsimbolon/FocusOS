@@ -2021,3 +2021,8 @@ Phase 9 is the final planned phase. The remaining live acceptance work is tracke
 - [ ] Free-tier/hosting limitations and all incomplete original acceptance criteria are stated accurately.
 - [ ] Stop after the current authorized increment; begin nothing further without the user's instruction.
 
+
+
+## Personal product: days 1?3 (2 October 2026)
+
+The next stage prioritizes reliable planning over new integrations. Diagnosis, deterministic intent-to-slot compilation, actionable errors, and automatic regression/workflow verification are documented in [planning-hardening.md](docs/planning-hardening.md). The user requested automatic testing; provider/database boundaries use synthetic fixtures, with optional synthetic live Gemini evaluation kept separate. Preserve automatic Calendar submission and existing replay/conflict safeguards. Background execution, daily-use UI improvements, and richer task/Calendar lifecycle belong to later days.

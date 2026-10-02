@@ -1,6 +1,7 @@
 """One deterministic read-tool stage per request with persisted checkpoints."""
 
 from datetime import datetime, timedelta, timezone
+import logging
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -9,27 +10,33 @@ from pydantic import BaseModel, ConfigDict, Field
 from focusos_api.agent_tasks import CommandInput, _checkpoint, _log, _rpc
 from focusos_api.calendar_domain import CalendarEventError
 from focusos_api.calendar_fetch import CalendarFetchError, CalendarWindow, fetch_calendar_window
-from focusos_api.calendar_free_time import CalendarPlanningError, FreeTimeResult, _local_boundary, calculate_free_time
+from focusos_api.calendar_free_time import CalendarPlanningError, _local_boundary, calculate_free_time
 from focusos_api.google_calendar import CalendarReconnectRequired
 from focusos_api.calendar_normalize import normalize_window, occurrence_interval
 from focusos_api.database import DatabaseUnavailable, scoped_client
 from focusos_api.profiles import read_profile
 from focusos_api.memory_search import MemorySearchInput, search_memories
-from focusos_api.agent_planner import PlanningModelError, propose_plan
-from focusos_api.planning_contract import PlanningValidationError, validate_planning_response
+from focusos_api.agent_planner import PlanningModelError, select_planning_intent
+from focusos_api.planning_compiler import compile_plan
+from focusos_api.planning_contract import PlanningValidationError
 from focusos_api.tasks import list_tasks
 
 MAX_CHECKPOINT_EVENTS = 80
+logger = logging.getLogger(__name__)
 
 
 class CommandRunNotFound(DatabaseUnavailable):
     pass
 
 
+class CommandRequestConflict(ValueError):
+    pass
+
+
 class AgentRunInput(CommandInput):
-    duration_minutes: int = Field(default=60, ge=15, le=480)
-    allow_split: bool = False
-    auto_calendar: bool = False
+    duration_minutes: int | None = Field(default=None, strict=True, ge=15, le=480)
+    allow_split: bool = Field(default=False, strict=True)
+    auto_calendar: bool = Field(default=False, strict=True)
 
 
 class AgentRunState(BaseModel):
@@ -55,7 +62,11 @@ def load_command_run(access_token: str, run_id: UUID) -> AgentRunState:
                 .eq("id", str(run_id)).eq("user_id", user_id).limit(1).execute().data)
     if not isinstance(rows, list) or len(rows) != 1:
         raise CommandRunNotFound("Command run not found")
-    return AgentRunState.model_validate(rows[0])
+    run = AgentRunState.model_validate(rows[0])
+    if run.status not in ("succeeded", "clarify", "failed") and run.expires_at <= datetime.now(timezone.utc):
+        # SQL deliberately rejects writes to expired runs. Derive expiry from the saved timestamp.
+        return run.model_copy(update={"status": "failed", "stage": "done", "result": None, "safe_error": "run_expired"})
+    return run
 
 
 def start_staged_run(access_token: str, request: AgentRunInput) -> AgentRunState:
@@ -69,13 +80,18 @@ def start_staged_run(access_token: str, request: AgentRunInput) -> AgentRunState
     if not isinstance(initial, dict):
         raise DatabaseUnavailable("Unexpected command run")
     run_id = UUID(str(initial["id"]))
+    options = {"duration_minutes": request.duration_minutes, "allow_split": request.allow_split,
+               "auto_calendar": request.auto_calendar}
     if initial["status"] == "pending":
         _checkpoint(access_token, run_id, int(initial["version"]), "waiting", "start",
             {"duration_minutes": request.duration_minutes, "allow_split": request.allow_split,
-             "auto_calendar": request.auto_calendar,
+             "auto_calendar": request.auto_calendar, "request_options": options,
              "window_start": window_start, "timezone": profile.timezone},
             None, 0, 0)
-    return load_command_run(access_token, run_id)
+    saved = load_command_run(access_token, run_id)
+    if saved.checkpoint.get("request_options", options) != options:
+        raise CommandRequestConflict("request_options_changed")
+    return saved
 
 
 def _task_step(access_token: str, run: AgentRunState) -> tuple[dict, int]:
@@ -134,7 +150,8 @@ def _free_step(access_token: str, run: AgentRunState) -> tuple[dict, int]:
     profile = read_profile(access_token)
     if profile is None or profile.timezone != snapshot.get("timezone"):
         raise CalendarPlanningError("Scheduling profile changed")
-    args = {"duration_minutes": run.checkpoint["duration_minutes"],
+    # Inventory only; the requested duration is resolved in the planning stage.
+    args = {"duration_minutes": run.checkpoint.get("duration_minutes") or 15,
             "allow_split": run.checkpoint["allow_split"],
             "calendar_fetched_at": snapshot["fetched_at"]}
     _log(access_token, run.id, "calendar.find_free_time", args, "requested", ordinal=3)
@@ -175,18 +192,30 @@ def _planning_step(access_token: str, run: AgentRunState) -> AgentRunState:
         return load_command_run(access_token, run.id)
     leased = load_command_run(access_token, run.id)
     try:
-        free = FreeTimeResult.model_validate(leased.checkpoint["free_time"])
         tasks = leased.checkpoint["tasks"]
         memories = leased.checkpoint.get("memory_search", {"mode": "none", "matches": []})
-        raw = propose_plan(leased.command, tasks, free, memories, leased.checkpoint["calendar"]["fetched_at"])
-        source_refs = {item["source_ref"] for item in memories.get("matches", []) if isinstance(item, dict) and isinstance(item.get("source_ref"), str)}
-        result = validate_planning_response(raw, tasks, free, source_refs)
+        profile = read_profile(access_token)
+        if profile is None:
+            raise PlanningValidationError("Scheduling profile missing", code="profile_required")
+        if tasks:
+            raw = select_planning_intent(leased.command, tasks, memories,
+                reference_time=leased.checkpoint["window_start"], timezone_name=profile.timezone,
+                duration_minutes=leased.checkpoint.get("duration_minutes"),
+                allow_split=leased.checkpoint.get("allow_split", False))
+        else:
+            raw = {"status": "selected", "task_refs": [], "duration_minutes": None,
+                   "day": "any", "date": None, "start_time": None, "end_time": None,
+                   "evidence_refs": [], "questions": []}
+        result, free = compile_plan(raw, tasks, leased.checkpoint, profile, command=leased.command)
+        checkpoint = {**leased.checkpoint, "free_time": free.model_dump(mode="json"),
+                      "resolved_duration_minutes": free.requested_minutes}
         status, error = ("succeeded" if result["status"] == "proposed" else "clarify"), None
-    except (PlanningModelError, PlanningValidationError, KeyError, ValueError) as exc:
-        result, status = None, "failed"
-        error = exc.code if isinstance(exc, PlanningModelError) else "invalid_plan"
+    except (PlanningModelError, PlanningValidationError, CalendarPlanningError, KeyError, ValueError) as exc:
+        result, status, checkpoint = None, "failed", leased.checkpoint
+        error = exc.code if isinstance(exc, (PlanningModelError, PlanningValidationError)) else "invalid_time_constraint"
+        logger.warning("Planning failed: code=%s", error)
     if not _checkpoint(access_token, leased.id, leased.version, status, "done",
-                       leased.checkpoint, result, leased.model_turns + 1,
+                       checkpoint, result, leased.model_turns + (1 if leased.checkpoint.get("tasks") else 0),
                        leased.tool_calls_count, error):
         raise DatabaseUnavailable("Planning checkpoint lost")
     return load_command_run(access_token, leased.id)
@@ -196,6 +225,8 @@ def continue_staged_run(access_token: str, run_id: UUID) -> AgentRunState:
     run = load_command_run(access_token, run_id)
     if run.status in ("succeeded", "clarify", "failed"):
         return run
+    if run.expires_at <= datetime.now(timezone.utc):
+        return run.model_copy(update={"status": "failed", "stage": "done", "result": None, "safe_error": "run_expired"})
     if run.stage == "planning":
         return _planning_step(access_token, run)
     if run.status != "waiting" or run.expires_at <= datetime.now(timezone.utc):

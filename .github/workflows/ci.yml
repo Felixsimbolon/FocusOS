@@ -28,6 +28,7 @@ jobs:
       - run: python evals/run.py --dry-run
       - run: python evals/score.py
       - run: python evals/safety_gate.py
+      - run: python evals/planning_eval.py --mock
       - run: npm run build:web
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co

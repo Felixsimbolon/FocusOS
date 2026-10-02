@@ -12,3 +12,8 @@ Run `python evals/score.py` after the runner. The scorer requires one observatio
 
 
 `python evals/safety_gate.py` runs the named provider-mocked agent, approval, Calendar write, and audit regression suites. It checks denied tools, bounded continuation, stale permissions, unapproved writes, one claim winner, timeout reconciliation, and unknown outcomes independently of extraction quality. It does not assert a real provider event was created.
+
+
+## Planning regression and synthetic live evaluation
+
+Run `python evals/planning_eval.py --mock` for eight deterministic backend cases with fixture model selections. This is regression coverage, not model accuracy. Run `python evals/planning_eval.py --live` only with `GEMINI_API_KEY` configured privately to exercise Gemini on the same synthetic tasks. Both modes compile against a synthetic Calendar and never write real events. Results, model/prompt/schema versions, and denominators are saved to ignored `evals/output/planning.json`. See [planning hardening](../docs/planning-hardening.md).

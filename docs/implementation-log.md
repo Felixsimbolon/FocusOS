@@ -707,3 +707,14 @@ Tes backend memeriksa fakta yang dipilih, pertanyaan tanpa jawaban, kegagalan pr
 
 
 Rilis pencarian berbukti: commit `e6e3313` telah di-push ke `main`; API deployment `dpl_5zqE2KE3ahLC4xGfB2kUGcmskHWi` dan web deployment `dpl_6TCatvRrv9qJX5F2zm6y9nPwUhwb` mencapai READY pada alias produksi lama. Setelah rilis, GET API `/health` dan GET web `/memories` mengembalikan 200, sedangkan POST `/api/memories/search` tanpa sesi mengembalikan 401. Suite API 238 tes, suite web 65 tes, TypeScript check, dan build web lulus. Pemilihan Aurora oleh Gemini pada sesi pengguna masih menunggu uji browser.
+
+
+## Personal product ? days 1?3: deterministic planning (2 October 2026)
+
+**Problem and outcome:** Planning could fail because the form silently requested 60 minutes, free slots were selected before requested-day/deadline constraints, and model output had to reproduce titles and arithmetic totals exactly. Plans now use a narrow Gemini intent selection followed by deterministic server allocation; explicit durations/days are grounded in the original command, and missing/conflicting constraints produce actionable clarification. A five-minute write buffer, whole-minute boundaries, 15-minute split minimum, preserved Calendar revalidation, and safe replay prevent stale/invalid blocks from becoming events. These are reproduced failure classes; the exact cause of a historical production run is not claimed without its logs.
+
+**Implementation:** Added intent schema, command constraint grounding, deterministic compiler, optional duration override UI, safe feedback, strict input options, and request-options replay protection. Existing plan/checkpoint/Calendar action contracts remain compatible; no database migration or additional approval step is required. Expired run state is derived from the stored expiry because SQL does not allow expired-run updates. Background execution remains for the later worker step.
+
+**Automatic verification:** 276 backend tests, 76 web tests, and 7 evaluator tests passed. Eight synthetic planning regression cases passed; the report explicitly labels mock selection and makes no live-model accuracy claim. API workflow tests cover extraction, capture, embedding, memory answer, planning, Calendar execution, duplicate replay, new Calendar conflicts, changed tasks, and insert-timeout reconciliation using synthetic data and mock database/provider boundaries. TypeScript and the Next.js production build passed. See [the Indonesian implementation note](planning-hardening.md) and `evals/planning_eval.py` for repeatable checks.
+
+**Release:** Production deployment and any live-model synthetic evaluation are recorded below after credential and release checks. No private Gmail was read and no real Calendar event was created by these tests.

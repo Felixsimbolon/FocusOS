@@ -3,7 +3,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from uuid import UUID
 from datetime import datetime
 
-from focusos_api.agent_continuation import (AgentRunInput, AgentRunState, CommandRunNotFound, continue_staged_run, load_command_run, list_run_tools, start_staged_run)
+from focusos_api.agent_continuation import (AgentRunInput, AgentRunState, CommandRequestConflict, CommandRunNotFound, continue_staged_run, load_command_run, list_run_tools, start_staged_run)
 from focusos_api.approval_proposal import ApprovalRecord, ProposalInput, ProposalRejected, propose_calendar_event
 from focusos_api.approval_decisions import DecisionInput, decide_approval, list_approvals
 from focusos_api.approval_execute import execute_approval
@@ -160,6 +160,8 @@ def agent_run_start(request: AgentRunInput,
                     access_token: str = Depends(require_access_token)) -> AgentRunState:
     try:
         return start_staged_run(access_token, request)
+    except CommandRequestConflict as exc:
+        raise HTTPException(status_code=409, detail="request_options_changed") from exc
     except CalendarPlanningError as exc:
         raise HTTPException(status_code=409, detail="Save scheduling preferences first") from exc
     except InvalidSession as exc:

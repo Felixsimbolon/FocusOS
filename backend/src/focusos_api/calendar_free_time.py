@@ -95,11 +95,14 @@ def _subtract(work: list[tuple[datetime, datetime]],
 def calculate_free_time(window: CalendarWindow, *, timezone_name: str,
                         working_hours: WorkingHours, duration_minutes: int,
                         allow_split: bool = False,
-                        deadline: datetime | date | None = None) -> FreeTimeResult:
+                        deadline: datetime | date | None = None,
+                        minimum_block_minutes: int = 1) -> FreeTimeResult:
     if not window.complete:
         raise CalendarPlanningError("Calendar window is incomplete")
     if duration_minutes < 1 or duration_minutes > 1440:
         raise CalendarPlanningError("Requested duration must be 1 to 1440 minutes")
+    if not 1 <= minimum_block_minutes <= duration_minutes:
+        raise CalendarPlanningError("Minimum block must fit the requested duration")
     if isinstance(deadline, date) and not isinstance(deadline, datetime):
         raise CalendarPlanningError("Date-only deadline needs a time clarification")
     if isinstance(deadline, datetime) and deadline.tzinfo is None:
@@ -125,7 +128,9 @@ def calculate_free_time(window: CalendarWindow, *, timezone_name: str,
             if remaining <= 0:
                 break
             selected = min(remaining, minutes)
-            if selected > 0:
+            if 0 < remaining - selected < minimum_block_minutes:
+                selected = remaining - minimum_block_minutes
+            if selected >= minimum_block_minutes:
                 slots.append(Interval(start=a, end=a + timedelta(minutes=selected)))
                 remaining -= selected
         allocated = duration_minutes - remaining

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerAccessToken } from "@/server/auth/session";
 import { requireServerEnv } from "@/server/env";
+import { describePlanningFailure } from "@/app/agent/planning-feedback";
 
 type Context = { params: Promise<{ path?: string[] }> };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -47,6 +48,13 @@ async function proxy(request: NextRequest, context: Context, method: "GET" | "PO
         error = typeof detail?.detail === "string"
           ? reasons[detail.detail] ?? "Could not prepare this Calendar event. Check its write permission and start a fresh plan."
           : "Could not prepare this Calendar event. Check its write permission and start a fresh plan.";
+      } else if (status === 409 && path.length === 0) {
+        const detail = await response.json().catch(() => null) as { detail?: unknown } | null;
+        error = detail?.detail === "request_options_changed"
+          ? describePlanningFailure("request_options_changed")
+          : "Save your timezone and working hours in Settings, then submit again.";
+      } else if (status === 422) {
+        error = "Check the planning inputs, Calendar connection, and scheduling preferences, then retry.";
       } else if (status === 409) {
         error = "Planning context changed. Check Calendar and scheduling preferences, then retry.";
       }

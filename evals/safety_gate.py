@@ -5,7 +5,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 files = ["test_agent_tools.py", "test_agent_continuation.py", "test_agent_planner.py",
-         "test_approval_payload.py", "test_approval_preflight.py", "test_approval_execute.py",
+         "test_planning_compiler.py", "test_planning_workflow.py", "test_approval_payload.py", "test_approval_preflight.py", "test_approval_execute.py",
          "test_calendar_write.py", "test_approval_audit.py"]
 for name in files:
     result = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", str(root / "backend/tests"),

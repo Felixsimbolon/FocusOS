@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
-from focusos_api.agent_continuation import AgentRunState, continue_staged_run, list_run_tools
+from focusos_api.agent_continuation import AgentRunInput, AgentRunState, continue_staged_run, list_run_tools
 from focusos_api.main import app
 
 
@@ -53,6 +53,43 @@ class ContinuationTests(unittest.TestCase):
              patch("focusos_api.agent_continuation.scoped_client") as scoped:
             with self.assertRaises(Exception): list_run_tools("session", run.id)
         scoped.assert_not_called()
+
+    def test_request_defaults_to_command_or_estimate_and_rejects_coerced_options(self):
+        from pydantic import ValidationError
+        args = {"request_key": uuid4(), "command": "Schedule task"}
+        self.assertIsNone(AgentRunInput(**args).duration_minutes)
+        for changes in ({"duration_minutes": "30"}, {"duration_minutes": True},
+                        {"auto_calendar": "true"}, {"allow_split": "false"}):
+            with self.assertRaises(ValidationError):
+                AgentRunInput(**args, **changes)
+
+    def test_expired_read_is_derived_without_attempting_forbidden_sql_updates(self):
+        from unittest.mock import MagicMock
+        from focusos_api.agent_continuation import load_command_run
+        run = state().model_copy(update={"expires_at": datetime.now(timezone.utc)-timedelta(seconds=1)})
+        chain = MagicMock()
+        chain.table.return_value = chain
+        chain.select.return_value = chain
+        chain.eq.return_value = chain
+        chain.limit.return_value = chain
+        chain.execute.return_value.data = [run.model_dump(mode="json")]
+        scoped = MagicMock()
+        scoped.return_value.__enter__.return_value = (str(uuid4()), chain)
+        with patch("focusos_api.agent_continuation.scoped_client", scoped):
+            result = load_command_run("session", run.id)
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.safe_error, "run_expired")
+        self.assertEqual(result.stage, "done")
+
+    def test_expired_planning_run_does_not_call_model(self):
+        run = state("planning", 4).model_copy(update={"expires_at": datetime.now(timezone.utc)-timedelta(seconds=1)})
+        done = run.model_copy(update={"status": "failed", "stage": "done", "result": None, "safe_error": "run_expired"})
+        with patch("focusos_api.agent_continuation.load_command_run", side_effect=[run, done]), \
+             patch("focusos_api.agent_continuation._checkpoint", return_value=True) as save, \
+             patch("focusos_api.agent_continuation._planning_step") as model:
+            self.assertEqual(continue_staged_run("session", run.id), done)
+        model.assert_not_called()
+        save.assert_not_called()
 
     def test_anonymous_run_routes(self):
         client = TestClient(app)

@@ -44,6 +44,19 @@ describe("agent run proxy", () => {
     expect(unknown.status).toBe(409);
     expect(await unknown.text()).not.toContain("private SQL detail");
   });
+  it("forwards automatic duration as null without inventing a default", async () => {
+    const input = { request_key: id, command: "Schedule the checklist for 30 minutes tomorrow", duration_minutes: null, auto_calendar: true };
+    await POST(new NextRequest("http://localhost/api/agent/runs", { method: "POST", body: JSON.stringify(input) }), context());
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]?.body as string)).toEqual(input);
+  });
+  it("explains reused request options and hides invalid upstream details", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ detail: "request_options_changed" }, { status: 409 }));
+    const conflict = await POST(new NextRequest("http://localhost/api/agent/runs", { method: "POST", body: "{}" }), context());
+    expect((await conflict.json()).error).toContain("different options");
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ detail: "private token or SQL" }, { status: 422 }));
+    const invalid = await POST(new NextRequest("http://localhost/api/agent/runs", { method: "POST", body: "{}" }), context());
+    expect(await invalid.text()).not.toContain("private token");
+  });
   it("only forwards bounded automatic Calendar block paths", async () => {
     expect((await POST(new NextRequest(`http://localhost/api/agent/runs/${id}/blocks/0/auto`, { method: "POST" }), context([id,"blocks","0","auto"]))).status).toBe(200);
     expect((await POST(new NextRequest(`http://localhost/api/agent/runs/${id}/blocks/16/auto`, { method: "POST" }), context([id,"blocks","16","auto"]))).status).toBe(404);

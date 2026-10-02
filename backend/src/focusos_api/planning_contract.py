@@ -8,14 +8,16 @@ from focusos_api.calendar_free_time import FreeTimeResult
 
 
 class PlanningValidationError(ValueError):
-    pass
+    def __init__(self, message: str, *, code: str = "invalid_plan"):
+        self.code = code
+        super().__init__(message)
 
 
 class CandidateBlock(BaseModel):
     model_config = ConfigDict(extra="forbid")
     slot_ref: str
     task_ref: str
-    title: str = Field(max_length=120)
+    title: str = Field(max_length=200)
     reason: str = Field(max_length=300)
     evidence_refs: list[str] = Field(max_length=5)
 
@@ -106,7 +108,7 @@ def validate_planning_response(raw: object, tasks: list[dict], free: FreeTimeRes
     result["scheduled_minutes"] = total
     result["shortfall_minutes"] = free.requested_minutes-total
     result["summary"] = (
-        f"{total} minutes proposed across {len(resolved)} block(s) for review."
+        f"{total} minutes planned across {len(resolved)} work block(s)."
         if candidate.status == "proposed" else
         "More detail is needed before a plan can be proposed."
         if candidate.status == "needs_clarification" else

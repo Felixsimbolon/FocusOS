@@ -1,10 +1,11 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { buildPlanningRequest, describePlanningFailure } from "./planning-feedback";
 
 type Block = { task_ref: string; title: string; start: string; end: string; reason: string };
 type Plan = { status: string; summary: string; requested_minutes: number; scheduled_minutes: number;
-  shortfall_minutes: number; blocks: Block[]; questions: string[] };
+  shortfall_minutes: number; blocks: Block[]; questions: string[]; assumptions: string[] };
 type Run = { id: string; command: string; status: string; stage: string;
   checkpoint: { auto_calendar?: boolean; timezone?: string }; result: Plan | null; safe_error: string | null };
 type CalendarAction = { title: string; start: string; end: string; timezone: string };
@@ -39,7 +40,7 @@ function describeFailure(code: string | null): string {
 
 export function AgentConsole({ initialRunId }: { initialRunId?: string }) {
   const [command, setCommand] = useState("");
-  const [duration, setDuration] = useState(60);
+  const [duration, setDuration] = useState("");
   const [allowSplit, setAllowSplit] = useState(false);
   const [run, setRun] = useState<Run | null>(null);
   const [events, setEvents] = useState<ScheduledBlock[]>([]);
@@ -69,7 +70,7 @@ export function AgentConsole({ initialRunId }: { initialRunId?: string }) {
         throw new Error("Planning is taking longer than expected. Reload this run to continue automatically.");
       }
       if (current.status !== "succeeded" || current.result?.status !== "proposed") {
-        setMessage(current.result?.questions?.join(" ") || current.safe_error || current.result?.summary || "No work block could be scheduled. Check your tasks and Calendar availability.");
+        setMessage(current.result?.questions?.join(" ") || (current.safe_error ? describePlanningFailure(current.safe_error) : null) || current.result?.summary || "No work block could be scheduled. Check your tasks and Calendar availability.");
         return;
       }
       if (!current.checkpoint.auto_calendar) return;
@@ -119,8 +120,7 @@ export function AgentConsole({ initialRunId }: { initialRunId?: string }) {
       if (!requestKey.current) requestKey.current = crypto.randomUUID();
       const next = await readJson<Run>(await fetch("/api/agent/runs", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ request_key: requestKey.current, command, duration_minutes: duration,
-          allow_split: allowSplit, auto_calendar: true }),
+        body: JSON.stringify(buildPlanningRequest(command, duration, allowSplit, requestKey.current)),
       }));
       requestKey.current = null;
       setRun(next);
@@ -143,8 +143,9 @@ export function AgentConsole({ initialRunId }: { initialRunId?: string }) {
   return <section className="agent-console">
     {!run ? <form className="review-panel" onSubmit={start}>
       <label>What should FocusOS schedule?<textarea required maxLength={1000} rows={4} value={command} onChange={event => setCommand(event.target.value)} placeholder="Find an hour this week to work on my report" /></label>
-      <label>Minutes needed<input type="number" min={15} max={480} value={duration} onChange={event => setDuration(Number(event.target.value))} /></label>
+      <label>Duration override (minutes, optional)<input type="number" min={15} max={480} value={duration} onChange={event => setDuration(event.target.value)} /></label>
       <label><input type="checkbox" checked={allowSplit} onChange={event => setAllowSplit(event.target.checked)} /> Allow multiple work blocks</label>
+      <p>Leave duration empty to use the time in your request or the saved task estimate. An explicit duration must match your request.</p>
       <p>Submitting starts planning and creates valid work blocks in your Google Calendar automatically.</p>
       <button disabled={busy || !command.trim()} type="submit">{busy ? "Starting…" : "Plan and add to Calendar"}</button>
     </form> : null}
@@ -154,7 +155,8 @@ export function AgentConsole({ initialRunId }: { initialRunId?: string }) {
       <p>{run.command}</p>
       {busy ? <p className="agent-progress">{run.status === "succeeded" ? "Adding work blocks to Google Calendar…" : stages[run.stage] || "Planning…"}</p> : null}
       {run.result ? <p>{run.result.summary}</p> : null}
-      {run.safe_error && !message ? <p role="alert">{run.safe_error}</p> : null}
+      {run.safe_error && !message ? <p role="alert">{describePlanningFailure(run.safe_error)}</p> : null}
+      {run.result?.assumptions?.map((assumption, index) => <p key={`assumption-${index}`}>{assumption}</p>)}
       {run.result?.status === "proposed" ? <div className="agent-block-list">
         {run.result.blocks.map((block, index) => {
           const action = events.find(item => item.block_index === index);
