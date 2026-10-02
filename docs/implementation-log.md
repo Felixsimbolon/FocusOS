@@ -709,7 +709,7 @@ Tes backend memeriksa fakta yang dipilih, pertanyaan tanpa jawaban, kegagalan pr
 Rilis pencarian berbukti: commit `e6e3313` telah di-push ke `main`; API deployment `dpl_5zqE2KE3ahLC4xGfB2kUGcmskHWi` dan web deployment `dpl_6TCatvRrv9qJX5F2zm6y9nPwUhwb` mencapai READY pada alias produksi lama. Setelah rilis, GET API `/health` dan GET web `/memories` mengembalikan 200, sedangkan POST `/api/memories/search` tanpa sesi mengembalikan 401. Suite API 238 tes, suite web 65 tes, TypeScript check, dan build web lulus. Pemilihan Aurora oleh Gemini pada sesi pengguna masih menunggu uji browser.
 
 
-## Personal product ? days 1?3: deterministic planning (2 October 2026)
+## Personal product - days 1-3: deterministic planning (2 October 2026)
 
 **Problem and outcome:** Planning could fail because the form silently requested 60 minutes, free slots were selected before requested-day/deadline constraints, and model output had to reproduce titles and arithmetic totals exactly. Plans now use a narrow Gemini intent selection followed by deterministic server allocation; explicit durations/days are grounded in the original command, and missing/conflicting constraints produce actionable clarification. A five-minute write buffer, whole-minute boundaries, 15-minute split minimum, preserved Calendar revalidation, and safe replay prevent stale/invalid blocks from becoming events. These are reproduced failure classes; the exact cause of a historical production run is not claimed without its logs.
 
@@ -718,3 +718,12 @@ Rilis pencarian berbukti: commit `e6e3313` telah di-push ke `main`; API deployme
 **Automatic verification:** 276 backend tests, 76 web tests, and 7 evaluator tests passed. Eight synthetic planning regression cases passed; the report explicitly labels mock selection and makes no live-model accuracy claim. API workflow tests cover extraction, capture, embedding, memory answer, planning, Calendar execution, duplicate replay, new Calendar conflicts, changed tasks, and insert-timeout reconciliation using synthetic data and mock database/provider boundaries. TypeScript and the Next.js production build passed. See [the Indonesian implementation note](planning-hardening.md) and `evals/planning_eval.py` for repeatable checks.
 
 **Release:** Production deployment and any live-model synthetic evaluation are recorded below after credential and release checks. No private Gmail was read and no real Calendar event was created by these tests.
+
+
+### Rilis penguatan planning (2 Oktober 2026)
+
+Commit implementasi `9598a43` sudah di-push ke `main`. API deployment `dpl_7NeNd3WkwdXM3s6UtFYAn9UA9icg` dan web deployment `dpl_5e1vh5D9XYYFD2G855nFpxxFxAnN` mencapai READY. Alias produksi tetap https://focusos-api.vercel.app dan https://focusos-web-five.vercel.app. Deployment memakai environment yang sudah tersimpan di Vercel; tidak ada environment variable baru atau migration database.
+
+Pemeriksaan otomatis setelah deploy: `evals/hosted_smoke.py` lulus 7/7; health API dan halaman agent 200, endpoint yang membutuhkan autentikasi mengembalikan 401 tanpa sesi. OpenAPI produksi juga membuktikan `AgentRunInput.duration_minutes` opsional dan nullable. Safety gate, TypeScript, serta build lokal dan Vercel lulus.
+
+Evaluasi Gemini live belum dijalankan: key tidak tersedia pada proses runner lokal. Review persetujuan otomatis menolak ekspor seluruh env produksi ke file lokal karena ikut menyalin kredensial yang tidak diperlukan untuk tes Gemini. Rilis tetap memakai env Vercel yang ada, tanpa mengekspor nilainya. Hasil 8/8 evaluator adalah regresi backend dengan selection sintetis, bukan pengukuran akurasi Gemini. Pengujian autentikasi produksi dengan sesi pengguna dan penulisan Google Calendar nyata tidak dilakukan; tes workflow otomatis memverifikasi keduanya pada batas integrasi yang disimulasikan.

@@ -1,4 +1,4 @@
-# Penguatan planning: hari 1?3
+# Penguatan planning: hari 1-3
 
 Tanggal: 2 Oktober 2026. Scope: perbaikan planning dan pengujian otomatis untuk penggunaan pribadi. Tidak menambah worker, scheduled sync, atau fitur lifecycle Calendar pada tahap ini.
 
@@ -51,4 +51,11 @@ Untuk evaluasi model live, sediakan `GEMINI_API_KEY` di proses backend secara pr
 
 ## Batasan
 
-Horizon planning tetap tujuh hari dan task retrieval dibatasi 20 task aktif. Model masih bisa meminta clarification atau gagal saat memahami permintaan; backend tidak meneruskan hasil tersebut menjadi event. Ini belum menambahkan background worker: browser masih menggerakkan kelanjutan proses, sesuai scope hari 6?8. Proses deployment dan hasil verifikasi final dicatat dalam implementation log.
+Horizon planning tetap tujuh hari dan task retrieval dibatasi 20 task aktif. Model masih bisa meminta clarification atau gagal saat memahami permintaan; backend tidak meneruskan hasil tersebut menjadi event. Ini belum menambahkan background worker: browser masih menggerakkan kelanjutan proses, sesuai scope hari 6-8. Proses deployment dan hasil verifikasi final dicatat dalam implementation log.
+
+
+## Hasil rilis
+
+Implementasi `9598a43` sudah di-push dan kedua project Vercel mencapai READY pada 2 Oktober 2026. Smoke produksi anonim lulus 7/7; kontrak durasi opsional juga terverifikasi dari OpenAPI produksi. Tidak dibutuhkan env baru atau migration. Rincian deployment ada di implementation log.
+
+Evaluasi Gemini live masih belum diuji karena key tidak tersedia di runner lokal dan review persetujuan otomatis menolak ekspor seluruh env produksi. Semua pengujian workflow memakai data sintetis dan respons provider yang disimulasikan; tidak ada email pribadi yang dibaca atau event Calendar nyata yang dibuat.
