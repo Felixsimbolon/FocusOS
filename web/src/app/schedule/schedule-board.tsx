@@ -1,14 +1,156 @@
 "use client";
-import { useCallback,useEffect,useState } from "react";
-type Block={id:string;run_id:string;task_id:string;status:string;payload:{title:string;start:string;end:string;timezone:string};provider_link:string|null;cancellation_status:string;cancellation_error:string|null};
-export function ScheduleBoard(){
- const [blocks,setBlocks]=useState<Block[]>([]),[error,setError]=useState(""),[busy,setBusy]=useState(false),[selected,setSelected]=useState<Block|null>(null),[showPast,setShowPast]=useState(false);
- const load=useCallback(async()=>{setBusy(true);try{const r=await fetch("/api/product/focus-blocks",{cache:"no-store"});if(!r.ok)throw new Error();setBlocks(await r.json());}catch{setError("Focus blocks unavailable. Check System diagnostics.");}finally{setBusy(false);}},[]);
- useEffect(()=>{void load();},[load]);
- async function cancel(block:Block){setBusy(true);setError("");try{const r=await fetch(`/api/product/focus-blocks/${block.id}/cancel`,{method:"POST"});const result=await r.json();if(!r.ok)throw new Error(result.error);if(result.status!=="cancelled")setError(result.status==="changed"?"The event was edited in Google Calendar. FocusOS left it unchanged; open Calendar to manage it.":"Cancellation is not confirmed. Retry this same block to reconcile before making a replacement.");setSelected(null);await load();}catch(e){setError(e instanceof Error?e.message:"Cancellation unavailable.");}finally{setBusy(false);}}
- const visible=blocks.filter(b=>showPast || new Date(b.payload.end).getTime()>Date.now()).sort((a,b)=>a.payload.start.localeCompare(b.payload.start));
- return <section className="workspace"><div className="workspace-actions"><button disabled={busy} onClick={()=>void load()}>Refresh schedule</button><label><input type="checkbox" checked={showPast} onChange={e=>setShowPast(e.target.checked)}/> Include past blocks</label><a href="/agent">Plan work</a></div><p>Latest 100 saved FocusOS blocks. Availability on Today also reads events created outside FocusOS.</p>{error&&<p role="alert">{error}</p>}
- {!busy&&!visible.length&&<div className="review-panel"><h2>No upcoming focus blocks</h2><p>Plan an active task to reserve time in your Calendar.</p></div>}
- <div className="workspace-list">{visible.map(b=><article className="review-card" key={b.id}><h2>{b.payload.title}</h2><p>{new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short",timeZone:b.payload.timezone}).format(new Date(b.payload.start))} - {new Intl.DateTimeFormat(undefined,{timeStyle:"short",timeZone:b.payload.timezone}).format(new Date(b.payload.end))} ? {b.payload.timezone}</p><p>{b.cancellation_status==="cancelled"?"Cancelled":b.cancellation_status!=="none"?`Cancellation: ${b.cancellation_status}`:b.status}</p><div className="workspace-actions"><a href={`/agent/${b.run_id}`}>View plan</a>{b.provider_link&&b.cancellation_status!=="cancelled"&&<a href={b.provider_link} target="_blank" rel="noopener noreferrer">Open Calendar event</a>}{b.status==="succeeded"&&!["cancelled","changed"].includes(b.cancellation_status)&&<button disabled={busy} onClick={()=>setSelected(b)}>{b.cancellation_status==="unknown"?"Reconcile cancellation":"Cancel block"}</button>}</div></article>)}</div>
- {selected&&<div className="review-panel" role="region" aria-label="Cancel focus block"><h2>Cancel this Calendar block?</h2><p>{selected.payload.title}</p><p>The task remains active. After cancellation is confirmed, submit a new plan to choose another time.</p><div className="workspace-actions"><button disabled={busy} onClick={()=>void cancel(selected)}>Cancel Calendar block</button><button onClick={()=>setSelected(null)}>Keep block</button></div></div>}</section>;
+import { useCallback, useEffect, useState } from "react";
+type Block = {
+  id: string;
+  run_id: string;
+  task_id: string;
+  status: string;
+  payload: { title: string; start: string; end: string; timezone: string };
+  provider_link: string | null;
+  cancellation_status: string;
+  cancellation_error: string | null;
+};
+export function ScheduleBoard() {
+  const [blocks, setBlocks] = useState<Block[]>([]),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false),
+    [selected, setSelected] = useState<Block | null>(null),
+    [showPast, setShowPast] = useState(false);
+  const load = useCallback(async () => {
+    setBusy(true);
+    try {
+      const r = await fetch("/api/product/focus-blocks", { cache: "no-store" });
+      if (!r.ok) throw new Error();
+      setBlocks(await r.json());
+    } catch {
+      setError("Focus blocks unavailable. Check System diagnostics.");
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  async function cancel(block: Block) {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await fetch(`/api/product/focus-blocks/${block.id}/cancel`, {
+        method: "POST",
+      });
+      const result = await r.json();
+      if (!r.ok) throw new Error(result.error);
+      if (result.status !== "cancelled")
+        setError(
+          result.status === "changed"
+            ? "The event was edited in Google Calendar. FocusOS left it unchanged; open Calendar to manage it."
+            : "Cancellation is not confirmed. Retry this same block to reconcile before making a replacement.",
+        );
+      setSelected(null);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Cancellation unavailable.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  const visible = blocks
+    .filter((b) => showPast || new Date(b.payload.end).getTime() > Date.now())
+    .sort((a, b) => a.payload.start.localeCompare(b.payload.start));
+  return (
+    <section className="workspace">
+      <div className="workspace-actions">
+        <button disabled={busy} onClick={() => void load()}>
+          Refresh schedule
+        </button>
+        <label>
+          <input
+            type="checkbox"
+            checked={showPast}
+            onChange={(e) => setShowPast(e.target.checked)}
+          />{" "}
+          Include past blocks
+        </label>
+        <a href="/agent">Plan work</a>
+      </div>
+      <p>
+        Latest 100 saved FocusOS blocks. Availability on Today also reads events
+        created outside FocusOS.
+      </p>
+      {error && <p role="alert">{error}</p>}
+      {!busy && !visible.length && (
+        <div className="review-panel">
+          <h2>No upcoming focus blocks</h2>
+          <p>Plan an active task to reserve time in your Calendar.</p>
+        </div>
+      )}
+      <div className="workspace-list">
+        {visible.map((b) => (
+          <article className="review-card" key={b.id}>
+            <h2>{b.payload.title}</h2>
+            <p>
+              {new Intl.DateTimeFormat(undefined, {
+                dateStyle: "medium",
+                timeStyle: "short",
+                timeZone: b.payload.timezone,
+              }).format(new Date(b.payload.start))}{" "}
+              -{" "}
+              {new Intl.DateTimeFormat(undefined, {
+                timeStyle: "short",
+                timeZone: b.payload.timezone,
+              }).format(new Date(b.payload.end))}{" "}
+              ? {b.payload.timezone}
+            </p>
+            <p>
+              {b.cancellation_status === "cancelled"
+                ? "Cancelled"
+                : b.cancellation_status !== "none"
+                  ? `Cancellation: ${b.cancellation_status}`
+                  : b.status}
+            </p>
+            <div className="workspace-actions">
+              <a href={`/agent/${b.run_id}`}>View plan</a>
+              {b.provider_link && b.cancellation_status !== "cancelled" && (
+                <a
+                  href={b.provider_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open Calendar event
+                </a>
+              )}
+              {b.status === "succeeded" &&
+                !["cancelled", "changed"].includes(b.cancellation_status) && (
+                  <button disabled={busy} onClick={() => setSelected(b)}>
+                    {b.cancellation_status === "unknown"
+                      ? "Reconcile cancellation"
+                      : "Cancel block"}
+                  </button>
+                )}
+            </div>
+          </article>
+        ))}
+      </div>
+      {selected && (
+        <div
+          className="review-panel"
+          role="region"
+          aria-label="Cancel focus block"
+        >
+          <h2>Cancel this Calendar block?</h2>
+          <p>{selected.payload.title}</p>
+          <p>
+            The task remains active. After cancellation is confirmed, submit a
+            new plan to choose another time.
+          </p>
+          <div className="workspace-actions">
+            <button disabled={busy} onClick={() => void cancel(selected)}>
+              Cancel Calendar block
+            </button>
+            <button onClick={() => setSelected(null)}>Keep block</button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
 }

@@ -1,21 +1,107 @@
-import {beforeEach,describe,expect,it,vi} from "vitest";
-import {NextRequest,after} from "next/server";
-import {GET,POST} from "../src/app/api/jobs/[[...path]]/route";
-import {getServerAccessToken} from "../src/server/auth/session";
-import {runBackgroundJob} from "../src/server/jobs";
-vi.mock("server-only",()=>({}));
-vi.mock("next/server",async importOriginal=>({...await importOriginal<typeof import("next/server")>(),after:vi.fn()}));
-vi.mock("../src/server/auth/session",()=>({getServerAccessToken:vi.fn()}));
-vi.mock("../src/server/env",()=>({requireServerEnv:()=>"https://api.example.test"}));
-vi.mock("../src/server/jobs",()=>({runBackgroundJob:vi.fn()}));
-const id="123e4567-e89b-42d3-a456-426614174000";
-const context=(path:string[]=[])=>({params:Promise.resolve({path})});
-describe("durable jobs proxy",()=>{
- beforeEach(()=>{vi.clearAllMocks();vi.mocked(getServerAccessToken).mockResolvedValue("server-session");vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({id,status:"queued"})));});
- it("denies anonymous access before any upstream call",async()=>{vi.mocked(getServerAccessToken).mockResolvedValue(null);expect((await GET(new NextRequest("http://localhost/api/jobs"),context())).status).toBe(401);expect(fetch).not.toHaveBeenCalled();});
- it("starts work after responding, using server token only",async()=>{const response=await POST(new NextRequest("http://localhost/api/jobs",{method:"POST",body:JSON.stringify({kind:"gmail",request_key:id})}),context());expect(response.status).toBe(202);expect(await response.text()).not.toContain("server-session");expect(runBackgroundJob).not.toHaveBeenCalled();const callback=vi.mocked(after).mock.calls[0][0] as ()=>Promise<void>;await callback();expect(runBackgroundJob).toHaveBeenCalledWith("server-session",expect.objectContaining({id}));});
- it("read status does not run or resume a job",async()=>{await GET(new NextRequest(`http://localhost/api/jobs/${id}`),context([id]));expect(after).not.toHaveBeenCalled();});
- it("resume schedules server work; browser cannot proxy arbitrary worker routes",async()=>{expect((await POST(new NextRequest(`http://localhost/api/jobs/${id}/resume`,{method:"POST"}),context([id,"resume"]))).status).toBe(200);expect(after).toHaveBeenCalledOnce();expect((await POST(new NextRequest(`http://localhost/api/jobs/${id}/work`,{method:"POST"}),context([id,"work"]))).status).toBe(404);});
- it("does not schedule cancelled work",async()=>{await POST(new NextRequest(`http://localhost/api/jobs/${id}/cancel`,{method:"POST"}),context([id,"cancel"]));expect(after).not.toHaveBeenCalled();});
- it("redacts upstream errors",async()=>{vi.mocked(fetch).mockResolvedValue(Response.json({detail:"private SQL token"},{status:500}));const r=await GET(new NextRequest("http://localhost/api/jobs"),context());expect(r.status).toBe(503);expect(await r.text()).not.toContain("private SQL");});
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest, after } from "next/server";
+import { GET, POST } from "../src/app/api/jobs/[[...path]]/route";
+import { getServerAccessToken } from "../src/server/auth/session";
+import { runBackgroundJob } from "../src/server/jobs";
+vi.mock("server-only", () => ({}));
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: vi.fn(),
+}));
+vi.mock("../src/server/auth/session", () => ({
+  getServerAccessToken: vi.fn(),
+}));
+vi.mock("../src/server/env", () => ({
+  requireServerEnv: () => "https://api.example.test",
+}));
+vi.mock("../src/server/jobs", () => ({ runBackgroundJob: vi.fn() }));
+const id = "123e4567-e89b-42d3-a456-426614174000";
+const context = (path: string[] = []) => ({
+  params: Promise.resolve({ path }),
+});
+describe("durable jobs proxy", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getServerAccessToken).mockResolvedValue("server-session");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(Response.json({ id, status: "queued" })),
+    );
+  });
+  it("denies anonymous access before any upstream call", async () => {
+    vi.mocked(getServerAccessToken).mockResolvedValue(null);
+    expect(
+      (await GET(new NextRequest("http://localhost/api/jobs"), context()))
+        .status,
+    ).toBe(401);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it("starts work after responding, using server token only", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/jobs", {
+        method: "POST",
+        body: JSON.stringify({ kind: "gmail", request_key: id }),
+      }),
+      context(),
+    );
+    expect(response.status).toBe(202);
+    expect(await response.text()).not.toContain("server-session");
+    expect(runBackgroundJob).not.toHaveBeenCalled();
+    const callback = vi.mocked(after).mock.calls[0][0] as () => Promise<void>;
+    await callback();
+    expect(runBackgroundJob).toHaveBeenCalledWith(
+      "server-session",
+      expect.objectContaining({ id }),
+    );
+  });
+  it("read status does not run or resume a job", async () => {
+    await GET(
+      new NextRequest(`http://localhost/api/jobs/${id}`),
+      context([id]),
+    );
+    expect(after).not.toHaveBeenCalled();
+  });
+  it("resume schedules server work; browser cannot proxy arbitrary worker routes", async () => {
+    expect(
+      (
+        await POST(
+          new NextRequest(`http://localhost/api/jobs/${id}/resume`, {
+            method: "POST",
+          }),
+          context([id, "resume"]),
+        )
+      ).status,
+    ).toBe(200);
+    expect(after).toHaveBeenCalledOnce();
+    expect(
+      (
+        await POST(
+          new NextRequest(`http://localhost/api/jobs/${id}/work`, {
+            method: "POST",
+          }),
+          context([id, "work"]),
+        )
+      ).status,
+    ).toBe(404);
+  });
+  it("does not schedule cancelled work", async () => {
+    await POST(
+      new NextRequest(`http://localhost/api/jobs/${id}/cancel`, {
+        method: "POST",
+      }),
+      context([id, "cancel"]),
+    );
+    expect(after).not.toHaveBeenCalled();
+  });
+  it("redacts upstream errors", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      Response.json({ detail: "private SQL token" }, { status: 500 }),
+    );
+    const r = await GET(
+      new NextRequest("http://localhost/api/jobs"),
+      context(),
+    );
+    expect(r.status).toBe(503);
+    expect(await r.text()).not.toContain("private SQL");
+  });
 });
