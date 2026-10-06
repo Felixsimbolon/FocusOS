@@ -36,3 +36,8 @@ System > Export my data mengunduh JSON maksimal 1000 baris per tabel dan 8 MB. F
 Validasi offline: `python scripts/validate_export.py <path-ke-export.json>`. Validasi tidak membuat data atau event. Untuk recovery penuh, buat dan uji backup Supabase/database pada project terpisah; jangan restore langsung ke project aktif tanpa memeriksa pemetaan user ID dan foreign key. OAuth perlu reconnect dan embedding perlu dibangun kembali. Catatan Calendar pada backup tidak boleh dieksekusi kembali sebagai event baru.
 
 Restore database penuh dan pemulihan provider akun live belum dianggap terbukti oleh export validator. Sesi serta identitas tetap dikelola Supabase Auth.
+
+
+## Verifikasi rilis otomatis
+
+Jalankan `python evals/hosted_smoke.py` dan `python evals/personal_product_smoke.py` untuk pemeriksaan HTTP anonim yang dapat diulang. Pada rilis 7 Oktober 2026 hasilnya 7/7 dan 13/13. Endpoint job/export harus menolak tanpa sesi; scheduler tick harus menolak tanpa secret atau memberi 503 bila pemicunya belum dikonfigurasi. Tes ini tidak login dan tidak membaca/mengubah data Google.

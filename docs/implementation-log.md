@@ -746,3 +746,12 @@ Rencana repo sebelumnya baru merinci hari 1-3; pengguna mengizinkan seluruh taha
 Audit nama env produksi menemukan seluruh secret dasar API sudah ada; FOCUSOS_WORKER_SECRET belum ada. Evaluasi Gemini live otomatis dilewati karena key lokal tidak tersedia, tanpa mengekspor secret produksi. Tidak membaca Gmail pribadi dan tidak membuat/menghapus event Google nyata. Hasil final test/build/deployment dicatat setelah rilis selesai.
 
 Final verification before release: 310 backend tests, 89 web tests, 7 evaluator tests and 8/8 synthetic planning regression cases passed. Expanded safety gate, TypeScript and production web build passed. Provider live evaluation remained unrun because no local Gemini key was available. The production deployment and hosted smoke are recorded below.
+
+
+### Rilis produk pribadi hari 4-14
+
+Commit `367e203` (workspace), `05292bf` (job/lifecycle/product) dan `4b3cd63` (format komponen) sudah di-push ke main. API deployment `dpl_GiwjiTsqfeWe7uvqark1icVcMbef` dan web deployment `dpl_77N3mpVUNYyFxWadRigUQxrAWhFu` mencapai READY pada alias https://focusos-api.vercel.app dan https://focusos-web-five.vercel.app. Build Vercel web memverifikasi komponen final yang sudah diformat. API mempunyai budget fungsi 180 detik; job tetap memakai lease dan batas sesi tersendiri.
+
+Hosted smoke lama lulus 7/7; personal-product smoke lulus 13/13 (20 pemeriksaan anonim keseluruhan). Halaman tasks/schedule/system/memories 200; job/export/diagnostic/focus-block/cancel tanpa sesi 401. Scheduler tick 503 karena FOCUSOS_WORKER_SECRET belum diset, sesuai batas konfigurasi yang didokumentasikan; itu bukan bukti scheduler aktif. Supabase dry-run terakhir menyatakan migration sudah up to date. Tidak ada acceptance provider live, restore penuh atau pengujian browser login yang diklaim dari smoke anonim ini.
+
+Daftar setup yang tersisa dan langkahnya tersedia pada remaining-work.md serta personal-product-setup.md. Tidak ada production secret yang diekspor atau event Google nyata yang diubah dalam sesi implementasi ini.

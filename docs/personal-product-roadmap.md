@@ -13,3 +13,10 @@ Tanggal mulai: 7 Oktober 2026. Pengguna mengizinkan seluruh tahap dan meminta pe
 Pendekatan: gunakan Supabase/Postgres sebagai antrean durable, tidak menambah Redis. Pekerjaan memakai sesi pengguna berumur pendek yang dienkripsi terpisah dari payload; tidak menyimpan refresh token Supabase. Pemicu server segera dapat menjalankan pekerjaan setelah halaman ditutup, tetapi retry saat host mati membutuhkan scheduler eksternal. Job kedaluwarsa meminta pengguna login dan submit ulang. Ini tidak mengklaim sync Gmail terus-menerus tanpa sesi atau worker yang aktif.
 
 Tidak menambah integrasi baru atau akun wajib hanya untuk implementasi lokal. Setup pemicu scheduler dan verifikasi provider nyata yang belum tersedia dicatat dalam remaining-work.md setelah hasil pengujian.
+
+
+## Hasil implementasi
+
+Bagian kode pada semua kelompok hari di atas sudah dikerjakan dan dideploy. Bukti otomatis: 310 tes backend, 89 tes web, 7 tes evaluator, 8/8 regresi planning sintetis, expanded safety gate, TypeScript, build dan 20 pemeriksaan produksi anonim lulus. Ketiga migration terbaru sudah terpasang. Pengujian schema/ownership/replay/lease/cancellation SQL memakai transaksi rollback dan data sintetis.
+
+Setup pemicu GitHub/Vercel scheduler, key lokal untuk evaluasi model live, acceptance provider dengan akun uji terhubung, serta drill restore database penuh masih belum selesai. Daftar ini adalah batas penyelesaian produk, bukan fitur yang diam-diam dianggap sudah terbukti. Detail: [remaining-work.md](remaining-work.md).
