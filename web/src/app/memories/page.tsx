@@ -1,4 +1,5 @@
 import { getMe } from "@/server/api/me";
+import { MemoryLibrary } from "./memory-library";
 import { MemorySearch } from "./memory-search";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,7 @@ export default async function MemoriesPage() {
         <p>Ask about saved facts and manually added tasks. Each answer links back to its evidence.</p>
       </header>
       {me.kind === "ok" ? (
-        <MemorySearch />
+        <><MemorySearch /><MemoryLibrary /></>
       ) : (
         <section className="review-panel">
           <p>Sign in to search your saved facts.</p>

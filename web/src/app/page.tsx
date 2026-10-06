@@ -44,6 +44,9 @@ export default async function Home({
             <p>Set your scheduling preferences to get started.</p>
           )}
           <nav className="home-links" aria-label="FocusOS tools">
+            <a href="/tasks"><strong>Task workspace</strong><span>Edit, complete, or archive your work</span></a>
+            <a href="/schedule"><strong>Schedule</strong><span>Manage saved focus blocks</span></a>
+            <a href="/system"><strong>System</strong><span>Jobs, diagnostics, and data export</span></a>
             <a href="/agent"><strong>Planning agent</strong><span>Turn your tasks into a plan</span></a>
             <a href="/activity"><strong>Activity and sources</strong><span>Organize selected email and notes</span></a>
             <a href="/memories"><strong>Search memories</strong><span>Find grounded facts again</span></a>

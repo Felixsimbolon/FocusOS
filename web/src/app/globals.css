@@ -616,3 +616,17 @@ main.agent-page > a:first-child, main.settings-page > a:first-child { justify-se
 .memory-related summary { cursor: pointer; color: #425679; font-weight: 650; }
 .memory-related .task-list { margin-top: .9rem; }
 .memory-search-mode { color: #71809b; font-size: .78rem; }
+
+/* Personal workspace: shared layouts and keyboard-visible controls. */
+.workspace { margin: 2rem 0; }
+.workspace-toolbar { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+.workspace-list { display: grid; gap: 1rem; }
+.workspace-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin: 1rem 0; }
+.workspace-task-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.workspace-task-heading h2 { margin: 0; font-size: 1.15rem; }
+.workspace label { display: grid; gap: .4rem; margin-bottom: .75rem; }
+.workspace input, .workspace textarea, .workspace select { width: 100%; }
+.workspace blockquote { margin: 1rem 0; padding-left: 1rem; border-left: 2px solid #cbd5e1; }
+.workspace button:focus-visible, .workspace a:focus-visible { outline: 2px solid #4338ca; outline-offset: 3px; }
+@media (max-width: 700px) { .workspace-toolbar { grid-template-columns: 1fr; } .workspace-task-heading { align-items: flex-start; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
