@@ -29,14 +29,11 @@ Ini bukan Gmail push/watch atau sync harian permanen tanpa sesi pengguna. Job Gm
 
 Schedule menampilkan maksimal 100 action tersimpan. Cancel block hanya berlaku untuk event sukses yang disimpan FocusOS. Backend membaca ID stabil, memeriksa marker, konten dan waktu, lalu DELETE memakai ETag/If-Match dan `sendUpdates=none`. Event yang diedit di Google tidak dihapus otomatis. Timeout ditampilkan unknown; retry merekonsiliasi ID yang sama. Pembatalan tidak menyelesaikan task. Untuk pindah waktu, batalkan block, tunggu cancelled, lalu submit plan baru.
 
-## Backup dan recovery
+## Export data opsional
 
-System > Export my data mengunduh JSON maksimal 1000 baris per tabel dan 8 MB. File berisi teks sumber, task, project, fakta/evidence, preferensi dan catatan action; tidak mencakup credential, vektor embedding atau queue token. Ini salinan data aplikasi, bukan dump penuh PostgreSQL. Simpan privat. Jika ada tabel truncated, gunakan backup database untuk pemulihan lengkap.
+Sesuai keputusan pengguna, backup database dan uji restore tidak termasuk scope produk pribadi atau setup yang wajib dilengkapi. Tidak perlu menyiapkan project Supabase tambahan untuk recovery.
 
-Validasi offline: `python scripts/validate_export.py <path-ke-export.json>`. Validasi tidak membuat data atau event. Untuk recovery penuh, buat dan uji backup Supabase/database pada project terpisah; jangan restore langsung ke project aktif tanpa memeriksa pemetaan user ID dan foreign key. OAuth perlu reconnect dan embedding perlu dibangun kembali. Catatan Calendar pada backup tidak boleh dieksekusi kembali sebagai event baru.
-
-Restore database penuh dan pemulihan provider akun live belum dianggap terbukti oleh export validator. Sesi serta identitas tetap dikelola Supabase Auth.
-
+Fitur System > Export my data yang sudah tersedia tetap bersifat opsional. Export dibatasi 1000 baris per tabel dan 8 MB, tidak mencakup credential, vektor embedding atau queue token, dan bukan dump penuh PostgreSQL. Validator offline hanya memeriksa file; tidak melakukan restore.
 
 ## Verifikasi rilis otomatis
 

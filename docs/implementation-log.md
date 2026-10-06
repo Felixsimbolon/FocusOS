@@ -755,3 +755,8 @@ Commit `367e203` (workspace), `05292bf` (job/lifecycle/product) dan `4b3cd63` (f
 Hosted smoke lama lulus 7/7; personal-product smoke lulus 13/13 (20 pemeriksaan anonim keseluruhan). Halaman tasks/schedule/system/memories 200; job/export/diagnostic/focus-block/cancel tanpa sesi 401. Scheduler tick 503 karena FOCUSOS_WORKER_SECRET belum diset, sesuai batas konfigurasi yang didokumentasikan; itu bukan bukti scheduler aktif. Supabase dry-run terakhir menyatakan migration sudah up to date. Tidak ada acceptance provider live, restore penuh atau pengujian browser login yang diklaim dari smoke anonim ini.
 
 Daftar setup yang tersisa dan langkahnya tersedia pada remaining-work.md serta personal-product-setup.md. Tidak ada production secret yang diekspor atau event Google nyata yang diubah dalam sesi implementasi ini.
+
+
+### Penyesuaian scope: tanpa backup database
+
+Pengguna memutuskan backup database dan uji restore tidak diperlukan untuk penggunaan pribadi. Keduanya dikeluarkan dari remaining-work, roadmap dan panduan setup; bukan lagi syarat penyelesaian produk. Export aplikasi yang sudah tersedia tetap opsional. Tidak ada perubahan kode, database atau konfigurasi produksi.

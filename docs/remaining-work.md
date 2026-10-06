@@ -28,11 +28,9 @@ Kode dan provider adapter diuji otomatis memakai data sintetis. OAuth reconnect,
 
 Yang perlu dibuktikan: email sintetis menjadi task dan fakta; pertanyaan positif/negatif memory sesuai; plan membuat satu event; replay tetap satu; cancel FocusOS block tercatat cancelled; event yang diedit di Google dibiarkan berubah; disconnect menghentikan pekerjaan baru. Tidak perlu membaca email pribadi atau mengubah event selain test FocusOS.
 
-### 4. Recovery database penuh
-
-Export aplikasi tersedia dan validator offline disertakan. Export dibatasi 1000 baris per tabel/8 MB dan menyatakan truncation. File ini bukan backup lengkap Supabase Auth atau credential Google. Untuk disaster recovery, simpan backup database privat dan uji restore pada project terpisah; OAuth reconnect dan indexing ulang tetap diperlukan. Restore penuh belum diuji pada sesi ini. Jangan restore audit Calendar menjadi event baru.
-
 ## Batas produk yang disengaja
+
+- Sesuai keputusan pengguna, backup database dan uji restore tidak termasuk scope produk pribadi atau syarat penyelesaian. Export data aplikasi yang sudah tersedia bersifat opsional.
 
 - Planning horizon tujuh hari, 20 task pada konteks agent; workspace menampilkan maksimum 100 task per status, memori library 50 terbaru, focus block 100 terbaru, run/job history 50 terbaru. Memory search memakai retrieval database, bukan hanya library yang terlihat.
 - Reschedule memakai cancel yang sudah dikonfirmasi lalu plan baru. Tidak ada overwrite event Google yang diedit manual.
