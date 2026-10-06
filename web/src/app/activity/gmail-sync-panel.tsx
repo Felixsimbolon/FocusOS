@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { queueJob } from "@/app/jobs/client";
 import { useCallback, useEffect, useState } from "react";
 
 type SyncStatus = {
@@ -32,49 +33,13 @@ export function GmailSyncPanel() {
   useEffect(() => { void refresh().catch(() => setMessage("Could not load Gmail status.")); }, [refresh]);
 
   async function run() {
-    setBusy(true); setMessage("Checking labeled email...");
+    setBusy(true); setMessage("Queueing selected email...");
     try {
-      const step = await read<SyncStep>(await fetch("/api/integrations/google/gmail/sync", { method: "POST" }));
-      if (step.state === "busy" || step.state === "retry_wait" || step.state === "rescan_required") {
-        setMessage(step.state === "busy" ? "Another sync is running. Try again shortly." :
-          step.state === "retry_wait" ? "Gmail asked us to wait. See retry time below." :
-            "Gmail history expired. Press the button again to rescan.");
-        await refresh();
-        return;
-      }
-      let processed = 0;
-      let tasks = 0;
-      let memories = 0;
-      let failures = 0;
-      const initial = await refresh();
-      const limit = Math.min(Math.max(initial.pending_count, step.imported), 5);
-      for (let index = 0; index < limit; index++) {
-        setMessage("Organizing email " + (index + 1) + " of " + limit + "...");
-        const item = await read<ProcessStep>(await fetch("/api/integrations/google/gmail/process-one", { method: "POST" }));
-        if (item.state === "no_pending") break;
-        processed++;
-        if (item.state !== "ready") failures++;
-        const capture = item.extraction?.capture;
-        tasks += capture?.tasks_saved ?? 0;
-        memories += capture?.memories_saved ?? 0;
-        failures += (capture?.task_failures ?? 0) + (capture?.memory_failures ?? 0);
-        for (const id of capture?.memory_ids ?? []) {
-          try { await fetch("/api/memories/" + id + "/embed", { method: "POST" }); }
-          catch { /* Memory remains saved; embedding can be retried. */ }
-        }
-        window.dispatchEvent(new Event("focusos:sources-changed"));
-        if (item.state !== "ready" || (capture?.task_failures ?? 0) + (capture?.memory_failures ?? 0) > 0) break;
-      }
-      const after = await refresh();
-      setMessage(processed === 0 ? "Sync complete. No new email needed organizing." :
-        "Organized " + processed + " email" + (processed === 1 ? "" : "s") + ": " + tasks + " tasks and " + memories +
-        " memories saved." + (failures ? " " + failures + " item(s) need a retry." : "") +
-        (after.pending_count > 0 ? " More email remains; run sync again to continue." : ""));
-      window.dispatchEvent(new Event("focusos:tasks-changed"));
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Gmail sync failed");
-      try { await refresh(); } catch { /* Keep the actionable error. */ }
-    } finally { setBusy(false); }
+      const job = await queueJob("gmail", null);
+      setMessage(`Email sync and organization are running on the server. Follow job ${job.id.slice(0, 8)} in System; you can leave this page.`);
+      await refresh();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Could not start email processing."); }
+    finally { setBusy(false); }
   }
 
   return <section className="review-panel gmail-sync-panel" aria-label="Gmail synchronization">
@@ -97,6 +62,6 @@ export function GmailSyncPanel() {
       {status.last_error && <p role="alert">{status.last_error}</p>}
       {status.failed_count > 0 && <p className="activity-hint">{status.failed_count} source(s) have a failed extraction. Sync & organize will retry when available.</p>}
     </>}
-    {message && <p className="activity-message" role="status">{message}</p>}
+    {message && <p className="activity-message" role="status">{message} <a href="/system">Job status</a></p>}
   </section>;
 }

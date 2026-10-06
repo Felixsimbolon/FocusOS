@@ -103,18 +103,17 @@ export function SourceReview() {
     const payload = JSON.stringify({ title: title.trim(), text: body });
     if (!pending.current || pending.current.payload !== payload) pending.current = { key: crypto.randomUUID(), payload };
     try {
-      const data = await json<{ source: Source; extraction?: Result }>(await fetch("/api/sources/manual", {
+      const data = await json<{ source: Source; extraction?: Result }>(await fetch("/api/sources/manual?background=true", {
         method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": pending.current.key },
         body: payload,
       }));
       pending.current = null;
       setSources((current) => [data.source, ...current.filter((item) => item.id !== data.source.id)]);
       setBody(""); setTitle("");
-      await embed(data.extraction?.capture?.memory_ids ?? []);
       await select(data.source);
       setMessage(data.extraction?.extraction.status === "ready"
         ? "Source organized. Tasks and grounded memories were saved automatically."
-        : "Source saved. Processing can be retried below.");
+        : "Source saved. Organization runs on the server; follow it in System.");
       window.dispatchEvent(new Event("focusos:tasks-changed"));
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not save source"); }
     finally { setBusy(false); }

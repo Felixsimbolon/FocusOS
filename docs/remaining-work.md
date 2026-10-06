@@ -1,30 +1,42 @@
-﻿# Yang masih kurang sebelum FocusOS dinyatakan selesai
+# Yang masih perlu dilengkapi untuk FocusOS pribadi
 
-> **Update 2 Oktober 2026:** Penguatan planning hari 1-3 sudah diimplementasikan dan diuji otomatis: 276 tes backend, 76 tes web, 7 tes evaluator, serta 8/8 kasus planning sintetis dengan fixture selection. Detail ada di [planning-hardening.md](planning-hardening.md). Pemeriksaan env/koneksi pada tabel 28 September di bawah adalah snapshot historis, bukan audit konfigurasi produksi terbaru. API/web terbaru sudah READY dan smoke produksi anonim lulus 7/7. Evaluasi Gemini live dan acceptance Calendar nyata masih belum diuji; detail dan batas bukti dicatat pada implementation log.
+Update: 7 Oktober 2026. Catatan September pada implementation log adalah riwayat, bukan kondisi env terbaru. Audit **nama** env API produksi hari ini memastikan Gemini, Google client, keyring enkripsi, Supabase secret, URL dan publishable key sudah ada. Tidak ada nilai secret yang diekspor. Migration queue dan lifecycle sudah diterapkan; hasil rilis final dicatat pada implementation log.
 
-**Status 28 September 2026:** Commit `e8165b0` sudah ada di GitHub `main`; API dan web terbaru mencapai READY pada alias produksi lama. Seluruh migration hingga `20260927190000_manual_task_memory.sql`, termasuk Gemini dan Calendar otomatis, sudah diterapkan ke Supabase tertaut. Secret Gemini/Google dan kunci backend produksi masih belum ada; fitur itu belum diterima secara end-to-end. Ikuti [panduan Gemini](gemini-setup.md) dan gap di bawah. READY berarti kode terpasang, bukan seluruh fitur live telah terbukti.
+## Setup yang masih perlu kamu lengkapi
 
-## Yang sudah terbukti
+### 1. Scheduler untuk pemulihan job saat host berhenti
 
-- Migration hingga `20260927190000_manual_task_memory.sql` diterapkan, termasuk Gemini, Calendar otomatis, dan task manual ke memory. Probe SQL rollback-only membuktikan owner/RLS, claim approval, lifecycle satu source, dan retensi tanpa meninggalkan data uji.
-- 234 tes backend, 65 tes web, 5 tes evaluator, safety gate, validasi 24 kasus, dan build Next.js lulus. [CI untuk commit akhir Phase 9 berhasil](https://github.com/Felixsimbolon/FocusOS/actions/runs/36298871570).
-- API dan web commit `e8165b0` READY pada alias `https://focusos-api.vercel.app` dan `https://focusos-web-five.vercel.app`. Smoke anonim 7/7 adalah bukti rilis Phase 9 lama; rilis terbaru belum diuji dengan sesi browser pengguna.
-- Dataset evaluation disiapkan; dry-run 16/16 `skipped`. [Laporan evaluasi](evaluation.md) secara eksplisit menyatakan akurasi model **belum diukur**.
+Pemrosesan segera berjalan setelah response lewat server web. Untuk retry yang tidak bergantung halaman dibuka kembali, lengkapi `FOCUSOS_WORKER_SECRET` pada API Vercel dan GitHub Actions dengan nilai yang sama, serta variable repo `FOCUSOS_API_URL`. Panduan klik dan perintah ada di [personal-product-setup.md](personal-product-setup.md). Workflow disertakan tetapi tidak aktif memproses tanpa setting ini.
 
-## Gap yang harus ditutup
+Secret pemicu ini **baru**; berbeda dari Gemini API key dan key enkripsi. API tetap bisa menjalankan job milik sesi terverifikasi tanpa secret scheduler. GitHub schedule bersifat best effort; sesi job tetap maksimal 15 menit. Sistem tidak mengklaim sinkronisasi Gmail terus-menerus tanpa login.
 
-| Prioritas | Gap dan sebab | Langkah yang diperlukan | Bukti lulus yang harus dicatat |
-| --- | --- | --- | --- |
-| 1 | **Secret produksi belum ada.** Audit nama env Vercel menunjukkan API hanya `FOCUSOS_SUPABASE_URL` dan `FOCUSOS_SUPABASE_PUBLISHABLE_KEY`; web hanya empat env Supabase/app/API dasar. | Isi di **API**: `FOCUSOS_SUPABASE_SERVICE_ROLE_KEY`, `FOCUSOS_TOKEN_ENCRYPTION_KEYS`, `FOCUSOS_TOKEN_ENCRYPTION_ACTIVE_VERSION`, `FOCUSOS_GOOGLE_CLIENT_ID`, `FOCUSOS_GOOGLE_CLIENT_SECRET`, `FOCUSOS_GOOGLE_REDIRECT_URIS`, `GEMINI_API_KEY`. Isi di **web/server**: `FOCUSOS_GOOGLE_CLIENT_ID`, `FOCUSOS_GOOGLE_STATE_SECRET`. Pastikan Gemini API mempunyai kuota. Gunakan Vercel Environment Variables, lalu deploy ulang dua project. Jangan kirim nilainya lewat chat atau commit. | Audit **nama** env lengkap tanpa menampilkan nilai; API/web READY lagi dan tes endpoint dasar tetap lulus. |
-| 2 | **Google OAuth integrasi belum diterima live.** Konfigurasi project Cloud dan consent belum dapat diaudit hanya dari repo. | Di Google Cloud, aktifkan Gmail API dan Calendar API; pastikan OAuth Web client mengizinkan `https://focusos-web-five.vercel.app/api/integrations/google/callback`, consent/test user serta scope Gmail read, Calendar owned read/write benar. Supabase login Google memakai callback Supabase yang berbeda. Login ke web, connect Google, lanjutkan write-scope upgrade. | Pada `/settings/connections`, status `connected` dan scope benar; baca satu email sintetik berlabel `FocusOS` dan satu halaman Calendar primary berhasil tanpa token di browser. |
-| 3 | **Skor extraction live belum ada.** Satu extraction sintetis lokal berhasil menghasilkan kandidat, tetapi evaluasi 16 kasus belum dijalankan dan laporan sekarang hanya dry-run. | Set API key secara privat di proses runner lokal; jalankan `python evals/run.py --live`, tinjau observasi lokal yang di-ignore, catat judgment judul semantik di `evals/output/judgments.jsonl` bila perlu, lalu `python evals/score.py`. Tinjau dan publikasikan angka serta denominator yang benar. | Laporan memuat completed/failed dari 16 kasus, match/deadline/evidence numerator-denominator, versi model/prompt/schema, contoh kegagalan sintetis, dan label jelas bahwa ini bukan data Gmail produksi. |
-| 4 | **Demo end-to-end inti belum terbukti.** Tidak ada Google token/model production saat ini. | Jalankan [alur demo sintetis](demo.md): Gmail → source → extraction/review → task → availability → proposal → approve satu event → execute → audit. Bandingkan event ID, judul, waktu/zona, tamu kosong dan link di Google; ulangi execute dan pastikan tetap satu event. Uji satu konflik baru serta hasil unknown/reconcile. | Catatan bertanggal dari akun uji menyebut tiap tahap dan hasil provider; tidak memuat email, ID pribadi, token, cookie, atau isi event pribadi. Baru setelah ini final gate tindakan nyata boleh dicentang. |
-| 5 | **Browser dan lifecycle live pada rilis terakhir belum diuji.** Smoke saat ini hanya HTTP anonim; SQL lifecycle diuji rollback-only. | Saat akun uji sudah terhubung, login/logout ulang; cek `/api/me` 200/401. Disconnect lalu pastikan sync/action baru tertahan; reconnect dengan scope yang benar. Hapus **satu** source Gmail sintetis dan periksa task/memori/run terkait hilang sedangkan source/run lain tetap ada. | Hasil login, reconnect, isolasi dan penghapusan dicatat tanpa data pribadi. Request Google yang sudah in-flight saat disconnect tetap mungkin menghasilkan `unknown`; periksa Calendar sebelum retry. |
-| 6 | **Semantic memory live belum dibuktikan.** Tes vektor dan fallback lulus, tetapi migration Gemini sudah diterapkan tetapi panggilan embedding live belum diverifikasi. | Simpan fakta sintetik berbukti atau task manual, jalankan embedding, lalu cari lewat `/memories`; catat mode `semantic` atau fallback `lexical` secara jujur. | Satu hasil dari memori yang benar-benar dikonfirmasi, sesuai owner/source, terlihat; mode dan kegagalan provider dicatat. |
+### 2. Evaluasi Gemini dengan runner lokal
 
-Tidak perlu membuat akun baru bila project Supabase, Google Cloud, Google AI Studio, dan Vercel lama tetap dipakai. Pengisian env dan consent OAuth memerlukan akses pemilik akun; semua pekerjaan kode yang tidak bergantung padanya sudah dilakukan. Setelah langkah di atas lulus, perbarui [laporan evaluasi](evaluation.md), [log implementasi](implementation-log.md), dan checklist final di `plan.md`. Sampai saat itu, sebut rilis ini **implementation complete, live acceptance pending**.
+Key Gemini produksi sudah terpasang di Vercel, tetapi tidak tersedia di proses atau file env backend lokal yang diperiksa. Agar evaluasi sintetis live dapat dijalankan otomatis, set `GEMINI_API_KEY` secara privat pada terminal runner atau env backend lokal. Jangan kirim key ke chat.
 
+```powershell
+.\.venv\Scripts\python.exe evals/planning_eval.py --live
+.\.venv\Scripts\python.exe evals/run.py --live
+.\.venv\Scripts\python.exe evals/score.py
+```
 
-## Temuan demo terbaru
+Hasil mock adalah bukti regresi backend, bukan skor akurasi model live. Evaluator tidak membuat event Calendar nyata. Secret produksi tidak diekspor ke komputer untuk mengambil key tersebut.
 
-Pada 28 September 2026, pengguna berhasil memproses satu email sintetis menjadi satu task dan menjalankan semantic memory search pada web produksi. Pertanyaan tentang nama kode proyek menampilkan fakta rapat dan fakta Aurora sekaligus, sehingga kualitas jawaban belum terbukti meskipun retrieval semantik berjalan. Commit `e6e3313` sudah dideploy ke API dan web produksi dengan pemilihan satu fakta berbukti atau abstain. Smoke anonim lulus; sesi login masih perlu menguji pertanyaan yang punya jawaban dan yang tidak. Audit env dan checklist demo di atas adalah snapshot sebelumnya dan perlu diperbarui setelah seluruh bukti live terkumpul.
+### 3. Acceptance Google dengan sesi akun uji
+
+Kode dan provider adapter diuji otomatis memakai data sintetis. OAuth reconnect, pemrosesan Gmail dan Calendar nyata pada rilis baru belum diuji dengan sesi akun terhubung. Sebelum menyatakan acceptance live, perlukan sesi akun uji berlabel FocusOS dan consent Calendar write yang aktif; Google test-mode dapat membutuhkan reconnect.
+
+Yang perlu dibuktikan: email sintetis menjadi task dan fakta; pertanyaan positif/negatif memory sesuai; plan membuat satu event; replay tetap satu; cancel FocusOS block tercatat cancelled; event yang diedit di Google dibiarkan berubah; disconnect menghentikan pekerjaan baru. Tidak perlu membaca email pribadi atau mengubah event selain test FocusOS.
+
+### 4. Recovery database penuh
+
+Export aplikasi tersedia dan validator offline disertakan. Export dibatasi 1000 baris per tabel/8 MB dan menyatakan truncation. File ini bukan backup lengkap Supabase Auth atau credential Google. Untuk disaster recovery, simpan backup database privat dan uji restore pada project terpisah; OAuth reconnect dan indexing ulang tetap diperlukan. Restore penuh belum diuji pada sesi ini. Jangan restore audit Calendar menjadi event baru.
+
+## Batas produk yang disengaja
+
+- Planning horizon tujuh hari, 20 task pada konteks agent; workspace menampilkan maksimum 100 task per status, memori library 50 terbaru, focus block 100 terbaru, run/job history 50 terbaru. Memory search memakai retrieval database, bukan hanya library yang terlihat.
+- Reschedule memakai cancel yang sudah dikonfirmasi lalu plan baru. Tidak ada overwrite event Google yang diedit manual.
+- Tidak ada push notification, Gmail watch atau job baru berkala tanpa sesi. In-app deadline dan status tetap tersedia.
+- Cancel job menghentikan langkah berikutnya; request provider yang sudah berjalan mungkin selesai. Hasil nyata tetap dilihat di Schedule sebelum replanning.
+
+Rincian perubahan hari 4-14 ada pada [roadmap](personal-product-roadmap.md) dan [panduan setup](personal-product-setup.md). Seluruh pengujian pada sesi ini otomatis; tidak meminta pengguna melakukan tes manual untuk menyelesaikan implementasi.

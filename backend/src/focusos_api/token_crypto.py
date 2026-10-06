@@ -51,7 +51,7 @@ class TokenCipher:
         return cls(keys, active_version)
 
     def encrypt(self, connection_id: UUID, token_kind: str, token: str) -> EncryptedToken:
-        if token_kind not in {"access", "refresh"} or not token:
+        if token_kind not in {"access", "refresh", "job"} or not token:
             raise TokenCipherError("Token value is invalid")
         plaintext = token.encode("utf-8")
         if len(plaintext) > MAX_TOKEN_BYTES:
@@ -69,7 +69,7 @@ class TokenCipher:
         encrypted: bytes,
         key_version: int,
     ) -> str:
-        if token_kind not in {"access", "refresh"} or key_version not in self._keys:
+        if token_kind not in {"access", "refresh", "job"} or key_version not in self._keys:
             raise TokenCipherError("Encrypted token cannot be opened")
         if len(encrypted) < NONCE_BYTES + 16 or len(encrypted) > MAX_TOKEN_BYTES + NONCE_BYTES + 16:
             raise TokenCipherError("Encrypted token cannot be opened")
@@ -86,4 +86,5 @@ class TokenCipher:
 
 
 def _associated_data(connection_id: UUID, token_kind: str, version: int) -> bytes:
-    return f"focusos:oauth:{connection_id}:{token_kind}:v{version}".encode("ascii")
+    domain = "job" if token_kind == "job" else "oauth"
+    return f"focusos:{domain}:{connection_id}:{token_kind}:v{version}".encode("ascii")

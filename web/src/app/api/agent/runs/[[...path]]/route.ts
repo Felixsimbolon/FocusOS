@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { getServerAccessToken } from "@/server/auth/session";
 import { requireServerEnv } from "@/server/env";
+import { runBackgroundJob } from "@/server/jobs";
 import { describePlanningFailure } from "@/app/agent/planning-feedback";
 
 type Context = { params: Promise<{ path?: string[] }> };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-export const maxDuration = 60;
+export const maxDuration = 240;
 
 async function proxy(request: NextRequest, context: Context, method: "GET" | "POST") {
   const token = await getServerAccessToken();
@@ -60,7 +61,16 @@ async function proxy(request: NextRequest, context: Context, method: "GET" | "PO
       }
       return NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store" } });
     }
-    return NextResponse.json(await response.json(), { headers: { "Cache-Control": "no-store" } });
+    const result = await response.json();
+    if (method === "POST" && path.length === 0 && request.nextUrl.searchParams.get("background") === "true" && UUID.test(result.id)) {
+      const jobResponse = await fetch(origin + "/jobs", { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "planning", subject_id: result.id, request_key: result.id }), cache: "no-store", redirect: "error", signal: AbortSignal.timeout(15_000) });
+      if (jobResponse.ok) {
+        result.background_job = await jobResponse.json();
+        after(async () => { try { await runBackgroundJob(token, result.background_job); } catch { /* Status remains saved for recovery. */ } });
+      }
+    }
+    return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch {
     return NextResponse.json({ error: "Agent run unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }

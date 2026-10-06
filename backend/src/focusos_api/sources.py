@@ -80,6 +80,7 @@ class SourceEnvelope(BaseModel):
     source: SourceRecord
     replayed: bool
     extraction: dict | None = None
+    background_job: dict | None = None
 
 
 class SourceListEnvelope(BaseModel):

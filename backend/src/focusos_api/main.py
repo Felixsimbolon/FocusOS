@@ -88,6 +88,10 @@ from focusos_api.tasks import (
 )
 
 app = FastAPI(title="FocusOS API", version="0.1.0")
+from focusos_api.job_routes import router as jobs_router
+app.include_router(jobs_router)
+from focusos_api.product import router as product_router
+app.include_router(product_router)
 bearer = HTTPBearer(auto_error=False)
 
 
@@ -585,11 +589,17 @@ def tasks_patch(
 @app.post("/sources/manual", response_model=SourceEnvelope)
 def sources_manual_post(
     source: ManualSourceInput,
+    background: bool = Query(default=False),
     request_id: UUID = Header(alias="Idempotency-Key"),
     access_token: str = Depends(require_access_token),
 ) -> SourceEnvelope:
     try:
         saved = create_manual_source(access_token, request_id, source)
+        if background:
+            from focusos_api.jobs import JobInput, enqueue_job
+            from focusos_api.job_routes import call
+            job = call(enqueue_job, access_token, JobInput(kind="source", subject_id=saved.source.id, request_key=saved.source.id))
+            return saved.model_copy(update={"background_job": job.model_dump(mode="json")})
         extraction = process_and_capture(access_token, saved.source.id)
         return saved.model_copy(update={"extraction": extraction.model_dump(mode="json")})
     except InvalidSession as exc:

@@ -1,13 +1,14 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { describeJob, type Job } from "@/app/jobs/client";
 import { buildPlanningRequest, describePlanningFailure } from "./planning-feedback";
 
 type Block = { task_ref: string; title: string; start: string; end: string; reason: string };
 type Plan = { status: string; summary: string; requested_minutes: number; scheduled_minutes: number;
   shortfall_minutes: number; blocks: Block[]; questions: string[]; assumptions: string[] };
 type Run = { id: string; command: string; status: string; stage: string;
-  checkpoint: { auto_calendar?: boolean; timezone?: string }; result: Plan | null; safe_error: string | null };
+  checkpoint: { auto_calendar?: boolean; timezone?: string }; background_job?: Job; result: Plan | null; safe_error: string | null };
 type CalendarAction = { title: string; start: string; end: string; timezone: string };
 type ScheduledBlock = { id: string; block_index: number; status: string; payload: CalendarAction;
   authorization_mode: string; provider_link: string | null; safe_code: string | null };
@@ -97,6 +98,24 @@ export function AgentConsole({ initialRunId }: { initialRunId?: string }) {
     }
   }, [loadEvents]);
 
+  const observe = useCallback(async (initial: Run, job: Job) => {
+    setBusy(true); setMessage(describeJob(job));
+    let current = job;
+    try {
+      for (let attempt = 0; attempt < 80 && ["queued", "running"].includes(current.status); attempt++) {
+        await wait(3000);
+        const [saved, state] = await Promise.all([
+          fetch(`/api/agent/runs/${initial.id}`, { cache: "no-store" }).then(r => readJson<Run>(r)),
+          fetch(`/api/jobs/${job.id}`, { cache: "no-store" }).then(r => readJson<Job>(r)),
+        ]);
+        setRun(saved); current = state; setMessage(describeJob(current)); await loadEvents(initial.id);
+      }
+      await loadEvents(initial.id);
+    } catch { setMessage("Status is temporarily unavailable. Your job is saved; check System to resume it."); }
+    finally { setBusy(false); }
+  }, [loadEvents]);
+
+
   useEffect(() => {
     if (!initialRunId || !UUID.test(initialRunId)) return;
     let cancelled = false;
@@ -105,10 +124,22 @@ export function AgentConsole({ initialRunId }: { initialRunId?: string }) {
         if (cancelled) return;
         setRun(saved);
         await loadEvents(saved.id);
-        if (!cancelled && saved.checkpoint.auto_calendar) void drive(saved);
+        if (!cancelled && saved.checkpoint.auto_calendar) {
+          const response = await fetch("/api/jobs", { cache: "no-store" });
+          const jobs = response.ok ? await response.json() as Job[] : [];
+          const job = jobs.find(item => item.kind === "planning" && item.subject_id === saved.id);
+          if (job) {
+            setMessage(describeJob(job));
+            if (["queued", "running"].includes(job.status)) void observe(saved, job);
+          } else if (response.ok) {
+            // Legacy runs predate the queue; preserve their existing safe replay path.
+            void drive(saved);
+          }
+        }
       }).catch(() => { if (!cancelled) setMessage("Run unavailable. Please sign in and try again."); });
     return () => { cancelled = true; };
-  }, [initialRunId, drive, loadEvents]);
+  }, [initialRunId, drive, loadEvents, observe]);
+
 
   async function start(event: FormEvent) {
     event.preventDefault();
@@ -118,14 +149,20 @@ export function AgentConsole({ initialRunId }: { initialRunId?: string }) {
     setEvents([]);
     try {
       if (!requestKey.current) requestKey.current = crypto.randomUUID();
-      const next = await readJson<Run>(await fetch("/api/agent/runs", {
+      const next = await readJson<Run>(await fetch("/api/agent/runs?background=true", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(buildPlanningRequest(command, duration, allowSplit, requestKey.current)),
       }));
       requestKey.current = null;
       setRun(next);
       window.history.replaceState(null, "", `/agent/${next.id}`);
-      await drive(next);
+      try {
+        if (!next.background_job) throw new Error("Your run was saved, but background processing is unavailable. Check System diagnostics.");
+        await observe(next, next.background_job);
+      } catch (cause) {
+        setMessage(cause instanceof Error ? cause.message : "Background processing unavailable. Open System to resume this run.");
+        setBusy(false);
+      }
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "Planning is temporarily unavailable.");
       setBusy(false);

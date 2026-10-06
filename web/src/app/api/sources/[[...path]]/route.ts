@@ -1,8 +1,9 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+﻿import { after, NextRequest, NextResponse } from "next/server";
 import { getServerAccessToken } from "@/server/auth/session";
 import { requireServerEnv } from "@/server/env";
+import { runBackgroundJob } from "@/server/jobs";
 
-export const maxDuration = 60;
+export const maxDuration = 240;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NO_STORE = { "Cache-Control": "no-store" };
 
@@ -32,6 +33,7 @@ async function handle(request: NextRequest, segments: string[], method: "GET" | 
   }
   try {
     const url = new URL("/sources" + (segments.length ? "/" + segments.join("/") : ""), requireServerEnv("FOCUSOS_API_URL"));
+    if (segments[0] === "manual" && request.nextUrl.searchParams.get("background") === "true") url.searchParams.set("background", "true");
     const response = await fetch(url, {
       method, headers, body, cache: "no-store", redirect: "error",
       signal: AbortSignal.timeout((segments.at(-1) === "extract" || segments[0] === "manual") ? 58_000 : 10_000),
@@ -44,7 +46,9 @@ async function handle(request: NextRequest, segments: string[], method: "GET" | 
         "Source request could not be completed" },
         { status, headers: NO_STORE });
     }
-    return NextResponse.json(await response.json(), { headers: NO_STORE });
+    const result = await response.json();
+    if (method === "POST" && result.background_job) after(async () => { try { await runBackgroundJob(token, result.background_job); } catch { /* Durable queue supports recovery. */ } });
+    return NextResponse.json(result, { headers: NO_STORE });
   } catch {
     return NextResponse.json({ error: "Source service unavailable" }, { status: 503, headers: NO_STORE });
   }

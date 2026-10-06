@@ -2026,3 +2026,8 @@ Phase 9 is the final planned phase. The remaining live acceptance work is tracke
 ## Personal product: days 1?3 (2 October 2026)
 
 The next stage prioritizes reliable planning over new integrations. Diagnosis, deterministic intent-to-slot compilation, actionable errors, and automatic regression/workflow verification are documented in [planning-hardening.md](docs/planning-hardening.md). The user requested automatic testing; provider/database boundaries use synthetic fixtures, with optional synthetic live Gemini evaluation kept separate. Preserve automatic Calendar submission and existing replay/conflict safeguards. Background execution, daily-use UI improvements, and richer task/Calendar lifecycle belong to later days.
+
+
+## Personal product: days 4-14 (7 October 2026)
+
+The user explicitly authorized all remaining personal-product work with automatic verification. The implementation scope and evidence are recorded in [personal-product-roadmap.md](docs/personal-product-roadmap.md), [implementation-log.md](docs/implementation-log.md), and [personal-product-setup.md](docs/personal-product-setup.md). It adds daily task/memory management, bounded durable jobs, safe owned-event cancellation, diagnostics/history and data export. Scheduler account settings, synthetic live-model evaluation, authenticated Google acceptance and full database recovery remain separately tracked in [remaining-work.md](docs/remaining-work.md). Do not equate provider-mocked verification with live acceptance.

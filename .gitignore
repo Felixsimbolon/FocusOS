@@ -23,3 +23,6 @@ evals/output/
 
 # Private narrative; keep local.
 NARASI_PRIVAT_FOCUSOS_DARI_IDE_SAMPAI_AI.md
+
+# Personal application exports.
+focusos-export*.json
