@@ -21,3 +21,8 @@ Gmail menyimpan checkpoint source sebelum extraction/capture. Jika worker crash 
 Memory pada Activity dibaca dengan source_id tervalidasi dan owner/RLS, bukan dipotong dari daftar global 50 memory terbaru. Provider/schema tidak diganti dan tidak memerlukan environment variable atau migration baru. Error quota Gemini tetap memerlukan kuota tersedia; UI tidak bisa menghapus batas provider.
 
 Backup dan restore tetap di luar scope. Tidak ada akses Gmail nyata atau pembuatan/penghapusan Calendar nyata saat pengujian otomatis perubahan ini.
+
+
+## Verifikasi rilis
+
+316 tes backend dan 99 tes web lulus. Build lokal dan build Vercel lulus. Kedua project produksi sudah READY; 22 pemeriksaan HTTP anonim dan lima pemeriksaan redirect langsung lulus. UI Home dan form plain text diverifikasi dengan rendering sintetis. Pemrosesan akun Google pengguna dan kualitas Gemini live tidak disimpulkan dari tes tersebut.
