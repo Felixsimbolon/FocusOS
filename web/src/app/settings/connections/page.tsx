@@ -57,7 +57,7 @@ export default async function ConnectionsSettings({
 
   return (
     <main className="settings-page">
-      <a href="/settings">Back to settings</a>
+      <a href="/#preferences">Back to Today</a>
       <h1>Google connections</h1>
       <p>Connect Gmail and your primary Google Calendar for read-only access.</p>
       {message ? <p role="status">{message}</p> : null}

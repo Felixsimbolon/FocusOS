@@ -25,7 +25,13 @@ async function proxy(request: NextRequest, context: Context, method: "GET" | "PO
   }
   try {
     const origin = requireServerEnv("FOCUSOS_API_URL").replace(new RegExp("/$"), "");
-    const response = await fetch(origin + "/memories" + suffix, {
+    const url = new URL(origin + "/memories" + suffix);
+    const sourceId = request.nextUrl.searchParams.get("source_id");
+    if (method === "GET" && sourceId) {
+      if (!UUID.test(sourceId)) return NextResponse.json({ error: "Invalid source" }, { status: 422 });
+      url.searchParams.set("source_id", sourceId);
+    }
+    const response = await fetch(url.toString(), {
       method, headers: { Authorization: "Bearer " + token, ...(body ? { "Content-Type": "application/json" } : {}) },
       body, cache: "no-store", signal: AbortSignal.timeout(suffix === "/search" ? 40000 : suffix.endsWith("/embed") ? 18000 : 12000),
     });

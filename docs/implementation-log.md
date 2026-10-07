@@ -760,3 +760,8 @@ Daftar setup yang tersisa dan langkahnya tersedia pada remaining-work.md serta p
 ### Penyesuaian scope: tanpa backup database
 
 Pengguna memutuskan backup database dan uji restore tidak diperlukan untuk penggunaan pribadi. Keduanya dikeluarkan dari remaining-work, roadmap dan panduan setup; bukan lagi syarat penyelesaian produk. Export aplikasi yang sudah tersedia tetap opsional. Tidak ada perubahan kode, database atau konfigurasi produksi.
+
+
+### Penyederhanaan UI dan organisasi sekali submit
+
+Home sekarang memuat memory search, preferensi dan Scheduled work. Form task/project dan halaman Jobs/System dihapus dari alur; URL lama dialihkan ke Home. Activity memakai satu textarea untuk deskripsi manual dan satu tombol Gmail Sync & organize yang mengamati pekerjaan sampai selesai, memulihkan observasi setelah reload dan memperbarui hasil otomatis. Backend otomatis menyimpan memory task berbukti serta memperbaiki checkpoint Gmail sebelum capture agar retry tidak melewati hasil yang belum tersimpan. Memory list mendukung filter source dengan owner/RLS. Tidak menambah migration/env atau mengganti provider. Regresi terbaru: 316 tes backend dan 99 tes web lulus. Build Next.js lulus; pengujian UI memakai render sintetis, bukan sesi Google pengguna. Hasil rilis dicatat setelah deployment.

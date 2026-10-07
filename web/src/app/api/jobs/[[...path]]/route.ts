@@ -71,7 +71,7 @@ async function proxy(
               ? "Sign in again to start processing."
               : status === 429
                 ? "Processing limit reached. Wait before submitting again."
-                : "Background processing unavailable. Check System diagnostics.",
+                : "Background processing unavailable. Try again later.",
         },
         { status },
       );
@@ -91,7 +91,7 @@ async function proxy(
     });
   } catch {
     return NextResponse.json(
-      { error: "Background processing unavailable. Check System diagnostics." },
+      { error: "Background processing unavailable. Try again later." },
       { status: 503 },
     );
   }

@@ -32,12 +32,12 @@ export function describeJob(job: Job) {
   if (job.status === "expired")
     return "The processing session expired. Sign in and submit again. Check existing Calendar blocks before replanning.";
   if (job.status === "failed")
-    return `Processing stopped (${job.safe_error || "unavailable"}). Review the saved results in Activity or Schedule before retrying.`;
+    return `Processing stopped (${job.safe_error || "unavailable"}). Review the saved results in Activity or scheduled work on Today before retrying.`;
   if (job.status === "cancelled")
     return "Remaining work was cancelled. A provider request already in progress may still complete.";
   if (job.status === "succeeded")
     return "Processing completed. Saved results are ready.";
   return job.safe_error
     ? `Waiting to retry (${job.safe_error}). Next attempt: ${new Date(job.available_at).toLocaleString()}.`
-    : "Processing on the server. You can leave this page and follow the job in System.";
+    : "Processing on the server. You can leave this page and see the results here.";
 }

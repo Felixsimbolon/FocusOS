@@ -117,9 +117,9 @@ def memory_confirm_post(request: MemoryInput,
 
 
 @app.get("/memories", response_model=MemoryList)
-def memories_get(access_token: str = Depends(require_access_token)) -> MemoryList:
+def memories_get(source_id: UUID | None = Query(default=None), access_token: str = Depends(require_access_token)) -> MemoryList:
     try:
-        return list_memories(access_token)
+        return list_memories(access_token, source_id) if source_id is not None else list_memories(access_token)
     except InvalidSession as exc:
         raise HTTPException(status_code=401, detail="Invalid session") from exc
     except DatabaseUnavailable as exc:

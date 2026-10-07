@@ -101,3 +101,34 @@ class JobsTests(unittest.TestCase):
     def test_capture_failures_not_reported_complete(self):
         response=MagicMock(extraction=MagicMock(status="ready"),capture={"task_failures":1})
         with self.assertRaises(jobs.RetryStep):jobs._capture_step(TOKEN,{},response)
+
+    def test_gmail_pagination_preserves_totals_until_organization_finishes(self):
+        previous = {"imported": 4, "tasks_saved": 3, "memories_saved": 2}
+        with patch("focusos_api.gmail_sync.run_one_sync_page", return_value=MagicMock(state="complete", imported=1)):
+            step = jobs._step(TOKEN, {"kind": "gmail", "checkpoint": {"phase": "sync"}, "result": previous})
+        self.assertEqual(step.result, {"imported": 5, "tasks_saved": 3, "memories_saved": 2})
+        self.assertEqual(step.checkpoint["phase"], "process")
+        self.assertNotEqual(step.status, "succeeded")
+
+    def test_source_is_not_complete_until_memory_indexing_finishes(self):
+        source = uuid4()
+        response = MagicMock(extraction=MagicMock(status="ready", source_id=source),
+            capture={"tasks_saved": 1, "memories_saved": 1, "memory_ids": [str(uuid4())]})
+        step = jobs._capture_step(TOKEN, {}, response)
+        self.assertEqual(step.status, "queued")
+        self.assertEqual(step.checkpoint["phase"], "embedding")
+        self.assertEqual(step.result["source_id"], str(source))
+        self.assertEqual(step.result["tasks_saved"], 1)
+
+    def test_gmail_persists_source_before_capture_and_retries_same_source(self):
+        source = uuid4()
+        with patch("focusos_api.gmail_processing.next_gmail_source", return_value=source), patch("focusos_api.auto_capture.process_and_capture") as capture:
+            selected = jobs._step(TOKEN, {"kind": "gmail", "checkpoint": {"phase": "process"}})
+            capture.assert_not_called()
+        self.assertEqual(selected.checkpoint, {"phase": "capture", "source_id": str(source)})
+        response = MagicMock(extraction=MagicMock(status="ready", source_id=source), capture={"task_failures": 1})
+        with patch("focusos_api.gmail_processing.next_gmail_source") as next_source, patch("focusos_api.auto_capture.process_and_capture", return_value=response) as capture:
+            with self.assertRaises(jobs.RetryStep):
+                jobs._step(TOKEN, {"kind": "gmail", "checkpoint": selected.checkpoint})
+            next_source.assert_not_called()
+            capture.assert_called_once_with(TOKEN, source)

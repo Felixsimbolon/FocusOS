@@ -12,10 +12,10 @@ export default async function ActivityPage() {
   return (
     <main className="activity-page">
       <header className="activity-hero">
-        <nav className="activity-nav"><a href="/">? Today</a><span>FOCUSOS / ACTIVITY</span></nav>
+        <nav className="activity-nav"><a href="/">Today</a><span>FOCUSOS / ACTIVITY</span></nav>
         <span className="activity-eyebrow">YOUR SECOND BRAIN, IN MOTION</span>
         <h1>Turn inputs into progress.</h1>
-        <p>Bring in selected email or paste a source. FocusOS saves grounded tasks and memories automatically.</p>
+        <p>Sync selected email or describe your work. Tasks and memories are saved automatically.</p>
       </header>
       <GmailSyncPanel />
       <SourceReview />

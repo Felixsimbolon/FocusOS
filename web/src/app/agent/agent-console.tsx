@@ -111,7 +111,7 @@ export function AgentConsole({ initialRunId }: { initialRunId?: string }) {
         setRun(saved); current = state; setMessage(describeJob(current)); await loadEvents(initial.id);
       }
       await loadEvents(initial.id);
-    } catch { setMessage("Status is temporarily unavailable. Your job is saved; check System to resume it."); }
+    } catch { setMessage("Status is temporarily unavailable. Your request is saved. Reopen this plan to check the latest results."); }
     finally { setBusy(false); }
   }, [loadEvents]);
 
@@ -157,10 +157,10 @@ export function AgentConsole({ initialRunId }: { initialRunId?: string }) {
       setRun(next);
       window.history.replaceState(null, "", `/agent/${next.id}`);
       try {
-        if (!next.background_job) throw new Error("Your run was saved, but background processing is unavailable. Check System diagnostics.");
+        if (!next.background_job) throw new Error("Your run was saved, but background processing is unavailable. Try again later.");
         await observe(next, next.background_job);
       } catch (cause) {
-        setMessage(cause instanceof Error ? cause.message : "Background processing unavailable. Open System to resume this run.");
+        setMessage(cause instanceof Error ? cause.message : "Background processing unavailable. Reopen this plan to check its status.");
         setBusy(false);
       }
     } catch (cause) {

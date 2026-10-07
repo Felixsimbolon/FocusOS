@@ -26,7 +26,7 @@ export async function saveSettings(formData: FormData) {
     start === null ||
     end === null
   ) {
-    redirect("/settings?error=invalid");
+    redirect("/?error=invalid#preferences");
   }
 
   const result = await writeProfile({
@@ -35,7 +35,7 @@ export async function saveSettings(formData: FormData) {
   });
 
   if (result === "unauthorized") redirect("/");
-  if (result === "invalid") redirect("/settings?error=invalid");
-  if (result === "unavailable") redirect("/settings?error=unavailable");
-  redirect("/settings?saved=1");
+  if (result === "invalid") redirect("/?error=invalid#preferences");
+  if (result === "unavailable") redirect("/?error=unavailable#preferences");
+  redirect("/?saved=1#preferences");
 }

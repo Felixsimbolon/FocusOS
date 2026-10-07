@@ -59,12 +59,14 @@ def confirm_memory(access_token: str, request: MemoryInput) -> MemoryRecord:
     return MemoryRecord.model_validate(data)
 
 
-def list_memories(access_token: str) -> MemoryList:
+def list_memories(access_token: str, source_id: UUID | None = None) -> MemoryList:
     with scoped_client(access_token) as (owner, client):
-        rows = (client.table("memories")
+        query = (client.table("memories")
                 .select( "id,source_id,project_id,source_hash,text,evidence_quote,status,embedding_status,embedding_model,embedding_error,created_at")
-                .eq("user_id", owner).eq("status", "active")
-                .order("created_at", desc=True).limit(50).execute().data)
+                .eq("user_id", owner).eq("status", "active"))
+        if source_id is not None:
+            query = query.eq("source_id", str(source_id))
+        rows = query.order("created_at", desc=True).limit(50).execute().data
     if not isinstance(rows, list):
         raise DatabaseUnavailable("Memories unavailable")
     return MemoryList(memories=[MemoryRecord.model_validate(row) for row in rows])

@@ -18,12 +18,13 @@ export function ScheduleBoard() {
     [showPast, setShowPast] = useState(false);
   const load = useCallback(async () => {
     setBusy(true);
+    setError("");
     try {
       const r = await fetch("/api/product/focus-blocks", { cache: "no-store" });
       if (!r.ok) throw new Error();
       setBlocks(await r.json());
     } catch {
-      setError("Focus blocks unavailable. Check System diagnostics.");
+      setError("Could not load scheduled work. Try again.");
     } finally {
       setBusy(false);
     }

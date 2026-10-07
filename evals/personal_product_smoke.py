@@ -6,7 +6,7 @@ from hosted_smoke import status
 def main():
  parser=argparse.ArgumentParser();parser.add_argument("--api",default="https://focusos-api.vercel.app");parser.add_argument("--web",default="https://focusos-web-five.vercel.app");args=parser.parse_args()
  id=uuid4()
- checks=[(args.web+path,"GET",{200}) for path in ("/tasks","/schedule","/system","/memories")]
+ checks=[(args.web+path,"GET",{200}) for path in ("/", "/activity", "/tasks", "/schedule", "/system", "/memories")]
  checks += [(args.api+path,"GET",{401}) for path in ("/jobs","/product/export","/product/diagnostics","/product/focus-blocks")]
  checks += [(args.web+path,"GET",{401}) for path in ("/api/jobs","/api/product/export","/api/product/diagnostics")]
  checks += [(args.api+f"/product/focus-blocks/{id}/cancel","POST",{401}), (args.api+"/internal/jobs/tick","POST",{401,503})]

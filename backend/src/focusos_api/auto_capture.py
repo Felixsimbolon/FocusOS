@@ -45,14 +45,16 @@ def capture_ready(access_token: str, response: ExtractionEnvelopeResponse) -> di
         except (DatabaseUnavailable, ConfirmConflict, ConfirmNotFound, ConfirmStale) as error:
             logger.warning("Automatic task capture failed: extraction=%s error=%s", record.id, type(error).__name__)
             result["task_failures"] += 1
-    for fact in payload.facts:
-        quote = fact.evidence[0].quote
+    memories = [("task:" + candidate.local_ref, ("Task: " + candidate.title + ". " + candidate.description).strip()[:500], candidate.evidence[0].quote)
+                for candidate in payload.tasks]
+    memories.extend((fact.kind, fact.text, fact.evidence[0].quote) for fact in payload.facts)
+    for kind, text, quote in memories:
         request_key = uuid5(MEMORY_NAMESPACE, ":".join(
-            (str(record.source_id), record.content_hash, fact.kind, fact.text, quote)))
+            (str(record.source_id), record.content_hash, kind, text, quote)))
         try:
             saved = confirm_memory(access_token, MemoryInput(
                 request_key=request_key, source_id=record.source_id,
-                text=fact.text, evidence_quote=quote))
+                text=text, evidence_quote=quote))
             result["memories_saved"] += 1
             result["memory_ids"].append(str(saved.id))
         except (DatabaseUnavailable, MemoryEvidenceInvalid) as error:

@@ -36,11 +36,28 @@ class AutoCaptureTests(unittest.TestCase):
              patch("focusos_api.auto_capture.confirm_memory", return_value=Mock(id=uuid4())) as memory:
             first = capture_ready("token", response)
             second = capture_ready("token", response)
-        self.assertEqual((first["tasks_saved"], first["memories_saved"]), (1, 1))
+        self.assertEqual((first["tasks_saved"], first["memories_saved"]), (1, 2))
         self.assertEqual(first["task_failures"] + first["memory_failures"], 0)
         self.assertEqual(memory.call_args_list[0].args[1].request_key,
-                         memory.call_args_list[1].args[1].request_key)
+                         memory.call_args_list[2].args[1].request_key)
         self.assertEqual(task.call_args.args[2].task.due_date.isoformat(), "2026-09-24")
+
+    def test_plain_task_without_facts_is_saved_to_memory_with_stable_evidence(self):
+        payload = sample()
+        payload["facts"] = []
+        now = datetime.fromisoformat("2026-09-27T10:00:00+07:00")
+        record = ExtractionRecord(id=uuid4(), source_id=uuid4(), content_hash="a" * 64,
+            schema_version="1", prompt_version="1", model_version="gemini", status="ready",
+            validated_payload=payload, safe_error=None, run_id=None, created_at=now, updated_at=now, reviewed_at=None)
+        response = ExtractionEnvelopeResponse(extraction=record, replayed=False)
+        with patch("focusos_api.auto_capture.confirm_candidate"), patch("focusos_api.auto_capture.confirm_memory", return_value=Mock(id=uuid4())) as memory:
+            first = capture_ready("token", response)
+            second = capture_ready("token", response)
+        self.assertEqual((first["tasks_saved"], first["memories_saved"]), (1, 1))
+        request = memory.call_args_list[0].args[1]
+        self.assertIn(payload["tasks"][0]["title"], request.text)
+        self.assertEqual(request.evidence_quote, payload["tasks"][0]["evidence"][0]["quote"])
+        self.assertEqual(request.request_key, memory.call_args_list[1].args[1].request_key)
 
     def test_manual_source_route_processes_and_captures_immediately(self):
         now = datetime.fromisoformat("2026-09-27T10:00:00+07:00")

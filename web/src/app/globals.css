@@ -630,3 +630,26 @@ main.agent-page > a:first-child, main.settings-page > a:first-child { justify-se
 .workspace button:focus-visible, .workspace a:focus-visible { outline: 2px solid #4338ca; outline-offset: 3px; }
 @media (max-width: 700px) { .workspace-toolbar { grid-template-columns: 1fr; } .workspace-task-heading { align-items: flex-start; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+
+/* A single home for work, memory, and preferences. */
+.app-header { display:flex; flex-wrap:wrap; align-items:center; gap:1.2rem; padding-bottom:1.2rem; border-bottom:1px solid #e3e8ef; }
+.app-brand { font-size:1.25rem; font-weight:750; color:#1d2d47; text-decoration:none; letter-spacing:-.04em; }
+.app-header nav { display:flex; flex-wrap:wrap; gap:1rem; margin-left:auto; }
+.app-header nav a { color:#5a6880; font-size:.9rem; text-decoration:none; padding:.4rem 0; }
+.app-header nav a[aria-current="page"] { color:#354a9b; font-weight:650; }
+.app-header form { margin:0; }
+.home-primary-actions { display:flex; flex-wrap:wrap; gap:.7rem; }
+.home-primary-actions a { padding:.8rem 1.1rem; border-radius:.7rem; background:#4053ad; color:white; text-decoration:none; font-weight:600; }
+.home-primary-actions a + a { background:#fff; color:#4053ad; border:1px solid #dce3ef; }
+.home-panel { border:1px solid #dfe5ee; border-radius:1rem; background:#fff; scroll-margin-top:1rem; }
+.home-panel > summary { display:flex; justify-content:space-between; gap:1rem; cursor:pointer; padding:1.2rem 1.4rem; color:#223654; font-weight:650; }
+.home-panel > summary small { color:#738094; font-weight:400; }
+.home-panel-body { padding:0 1.4rem 1.4rem; }
+.home-panel-body .workspace { margin:0; }
+.home-panel-body .settings-form { max-width:40rem; }
+.home-panel input:not([type="checkbox"]) { border:1px solid #d2dbea; border-radius:.6rem; padding:.7rem; background:white; }
+.home-section-heading h2 { margin-bottom:.35rem; color:#223654; }
+.home-section-heading p { color:#738094; margin-top:0; }
+.home-memory { scroll-margin-top:1rem; }
+.app-header a:focus-visible, .home-primary-actions a:focus-visible, .home-panel > summary:focus-visible { outline:2px solid #4053ad; outline-offset:4px; }
+@media (max-width:40rem) { .app-header nav { order:3; width:100%; margin:0; gap:.8rem; } .app-header form { margin-left:auto; } .home-panel > summary { flex-direction:column; gap:.4rem; } }

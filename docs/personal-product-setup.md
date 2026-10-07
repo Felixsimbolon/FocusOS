@@ -19,22 +19,27 @@ Scheduler GitHub yang disertakan bersifat best effort, bukan jaminan tepat setia
 3. Repo GitHub > Settings > Secrets and variables > Actions > Secrets: tambahkan secret `FOCUSOS_WORKER_SECRET` dengan nilai **yang sama**.
 4. Di tab Variables: tambahkan `FOCUSOS_API_URL=https://focusos-api.vercel.app`.
 5. Actions > Resume FocusOS jobs > Run workflow. Workflow mengirim Bearer secret ke `/internal/jobs/tick`, maksimal 20 langkah dan tanpa log token.
-6. System menampilkan `Scheduler trigger: configured` bila API mempunyai secret; itu belum membuktikan GitHub berhasil memanggilnya. Bukti scheduler ada pada run Actions dan job yang benar-benar maju.
+6. Bukti scheduler ada pada run GitHub Actions dan pekerjaan yang benar-benar maju. Halaman System/Jobs sudah dihapus dari alur UI; Activity menampilkan progres dan hasil otomatis.
 
-Untuk pengujian lokal: set kedua env di terminal privat, lalu `python scripts/work_jobs.py`. Gunakan URL API lokal. Jika sesi job kedaluwarsa, login dan submit lagi; lihat Schedule sebelum replanning karena sebagian event mungkin sudah berhasil dibuat.
+Untuk pengujian lokal: set kedua env di terminal privat, lalu `python scripts/work_jobs.py`. Gunakan URL API lokal. Jika sesi job kedaluwarsa, login dan submit lagi; lihat Scheduled work di Home sebelum replanning karena sebagian event mungkin sudah berhasil dibuat.
 
 Ini bukan Gmail push/watch atau sync harian permanen tanpa sesi pengguna. Job Gmail hanya memproses email berlabel FocusOS dalam jendela sesi pendek. Scheduler dapat melanjutkan job yang sudah ada, tetapi tidak membuat sesi login baru.
 
 ## Calendar
 
-Schedule menampilkan maksimal 100 action tersimpan. Cancel block hanya berlaku untuk event sukses yang disimpan FocusOS. Backend membaca ID stabil, memeriksa marker, konten dan waktu, lalu DELETE memakai ETag/If-Match dan `sendUpdates=none`. Event yang diedit di Google tidak dihapus otomatis. Timeout ditampilkan unknown; retry merekonsiliasi ID yang sama. Pembatalan tidak menyelesaikan task. Untuk pindah waktu, batalkan block, tunggu cancelled, lalu submit plan baru.
+Bagian Scheduled work di Home menampilkan maksimal 100 action tersimpan. Cancel block hanya berlaku untuk event sukses yang disimpan FocusOS. Backend membaca ID stabil, memeriksa marker, konten dan waktu, lalu DELETE memakai ETag/If-Match dan `sendUpdates=none`. Event yang diedit di Google tidak dihapus otomatis. Timeout ditampilkan unknown; retry merekonsiliasi ID yang sama. Pembatalan tidak menyelesaikan task. Untuk pindah waktu, batalkan block, tunggu cancelled, lalu submit plan baru.
 
 ## Export data opsional
 
 Sesuai keputusan pengguna, backup database dan uji restore tidak termasuk scope produk pribadi atau setup yang wajib dilengkapi. Tidak perlu menyiapkan project Supabase tambahan untuk recovery.
 
-Fitur System > Export my data yang sudah tersedia tetap bersifat opsional. Export dibatasi 1000 baris per tabel dan 8 MB, tidak mencakup credential, vektor embedding atau queue token, dan bukan dump penuh PostgreSQL. Validator offline hanya memeriksa file; tidak melakukan restore.
+Endpoint export aplikasi tetap tersedia secara internal; tombol export dan halaman System tidak ditampilkan dalam UI yang disederhanakan. Export dibatasi 1000 baris per tabel dan 8 MB, tidak mencakup credential, vektor embedding atau queue token, dan bukan dump penuh PostgreSQL. Validator offline hanya memeriksa file; tidak melakukan restore.
 
 ## Verifikasi rilis otomatis
 
 Jalankan `python evals/hosted_smoke.py` dan `python evals/personal_product_smoke.py` untuk pemeriksaan HTTP anonim yang dapat diulang. Pada rilis 7 Oktober 2026 hasilnya 7/7 dan 13/13. Endpoint job/export harus menolak tanpa sesi; scheduler tick harus menolak tanpa secret atau memberi 503 bila pemicunya belum dikonfigurasi. Tes ini tidak login dan tidak membaca/mengubah data Google.
+
+
+## Alur UI yang disederhanakan
+
+Home memuat task/deadline, pencarian memory, ketersediaan Calendar, blok kerja tersimpan dan preferensi. Activity menyediakan Sync & organize satu kali sampai selesai serta satu textarea deskripsi pekerjaan. Task dan memory disimpan otomatis dengan evidence, lalu memory diindeks. Navigasi Jobs/System, form task satu per satu, dan form New project dihapus. URL lama Tasks, Schedule, Memories dan Settings diarahkan ke bagian Home; System diarahkan ke Home. Planning dan Google connections tetap tersedia. Detail: [simplified-workflow.md](simplified-workflow.md).

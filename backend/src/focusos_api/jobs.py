@@ -131,7 +131,7 @@ def _capture_step(token: str, job: dict, response) -> Step:
         raise RetryStep("capture_incomplete", 30)
     checkpoint = {**job.get("checkpoint", {}), "memory_ids": capture.get("memory_ids", []), "phase": "embedding"}
     previous = job.get("result") or {}
-    result = {**previous, "tasks_saved": previous.get("tasks_saved", 0) + capture.get("tasks_saved", 0), "memories_saved": previous.get("memories_saved", 0) + capture.get("memories_saved", 0)}
+    result = {**previous, "tasks_saved": previous.get("tasks_saved", 0) + capture.get("tasks_saved", 0), "memories_saved": previous.get("memories_saved", 0) + capture.get("memories_saved", 0), "source_id": str(extraction.source_id)}
     return Step(checkpoint=checkpoint, result=result)
 
 
@@ -140,7 +140,7 @@ def _step(token: str, job: dict) -> Step:
     from focusos_api.automatic_calendar import schedule_automatic_block
     from focusos_api.auto_capture import process_and_capture
     from focusos_api.gmail_sync import run_one_sync_page
-    from focusos_api.gmail_processing import process_one_gmail_source
+    from focusos_api.gmail_processing import next_gmail_source
     from focusos_api.memory_embeddings import embed_memory
     checkpoint = dict(job.get("checkpoint") or {})
     kind = job["kind"]
@@ -185,11 +185,14 @@ def _step(token: str, job: dict) -> Step:
         if phase in (None, "sync"):
             sync = run_one_sync_page(token)
             if sync.state in ("busy", "backoff", "retry_wait"): raise RetryStep("gmail_backoff", 60)
-            return Step(checkpoint={"phase": "process" if sync.state == "complete" else "sync"}, result={"imported": (job.get("result") or {}).get("imported", 0) + sync.imported})
-        response = process_one_gmail_source(token)
-        if response.state == "no_pending": return Step("succeeded", checkpoint, job.get("result"))
-        if response.extraction is None: raise RetryStep("extraction_unavailable", 60)
-        return _capture_step(token, job, response.extraction)
+            return Step(checkpoint={"phase": "process" if sync.state == "complete" else "sync"}, result={**(job.get("result") or {}), "imported": (job.get("result") or {}).get("imported", 0) + sync.imported})
+        if phase == "capture":
+            return _capture_step(token, job, process_and_capture(token, UUID(checkpoint["source_id"])))
+        source_id = next_gmail_source(token)
+        if source_id is None: return Step("succeeded", checkpoint, job.get("result"))
+        # Persist the selected source before extraction: a retry must not skip a ready
+        # extraction whose task/memory capture failed or whose worker crashed.
+        return Step(checkpoint={"phase": "capture", "source_id": str(source_id)}, result=job.get("result"))
     raise ValueError("Unsupported job kind")
 
 
