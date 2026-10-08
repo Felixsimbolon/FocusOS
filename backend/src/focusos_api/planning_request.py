@@ -11,6 +11,19 @@ def explicit_constraints(command: str) -> dict:
     # A quoted task title may itself contain dates or durations.
     text = re.sub(r'"[^"\n]*"', ' ', command.lower())
     result = {}
+    # Ground ordinary 24-hour ranges even if the model drops or changes them.
+    clock = r"(?:[01]?[0-9]|2[0-3])(?::[0-5][0-9]|\.[0-5][0-9])?"
+    pattern = r"\b(?:between|from|antara|dari|jam|pukul)\s+(" + clock + r")\s*(?:and|to|until|sampai|hingga|s/d|dan|-)\s*(?:jam|pukul)?\s*(" + clock + r")(?![0-9:.])"
+    ranges = [] if re.search(r"\b[ap]\.?m\.?\b", text) else list(re.finditer(pattern, text))
+    if len(ranges) > 1:
+        return {"question": "Specify one scheduling time window."}
+    if ranges:
+        def normalize(value):
+            parts = value.replace('.', ':').split(':')
+            return f"{int(parts[0]):02d}:{int(parts[1]) if len(parts)>1 else 0:02d}"
+        result.update(start_time=normalize(ranges[0][1]), end_time=normalize(ranges[0][2]))
+        # Remove clock ranges before interpreting durations such as '30 minutes'.
+        text = text[:ranges[0].start()] + ' ' + text[ranges[0].end():]
     if re.search(r"[0-9]+\s*(?:-|to|hingga|sampai)\s*[0-9]+\s*" + UNITS, text):
         result["question"] = "Specify one work duration instead of a range of durations."
         return result

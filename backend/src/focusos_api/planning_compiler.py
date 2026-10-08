@@ -151,10 +151,14 @@ def compile_plan(raw: object, tasks: list[dict], checkpoint: dict, profile: Prof
     deadlines = {}
     for ref in refs:
         task = known[ref]
-        if task.get("due_kind") == "date":
-            return _unavailable("needs_clarification", "timed_deadline_required",
-                "Set an exact deadline time for this task before scheduling it.", initial, refs)
         deadline = None
+        if task.get("due_kind") == "date":
+            try:
+                deadline = _local_boundary(date.fromisoformat(task["due_date"]) + timedelta(days=1), 0, zone)
+            except (KeyError, TypeError, ValueError) as exc:
+                raise PlanningValidationError("Invalid task deadline", code="task_deadline_invalid") from exc
+            if deadline <= current:
+                return _unavailable("needs_clarification", "deadline_passed", "The task deadline has passed. Update it before scheduling this task.", initial, refs)
         if task.get("due_at"):
             try:
                 deadline = datetime.fromisoformat(task["due_at"])
@@ -202,6 +206,8 @@ def compile_plan(raw: object, tasks: list[dict], checkpoint: dict, profile: Prof
         available_minutes=base_available, allocated_minutes=duration, shortfall_minutes=0,
         allow_split=split, slots=combined_slots, free_intervals=free_intervals)
     assumptions = []
+    if any(task.get("due_kind") == "date" for task in selected):
+        assumptions.append("Date-only deadlines use the end of that day in your timezone.")
     if stated_duration is None and duration_override is None:
         assumptions.append("Work duration uses the saved task estimates.")
     elif len(refs) == 1 and estimates[0] != duration:

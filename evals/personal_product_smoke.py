@@ -9,6 +9,7 @@ def main():
  checks=[(args.web+path,"GET",{200}) for path in ("/", "/activity", "/tasks", "/schedule", "/system", "/memories")]
  checks += [(args.api+path,"GET",{401}) for path in ("/jobs","/product/export","/product/diagnostics","/product/focus-blocks")]
  checks += [(args.web+path,"GET",{401}) for path in ("/api/jobs","/api/product/export","/api/product/diagnostics")]
+ checks += [(args.api+"/commands","POST",{401}), (args.web+"/api/commands","POST",{401})]
  checks += [(args.api+f"/product/focus-blocks/{id}/cancel","POST",{401}), (args.api+"/internal/jobs/tick","POST",{401,503})]
  for url,method,expected in checks:
   observed=status(url,method)

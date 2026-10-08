@@ -26,11 +26,12 @@ class PlanningContractTests(unittest.TestCase):
         with self.assertRaises(PlanningValidationError): validate_planning_response(value,[TASK],FREE)
         value=plan(); value["scheduled_minutes"]=59
         with self.assertRaises(PlanningValidationError): validate_planning_response(value,[TASK],FREE)
-    def test_reject_deadline_and_date_only(self):
+    def test_deadline_and_date_only_are_enforced(self):
         task={**TASK,"due_at":(START+timedelta(minutes=30)).isoformat()}
         with self.assertRaises(PlanningValidationError): validate_planning_response(plan(),[task],FREE)
         task={**TASK,"due_kind":"date","due_date":"2026-09-28","due_at":None}
-        with self.assertRaises(PlanningValidationError): validate_planning_response(plan(),[task],FREE)
+        self.assertEqual(validate_planning_response(plan(),[task],FREE)["status"],"proposed")
+        with self.assertRaises(PlanningValidationError): validate_planning_response(plan(),[{**task,"due_date":"2026-09-27"}],FREE)
     def test_shortfall_and_clarification(self):
         value=plan(); value.update(status="needs_clarification", blocks=[], scheduled_minutes=0,shortfall_minutes=60,questions=["Which task?"])
         self.assertEqual(validate_planning_response(value,[TASK],FREE)["status"],"needs_clarification")

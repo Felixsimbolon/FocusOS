@@ -107,6 +107,8 @@ def _task_step(access_token: str, run: AgentRunState) -> tuple[dict, int]:
          "source_id": str(task.source_id) if task.source_id else None}
         for task in page.tasks
     ]
+    if "task_override" in run.checkpoint:
+        tasks = run.checkpoint["task_override"]
     _log(access_token, run.id, "tasks.list", args, "succeeded")
     return {**run.checkpoint, "tasks": tasks, "tasks_truncated": page.truncated}, 1
 
@@ -197,7 +199,9 @@ def _planning_step(access_token: str, run: AgentRunState) -> AgentRunState:
         profile = read_profile(access_token)
         if profile is None:
             raise PlanningValidationError("Scheduling profile missing", code="profile_required")
-        if tasks:
+        if "planning_selection" in leased.checkpoint:
+            raw = leased.checkpoint["planning_selection"]
+        elif tasks:
             raw = select_planning_intent(leased.command, tasks, memories,
                 reference_time=leased.checkpoint["window_start"], timezone_name=profile.timezone,
                 duration_minutes=leased.checkpoint.get("duration_minutes"),
@@ -215,7 +219,7 @@ def _planning_step(access_token: str, run: AgentRunState) -> AgentRunState:
         error = exc.code if isinstance(exc, (PlanningModelError, PlanningValidationError)) else "invalid_time_constraint"
         logger.warning("Planning failed: code=%s", error)
     if not _checkpoint(access_token, leased.id, leased.version, status, "done",
-                       checkpoint, result, leased.model_turns + (1 if leased.checkpoint.get("tasks") else 0),
+                       checkpoint, result, leased.model_turns + (1 if leased.checkpoint.get("tasks") and "planning_selection" not in leased.checkpoint else 0),
                        leased.tool_calls_count, error):
         raise DatabaseUnavailable("Planning checkpoint lost")
     return load_command_run(access_token, leased.id)

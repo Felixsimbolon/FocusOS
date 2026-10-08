@@ -1,13 +1,14 @@
 """Fresh owner, grant, task and Calendar checks before any external mutation."""
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from uuid import UUID
 
 from pydantic import ValidationError
 
 from focusos_api.approval_proposal import ApprovalRecord
 from focusos_api.calendar_fetch import CalendarFetchError, CalendarWindow, fetch_calendar_window
-from focusos_api.calendar_free_time import CalendarPlanningError, calculate_free_time
+from focusos_api.calendar_free_time import CalendarPlanningError, _local_boundary, calculate_free_time
 from focusos_api.connections import read_google_connection
 from focusos_api.database import DatabaseUnavailable, scoped_client
 from focusos_api.google_calendar import CALENDAR_READ_SCOPE, CalendarReconnectRequired
@@ -70,21 +71,38 @@ def check_approval_preflight(access_token: str, approval: ApprovalRecord,
         raise ApprovalStale("payload_mismatch")
     if action.start <= current or action.end <= action.start or (action.end-current).total_seconds()>14*86400:
         raise ApprovalStale("slot_expired")
-    task = _load_current_task(access_token, approval.task_id)
-    if (task.get("status") != "open" or task.get("version") != action.task_version
-        or task.get("title") != action.title
-        or task.get("source_id") != (str(action.source_id) if action.source_id else None)):
-        raise ApprovalStale("task_changed")
-    if task.get("due_kind") == "date":
-        raise ApprovalStale("date_only_deadline")
     deadline = None
-    if task.get("due_at"):
+    date_deadline = None
+    if approval.task_id is None:
+        from focusos_api.agent_continuation import load_command_run
+        run = load_command_run(access_token, approval.run_id)
+        block = (run.result or {}).get("blocks", [])
+        if (run.status != "succeeded" or (run.result or {}).get("status") != "proposed"
+            or run.checkpoint.get("auto_calendar") is not True or run.checkpoint.get("entrypoint") != "unified"
+            or run.checkpoint.get("standalone_title") != action.title or action.block_index >= len(block)):
+            raise ApprovalStale("standalone_changed")
+        saved = block[action.block_index]
         try:
-            deadline = datetime.fromisoformat(task["due_at"])
-        except (TypeError, ValueError) as exc:
-            raise ApprovalStale("task_deadline_invalid") from exc
-        if deadline.tzinfo is None or action.end > deadline:
-            raise ApprovalStale("task_deadline_changed")
+            valid = (saved.get("task_id") is None and saved.get("title") == action.title
+                     and datetime.fromisoformat(saved["start"]) == action.start and datetime.fromisoformat(saved["end"]) == action.end)
+        except (KeyError, TypeError, ValueError): valid = False
+        if not valid: raise ApprovalStale("standalone_changed")
+    else:
+        task = _load_current_task(access_token, approval.task_id)
+        if (task.get("status") != "open" or task.get("version") != action.task_version
+            or task.get("title") != action.title
+            or task.get("source_id") != (str(action.source_id) if action.source_id else None)):
+            raise ApprovalStale("task_changed")
+        if task.get("due_kind") == "date":
+            try: date_deadline = date.fromisoformat(task["due_date"])
+            except (KeyError, ValueError, TypeError) as exc: raise ApprovalStale("task_deadline_invalid") from exc
+        if task.get("due_at"):
+            try:
+                deadline = datetime.fromisoformat(task["due_at"])
+            except (TypeError, ValueError) as exc:
+                raise ApprovalStale("task_deadline_invalid") from exc
+            if deadline.tzinfo is None or action.end > deadline:
+                raise ApprovalStale("task_deadline_changed")
     connection = read_google_connection(access_token)
     if (connection is None or connection.id != approval.connection_id or connection.status != "connected"
         or CALENDAR_READ_SCOPE not in connection.granted_scopes
@@ -93,6 +111,9 @@ def check_approval_preflight(access_token: str, approval: ApprovalRecord,
     profile = read_profile(access_token)
     if profile is None or profile.timezone != action.timezone:
         raise ApprovalStale("profile_changed")
+    if date_deadline:
+        deadline = _local_boundary(date_deadline + timedelta(days=1), 0, ZoneInfo(profile.timezone))
+        if action.end > deadline: raise ApprovalStale("task_deadline_changed")
     try:
         window = fetch_calendar_window(access_token, current, action.end)
         if not window.complete or window.fetched_at < current:

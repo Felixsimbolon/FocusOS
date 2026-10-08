@@ -40,7 +40,9 @@ def cases():
         {"id": "duration_conflict", "command": command, "override": 60, "expected": "needs_clarification",
          "code": "duration_conflict", "selection": intent()},
         {"id": "date_only", "command": command, "task": {**TASK, "due_kind": "date", "due_date": "2026-10-05"},
-         "expected": "needs_clarification", "code": "timed_deadline_required", "selection": intent()},
+         "expected": "proposed", "duration": 30, "selection": intent()},
+        {"id": "past_date_only", "command": command, "task": {**TASK, "due_kind": "date", "due_date": "2026-10-01"},
+         "expected": "needs_clarification", "code": "deadline_passed", "selection": intent()},
         {"id": "past_deadline", "command": command,
          "task": {**TASK, "due_kind": "datetime", "due_at": "2026-10-01T17:00:00+07:00"},
          "expected": "needs_clarification", "code": "deadline_passed", "selection": intent()},
@@ -76,6 +78,9 @@ def evaluate(live: bool) -> dict:
                 day = datetime.fromisoformat(result["blocks"][0]["start"]).astimezone(ZoneInfo(PROFILE.timezone)).date()
                 passed = passed and day.isoformat() == "2026-10-03" and result["scheduled_minutes"] == case["duration"]
                 passed = passed and free.allocated_minutes == result["scheduled_minutes"]
+                if tasks[0].get("due_kind") == "date":
+                    deadline_day = datetime.fromisoformat(tasks[0]["due_date"]).date()
+                    passed = passed and all(datetime.fromisoformat(block["end"]).astimezone(ZoneInfo(PROFILE.timezone)).date() <= deadline_day for block in result["blocks"])
             else:
                 passed = passed and not result["blocks"] and not free.slots
             observation["passed"] = passed

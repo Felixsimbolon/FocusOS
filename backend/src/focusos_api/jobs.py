@@ -137,7 +137,9 @@ def _capture_step(token: str, job: dict, response) -> Step:
 
 def _step(token: str, job: dict) -> Step:
     from focusos_api.agent_continuation import load_command_run, continue_staged_run
-    from focusos_api.automatic_calendar import schedule_automatic_block
+    from focusos_api.automatic_calendar import schedule_automatic_block, AutomaticCalendarUnavailable
+    from focusos_api.approval_proposal import ProposalRejected
+    from focusos_api.gmail_selection import GmailSelectionMissing, GmailSelectionReconnect, GmailSelectionUnavailable
     from focusos_api.auto_capture import process_and_capture
     from focusos_api.gmail_sync import run_one_sync_page
     from focusos_api.gmail_processing import next_gmail_source
@@ -160,22 +162,36 @@ def _step(token: str, job: dict) -> Step:
         return Step("succeeded", checkpoint, job.get("result"))
     if kind == "planning":
         run = load_command_run(token, subject)
+        if run.checkpoint.get("entrypoint") == "unified":
+            from focusos_api.unified_commands import advance_work
+            advance = advance_work(token, job, run)
+            if advance is not None: return advance
+        previous = job.get("result") or {}
         if run.status in ("waiting", "running", "pending"):
             run = continue_staged_run(token, subject)
             if run.status in ("waiting", "running", "pending"):
-                return Step(checkpoint=checkpoint, result={"stage": run.stage}, delay=2 if run.status == "running" else 0)
+                return Step(checkpoint=checkpoint, result={**previous, "stage": run.stage}, delay=2 if run.status == "running" else 0)
         if run.status != "succeeded" or not run.result or run.result.get("status") != "proposed":
-            return Step("failed", checkpoint, {"run_id": str(subject), "stage": run.stage}, "planning_not_scheduled")
+            return Step("failed", checkpoint, {**previous, "run_id": str(subject), "stage": run.stage, "message": (run.result or {}).get("summary", "Could not find a suitable Calendar slot. Try another time window.")}, "planning_not_scheduled")
         if not run.checkpoint.get("auto_calendar"):
             return Step("succeeded", checkpoint, {"run_id": str(subject), "stage": "done"})
         index = checkpoint.get("block_index", 0)
-        if index >= len(run.result["blocks"]): return Step("succeeded", checkpoint, {"run_id": str(subject), "blocks_scheduled": index})
-        action = schedule_automatic_block(token, subject, index)
+        if index >= len(run.result["blocks"]): return Step("succeeded", checkpoint, {**previous, "run_id": str(subject), "blocks_scheduled": index})
+        try:
+            action = schedule_automatic_block(token, subject, index)
+        except (ProposalRejected, AutomaticCalendarUnavailable) as exc:
+            messages = {"calendar_write_required": "Enable Calendar event writes in Google connection, then submit again.",
+                        "profile_required": "Save your timezone and working hours in Preferences.",
+                        "task_changed": "This task was changed or completed. Submit a new request for an active task.",
+                        "plan_expired": "This request expired. Check Calendar before submitting a fresh request.",
+                        "slot_expired": "The proposed slot is no longer available. Try another time window.",
+                        "plan_stale": "Calendar availability changed. Submit a new request."}
+            return Step("failed", checkpoint, {**previous, "message": messages.get(exc.code, "Could not create this Calendar event. Check your connection and try again.")}, exc.code)
         if action.status == "succeeded":
-            return Step(checkpoint={"block_index": index + 1}, result={"run_id": str(subject), "blocks_scheduled": index + 1})
+            return Step(checkpoint={**checkpoint, "block_index": index + 1}, result={**previous, "run_id": str(subject), "blocks_scheduled": index + 1, "blocks": [*(previous.get("blocks") or []), {"title": action.payload.title, "start": action.payload.start.isoformat(), "end": action.payload.end.isoformat(), "timezone": action.payload.timezone, "link": action.provider_link}]})
         if action.status in ("executing", "approved", "unknown"):
             raise RetryStep("calendar_pending", 15)
-        return Step("failed", checkpoint, {"run_id": str(subject), "blocks_scheduled": index}, "calendar_not_scheduled")
+        return Step("failed", checkpoint, {**previous, "run_id": str(subject), "blocks_scheduled": index, "message": "Could not create the Calendar event. Check your Google connection and try again."}, "calendar_not_scheduled")
     if kind == "embedding":
         state = embed_memory(token, subject).state
         if state in ("busy", "failed"): raise RetryStep("embedding_unavailable", 30)
@@ -183,7 +199,14 @@ def _step(token: str, job: dict) -> Step:
     if kind == "source": return _capture_step(token, job, process_and_capture(token, subject))
     if kind == "gmail":
         if phase in (None, "sync"):
-            sync = run_one_sync_page(token)
+            try:
+                sync = run_one_sync_page(token)
+            except GmailSelectionMissing:
+                return Step("failed", checkpoint, {**(job.get("result") or {}), "message": "No eligible email found. Create the FocusOS label in Gmail and apply it to messages you want to organize."}, "gmail_label_missing")
+            except GmailSelectionReconnect:
+                return Step("failed", checkpoint, {**(job.get("result") or {}), "message": "Reconnect Google to sync selected email."}, "gmail_reconnect_required")
+            except GmailSelectionUnavailable as exc:
+                raise RetryStep("gmail_backoff", exc.retry_after or 60) from exc
             if sync.state in ("busy", "backoff", "retry_wait"): raise RetryStep("gmail_backoff", 60)
             return Step(checkpoint={"phase": "process" if sync.state == "complete" else "sync"}, result={**(job.get("result") or {}), "imported": (job.get("result") or {}).get("imported", 0) + sync.imported})
         if phase == "capture":
@@ -200,7 +223,7 @@ def work_one(job_id: UUID | None = None, owner: str | None = None) -> dict:
     claimed = _service_rpc("focusos_claim_job", {"p_id": str(job_id) if job_id else None, "p_owner": owner})
     if claimed is None: return {"state": "idle"}
     # Ciphertext binds to this exact job ID. Reverify Auth and owner on every claim.
-    step = Step("failed", claimed.get("checkpoint", {}), error="worker_error")
+    step = Step("failed", claimed.get("checkpoint", {}), result=claimed.get("result"), error="worker_error")
     try:
         token = TokenCipher.from_environment().decrypt(UUID(claimed["id"]), "job", base64.b64decode(claimed["ciphertext"], validate=True), claimed["key_version"])
         with scoped_client(token) as (verified_owner, _):

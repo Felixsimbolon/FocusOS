@@ -92,6 +92,8 @@ from focusos_api.job_routes import router as jobs_router
 app.include_router(jobs_router)
 from focusos_api.product import router as product_router
 app.include_router(product_router)
+from focusos_api.unified_commands import router as commands_router
+app.include_router(commands_router)
 bearer = HTTPBearer(auto_error=False)
 
 

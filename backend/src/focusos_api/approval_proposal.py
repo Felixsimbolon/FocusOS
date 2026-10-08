@@ -19,7 +19,7 @@ class ApprovalRecord(BaseModel):
     id: UUID
     run_id: UUID
     block_index: int
-    task_id: UUID
+    task_id: UUID | None
     connection_id: UUID
     calendar_id: str
     event_id: str

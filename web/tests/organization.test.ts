@@ -8,8 +8,8 @@ describe("inline organization", () => {
   beforeEach(() => { vi.useFakeTimers(); vi.stubGlobal("fetch", vi.fn()); });
   afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
   it("does not call a queued source organized", () => {
-    expect(organizationMessage(job("queued"))).not.toContain("Organized ?");
-    expect(organizationMessage(job("succeeded"))).toBe("Organized ? 2 tasks ? 3 memories");
+    expect(organizationMessage(job("queued"))).not.toContain("Organized:");
+    expect(organizationMessage(job("succeeded"))).toBe("Organized: 2 tasks, 3 memories");
   });
   it("waits for durable completion and resumes server work without creating another request", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(Response.json(job("queued"))).mockResolvedValueOnce(Response.json(job("succeeded")));
@@ -39,7 +39,7 @@ describe("inline organization", () => {
     for (const status of ["failed", "cancelled"]) {
       const result = await followOrganization(job(status), vi.fn(), new AbortController().signal);
       expect(result.status).toBe(status);
-      expect(organizationMessage(result)).not.toContain("Organized ?");
+      expect(organizationMessage(result)).not.toContain("Organized:");
     }
     expect(fetch).not.toHaveBeenCalled();
   });

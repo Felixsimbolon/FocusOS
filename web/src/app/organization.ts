@@ -5,20 +5,21 @@ export const activeOrganization = (job: Job) => ["queued", "running"].includes(j
 export function organizationMessage(job: Job): string {
   const tasks = Number(job.result?.tasks_saved ?? 0);
   const memories = Number(job.result?.memories_saved ?? 0);
-  if (job.status === "succeeded") return `Organized ? ${tasks} tasks ? ${memories} memories`;
+  if (job.status === "succeeded") return `Organized: ${tasks} tasks, ${memories} memories`;
   if (job.status === "expired") return "Processing session expired. Your saved results are kept; sign in and try again.";
   if (job.status === "cancelled") return "Processing stopped. Results already saved are kept.";
+  if (job.status === "failed" && typeof job.result?.message === "string") return job.result.message;
   if (job.status === "failed") return "Could not finish organizing. Your source and any saved results are kept. Try again later.";
   if (job.safe_error === "gmail_backoff") return "Gmail is temporarily limited. Retrying automatically...";
   if (job.safe_error) return "Processing is temporarily unavailable. Retrying automatically...";
   return job.result?.tasks_saved || job.result?.memories_saved
-    ? `Saving memories for search... ? ${tasks} tasks ? ${memories} memories`
+    ? `Saving memories for search... ${tasks} tasks, ${memories} memories`
     : "Syncing and organizing...";
 }
 
 async function readJob(response: Response): Promise<Job> {
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Could not check processing. Refresh Activity to see saved results.");
+  if (!response.ok) throw new Error(data.error || "Could not check processing. Refresh Home to see saved results.");
   return data as Job;
 }
 

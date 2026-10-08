@@ -1,10 +1,11 @@
 ﻿"""Strict plan envelope; only server-owned task and slot handles become blocks."""
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from focusos_api.calendar_free_time import FreeTimeResult
+from focusos_api.calendar_free_time import FreeTimeResult, _local_boundary
 
 
 class PlanningValidationError(ValueError):
@@ -71,8 +72,12 @@ def validate_planning_response(raw: object, tasks: list[dict], free: FreeTimeRes
         task, slot = known_tasks[block.task_ref], known_slots[block.slot_ref]
         if slot.start.tzinfo is None or slot.end.tzinfo is None or slot.end <= slot.start:
             raise PlanningValidationError("Invalid slot interval")
-        if task.get("due_kind") == "date" and task.get("due_date"):
-            raise PlanningValidationError("Date-only deadline needs clarification")
+        if task.get("due_kind") == "date":
+            try:
+                boundary = _local_boundary(date.fromisoformat(task["due_date"]) + timedelta(days=1), 0, ZoneInfo(free.timezone))
+            except (KeyError, ValueError, TypeError) as exc:
+                raise PlanningValidationError("Invalid date deadline") from exc
+            if slot.end > boundary: raise PlanningValidationError("Block exceeds date deadline")
         if task.get("due_at"):
             try:
                 due_at = datetime.fromisoformat(task["due_at"])

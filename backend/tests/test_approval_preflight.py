@@ -39,6 +39,11 @@ class PreflightTests(unittest.TestCase):
             return check_approval_preflight("session",approval,now=NOW)
     def test_clean_slot_passes(self):
         self.assertEqual(self.check(*fixture()).busy_event_count,0)
+    def test_date_only_deadline_uses_profile_day_end(self):
+        a,t,c,p,w=fixture()
+        t={**t,"due_kind":"date","due_date":"2026-09-28","due_at":None}
+        self.assertEqual(self.check(a,t,c,p,w).busy_event_count,0)
+        with self.assertRaises(ApprovalStale): self.check(a,{**t,"due_date":"2026-09-27"},c,p,w)
     def test_changed_task_or_rejected_or_expired_blocks(self):
         a,t,c,p,w=fixture()
         for changed in ({**t,"version":2},{**t,"due_at":(NOW+timedelta(hours=2,minutes=30)).isoformat()}):

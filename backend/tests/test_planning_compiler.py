@@ -142,9 +142,12 @@ class PlanningCompilerTests(unittest.TestCase):
         result, _ = self.compile(tasks=[task])
         self.assertLessEqual(datetime.fromisoformat(result["blocks"][0]["end"]), datetime.fromisoformat(task["due_at"]))
 
-    def test_date_only_and_past_deadlines_are_actionable_clarifications(self):
+    def test_date_only_deadlines_use_local_day_end_and_past_deadlines_clarify(self):
         result, _ = self.compile(tasks=[{**TASK, "due_kind": "date", "due_date": "2026-10-04"}])
-        self.assertEqual(result["safe_code"], "timed_deadline_required")
+        self.assertEqual(result["status"], "proposed")
+        self.assertIn("end of that day", result["assumptions"][0])
+        result, _ = self.compile(selection(day="date", date="2026-10-05"), tasks=[{**TASK, "due_kind": "date", "due_date": "2026-10-04"}])
+        self.assertEqual(result["status"], "insufficient_time")
         result, _ = self.compile(tasks=[{**TASK, "due_kind": "datetime", "due_at": (NOW-timedelta(minutes=1)).isoformat()}])
         self.assertEqual(result["safe_code"], "deadline_passed")
 

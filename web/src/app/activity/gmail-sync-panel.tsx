@@ -33,12 +33,16 @@ export function GmailSyncPanel() {
     try {
       const finished = await followOrganization(job, current => setMessage(organizationMessage(current)), signal);
       if (finished.status !== "succeeded") setError(organizationMessage(finished));
+      else if (!Number(finished.result?.tasks_saved) && !Number(finished.result?.memories_saved)) {
+        setMessage("");
+        setError(Number(finished.result?.imported) > 0 ? "Email processed, but no tasks or facts were found." : "No new eligible email found. Apply the FocusOS label in Gmail, then sync again.");
+      }
       requestKey.current = null;
       await refresh();
       window.dispatchEvent(new CustomEvent("focusos:sources-changed", { detail: { sourceId: finished.result?.source_id } }));
       window.dispatchEvent(new Event("focusos:tasks-changed"));
     } catch (cause) {
-      if (!signal.aborted) setError(cause instanceof Error ? cause.message : "Could not finish organizing. Refresh Activity to see saved results.");
+      if (!signal.aborted) setError(cause instanceof Error ? cause.message : "Could not finish organizing. Refresh Home to see saved results.");
     } finally { if (!signal.aborted) setBusy(false); }
   }, [refresh]);
 
@@ -69,24 +73,17 @@ export function GmailSyncPanel() {
     }
   }
 
-  return <section className="review-panel gmail-sync-panel" aria-label="Gmail synchronization">
-    <div className="activity-panel-heading"><div><h2>Your email, organized</h2><p>One click imports email labeled <strong>FocusOS</strong> and saves its tasks and memories.</p></div></div>
-    {status && status.connection_status !== "connected" ? <div className="activity-empty">
-      {status.connection_status === "reconnect_required" ? "Reconnect Google to read your selected email." : "Connect Google to get started."}
-      {" "}<a href="/settings/connections">Connect Google</a>
-    </div> : <>
-      {status && <div className="activity-stats">
-        <div><strong>{status.source_count}</strong><span>Sources</span></div>
-        <div><strong>{status.ready_count}</strong><span>Processed</span></div>
-      </div>}
-      <div className="gmail-sync-actions">
-        <button type="button" disabled={!status || busy || !!(status.retry_after && Date.parse(status.retry_after) > Date.now())}
-          onClick={() => void run()}>{busy ? "Organizing..." : "Sync & organize"}</button>
-        {status && <span>Last sync: {status.last_success_at ? new Date(status.last_success_at).toLocaleString() : "Never"}</span>}
-      </div>
-      {status?.retry_after && Date.parse(status.retry_after) > Date.now() && <p role="status">Try again after {new Date(status.retry_after).toLocaleString()}.</p>}
-    </>}
-    {message && <p className="activity-message" role="status" aria-live="polite">{message}</p>}
-    {error && <p role="alert">{error}</p>}
-  </section>;
+  return <div className="header-gmail" aria-label="Gmail synchronization">
+    <button type="button" disabled={busy}
+      onClick={() => {
+        if (status?.retry_after && Date.parse(status.retry_after) > Date.now()) { setError("Gmail is temporarily limited. Try again after " + new Date(status.retry_after).toLocaleTimeString()); return; }
+        if (status && status.connection_status !== "connected") { setError("Connect or reconnect Google to sync email."); return; }
+        void run();
+      }} title="Import and organize email labeled FocusOS">{busy ? "Syncing Gmail..." : "Sync Gmail"}</button>
+    {(message || error) && <div className="header-notice">
+      {error ? <p role="alert">{error}</p> : <p role="status" aria-live="polite">{message}</p>}
+      {status?.connection_status !== "connected" && <a href="/settings/connections">Connect Google</a>}
+      <button type="button" aria-label="Dismiss Gmail notification" onClick={() => { setError(""); setMessage(""); }}>Dismiss</button>
+    </div>}
+  </div>;
 }

@@ -19,8 +19,8 @@ class CalendarAction(BaseModel):
     tool: str = "calendar.create_event"
     run_id: UUID
     block_index: int = Field(ge=0, le=15)
-    task_id: UUID
-    task_version: int = Field(ge=1)
+    task_id: UUID | None
+    task_version: int | None = Field(ge=1)
     connection_id: UUID
     calendar_id: str = "primary"
     event_id: str
@@ -34,6 +34,8 @@ class CalendarAction(BaseModel):
 
     @model_validator(mode="after")
     def validate_action(self) -> "CalendarAction":
+        if (self.task_id is None) != (self.task_version is None) or (self.task_id is None and self.source_id is not None):
+            raise ValueError("Standalone events cannot carry task metadata")
         if self.schema_version != "1" or self.tool != "calendar.create_event":
             raise ValueError("Unknown action contract")
         if self.calendar_id != "primary" or self.guests or self.send_updates != "none":

@@ -768,3 +768,14 @@ Home sekarang memuat memory search, preferensi dan Scheduled work. Form task/pro
 
 
 Rilis penyederhanaan: commit `d379f41` sudah di-push ke main. API `dpl_9dcCKz7FTq6wFGGYWtDr7d4JLbKo` dan web `dpl_BbvrJE9xjzrQhSViyorXRbsCEWSR` READY pada alias produksi yang sama. Build web Vercel termasuk pemeriksaan TypeScript lulus. Hosted smoke 7/7 dan personal-product smoke 15/15 lulus (22 pemeriksaan HTTP anonim); kelima URL lama Tasks/Schedule/System/Memories/Settings mengembalikan 307 ke bagian Home yang tepat. Scheduler tick tanpa secret kini 401, konsisten dengan secret trigger produksi terkonfigurasi; bukan bukti eksekusi GitHub scheduler atau penerimaan provider live. Tidak membaca Gmail akun pengguna atau menulis Google Calendar nyata.
+
+
+### 8 Oktober 2026: input terpadu, Calendar tanpa task, dan header Gmail
+
+Pengguna meminta satu textbox yang menginfer task, jadwal, keduanya, atau penjadwalan task yang sudah ada; Gmail menjadi tombol header tetap dan tidak mempunyai halaman pemrosesan sendiri. Implementasi menambah endpoint commands, schema WorkIntent, tahap durable capture/index/prepare/plan, serta hasil dengan tanggal/jam/link Calendar. Activity dan Agent mengarah ke Home. Composer sumber lama dihapus agar tidak ada input kedua. Tombol memakai gaya bersama, panel disederhanakan, dan layout ponsel ditinjau.
+
+Standalone schedule memakai deskripsi sementara dan Calendar action nullable task, tanpa menyimpan task/source palsu. Migration 20261008090000 memperluas SQL proposal/guard dengan pemeriksaan judul dari input, owner/run/grant dan saved slot. Foreign key task biasa, version, fresh Calendar preflight, marker/hash, event ID stabil dan reconciled replay tetap berlaku. Deadline tanggal sekarang memakai akhir hari lokal sehingga hasil task parsing bisa dijadwalkan tanpa form deadline tambahan. Clock range 24-hour ditambatkan secara deterministik ke request.
+
+Verifikasi otomatis sebelum rilis: 332 backend tests dan 111 frontend tests lulus. SQL migration diuji dalam transaksi rollback memakai user sintetis, termasuk tanpa task, replay/automatic authorization, judul palsu, slot palsu, foreign owner, dan deadline tanggal. Build Next.js/TypeScript lulus; review visual Chrome headless memakai halaman signed-in sintetis pada desktop dan mobile 390px, tanpa overflow horizontal. Tidak mengekspor env produksi, membaca Gmail pengguna, atau menulis event Google nyata; kualitas Gemini live belum diukur. Tidak memerlukan secret/account baru dan backup tetap di luar scope. Status migration/deploy dicatat setelah rilis.
+
+Migration 20261008090000 diterapkan pada Supabase tertaut setelah probe rollback lulus. Probe sesudah migration dan regresi SQL proposal/eksekusi/cancellation lama juga lulus, seluruhnya memakai transaksi rollback. Evaluator planning sintetis diperbarui untuk akhir hari deadline tanggal dan penolakan tanggal yang sudah lewat: 9/9 lulus, Calendar writes 0. Safety gate termasuk workflow input terpadu lulus.

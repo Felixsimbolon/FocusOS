@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { queueJob, type Job } from "../jobs/client";
 import { activeOrganization, followOrganization, organizationMessage } from "../organization";
 
@@ -35,10 +35,8 @@ export function SourceReview() {
   const [selected, setSelected] = useState<Source | null>(null);
   const [extraction, setExtraction] = useState<Extraction | null>(null);
   const [memories, setMemories] = useState<Memory[]>([]);
-  const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const pending = useRef<{ key: string; payload: string } | null>(null);
   const controller = useRef<AbortController | null>(null);
   const selectedRef = useRef<Source | null>(null);
 
@@ -81,7 +79,7 @@ export function SourceReview() {
       if (finished.status === "succeeded") setMessage(organizationMessage(finished));
       window.dispatchEvent(new Event("focusos:tasks-changed"));
     } catch (cause) {
-      if (!signal.aborted) setMessage(cause instanceof Error ? cause.message : "Could not check processing. Refresh Activity to see saved results.");
+      if (!signal.aborted) setMessage(cause instanceof Error ? cause.message : "Could not check processing. Refresh Home to see saved results.");
     } finally { if (!signal.aborted) setBusy(false); }
   }, [reload]);
 
@@ -95,7 +93,7 @@ export function SourceReview() {
       const jobs = await response.json() as Job[];
       const existing = jobs.find(job => job.kind === "source" && activeOrganization(job));
       if (existing?.subject_id && !tracking.signal.aborted) await observe(existing, existing.subject_id, tracking.signal);
-    })().catch(() => { if (!tracking.signal.aborted) setMessage("Could not load sources. Refresh Activity to try again."); });
+    })().catch(() => { if (!tracking.signal.aborted) setMessage("Could not load sources. Refresh Home to try again."); });
     return () => { tracking.abort(); controller.current?.abort(); };
   }, [observe, reload]);
   useEffect(() => {
@@ -103,31 +101,6 @@ export function SourceReview() {
     window.addEventListener("focusos:sources-changed", listener);
     return () => window.removeEventListener("focusos:sources-changed", listener);
   }, [reload]);
-
-  async function create(event: FormEvent) {
-    event.preventDefault();
-    if (busy) return;
-    setBusy(true); setMessage("Organizing your description...");
-    const text = body.trim();
-    const payload = JSON.stringify({ title: text.split(/\r?\n/).find(line => line.trim())?.slice(0, 120) || "Work description", text });
-    if (!pending.current || pending.current.payload !== payload) pending.current = { key: crypto.randomUUID(), payload };
-    controller.current?.abort();
-    const tracking = new AbortController();
-    controller.current = tracking;
-    try {
-      const data = await json<{ source: Source; background_job?: Job }>(await fetch("/api/sources/manual?background=true", {
-        method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": pending.current.key },
-        body: payload, signal: tracking.signal,
-      }));
-      pending.current = null;
-      setBody("");
-      setSources(current => [data.source, ...current.filter(item => item.id !== data.source.id)]);
-      await select(data.source);
-      if (!data.background_job) throw new Error("Description saved, but organization could not start. Use Retry organizing below.");
-      await observe(data.background_job, data.source.id, tracking.signal);
-    } catch (cause) { if (!tracking.signal.aborted) setMessage(cause instanceof Error ? cause.message : "Could not save your description. Retry the same text."); }
-    finally { if (!tracking.signal.aborted) setBusy(false); }
-  }
 
   async function retry() {
     if (!selected || busy) return;
@@ -156,14 +129,8 @@ export function SourceReview() {
 
   return <section className="source-review">
     <div className="activity-columns">
-      <form id="describe-work" className="task-form review-panel source-compose" onSubmit={(event) => void create(event)}>
-        <div className="activity-panel-heading"><div><h2>Describe your work</h2><p>Write naturally, like an email. FocusOS saves tasks and memories for you.</p></div></div>
-        <label>Work description<textarea rows={7} value={body} onChange={(event) => setBody(event.target.value)} maxLength={20000} placeholder="Prepare the demo checklist by Friday at 5 PM Jakarta time. It takes 30 minutes. The demo audience is backend engineers." required disabled={busy} /></label>
-        <button type="submit" disabled={busy || !body.trim()}>{busy ? "Organizing..." : "Organize my work"}</button>
-        <p className="activity-hint">Source text is kept for up to 30 days. Tasks and memories keep their source link.</p>
-      </form>
       <div className="review-panel source-library">
-        <div className="activity-panel-heading"><span className="activity-icon">◫</span><div><h2>Your sources</h2><p>{sources.length} saved {sources.length === 1 ? "source" : "sources"}</p></div></div>
+        <div className="activity-panel-heading"><div><h2>Your sources</h2><p>{sources.length} saved {sources.length === 1 ? "source" : "sources"}</p></div></div>
         {sources.length === 0 ? <div className="activity-empty">No sources yet. Add a note or sync labeled Gmail to begin.</div> :
           <ul className="source-list">{sources.map((source) => <li key={source.id}>
             <button type="button" className={selected?.id === source.id ? "selected-source" : "secondary-button"}
@@ -174,7 +141,7 @@ export function SourceReview() {
       </div>
     </div>
     {selected && <div className="review-panel source-detail">
-      <div className="activity-panel-heading"><span className="activity-icon">✦</span><div><h2>{selected.title}</h2><p>{selected.kind === "gmail" ? "Gmail source" : selected.kind === "task" ? "Manual task source" : "Manual source"} · {new Date(selected.received_at).toLocaleString()}</p></div></div>
+      <div className="activity-panel-heading"><div><h2>{selected.title}</h2><p>{selected.kind === "gmail" ? "Gmail source" : selected.kind === "task" ? "Manual task source" : "Manual source"} · {new Date(selected.received_at).toLocaleString()}</p></div></div>
       {extraction?.status === "ready" && <div className="activity-result-banner">Tasks and memories · {extraction.confirmed_item_keys.length} tasks · {memories.length} memories</div>}
       {extraction?.status === "processing" && <p role="status">Organizing this source. Results will appear here automatically.</p>}
       {extraction?.status === "failed" && <p role="alert">Could not organize this source. Your description is saved; try again later.</p>}

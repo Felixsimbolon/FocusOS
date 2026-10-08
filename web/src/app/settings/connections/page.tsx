@@ -72,10 +72,10 @@ export default async function ConnectionsSettings({
           <ul>
             {connection.granted_scopes.includes("https://www.googleapis.com/auth/gmail.readonly") ? <li>Gmail read access</li> : null}
             {connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned.readonly") ? <li>Read events on calendars you own</li> : null}
-            {connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned") ? <li>Calendar event write access (Planning submissions can create events automatically; FocusOS does not delete events)</li> : null}
+            {connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned") ? <li>Calendar event write access (Planning submissions can create events automatically; you can cancel FocusOS blocks from Home)</li> : null}
           </ul>
           {!connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned") ? (
-            <p><a href="/api/integrations/google/calendar-write/start">Enable Calendar event writes</a></p>
+            <p><a className="control-button" href="/api/integrations/google/calendar-write/start">Enable Calendar event writes</a></p>
           ) : null}
           <GmailMessageProbe />
           <CalendarPageProbe />
@@ -87,7 +87,7 @@ export default async function ConnectionsSettings({
         <p role="status">Google needs to be connected or reauthorized.</p>
       ) : null}
       <p>No message or event is imported at this stage.</p>
-      <a href="/api/integrations/google/start">{connection?.status === "connected" ? "Reconnect Google" : "Continue with Google"}</a>
+      <a className="control-button" href="/api/integrations/google/start">{connection?.status === "connected" ? "Reconnect Google" : "Continue with Google"}</a>
     </main>
   );
 }

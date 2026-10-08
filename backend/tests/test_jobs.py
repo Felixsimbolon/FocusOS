@@ -132,3 +132,14 @@ class JobsTests(unittest.TestCase):
                 jobs._step(TOKEN, {"kind": "gmail", "checkpoint": selected.checkpoint})
             next_source.assert_not_called()
             capture.assert_called_once_with(TOKEN, source)
+
+
+class GmailButtonFeedbackTests(unittest.TestCase):
+    def test_missing_label_or_reconnect_is_actionable_not_worker_error(self):
+        from focusos_api.gmail_selection import GmailSelectionMissing, GmailSelectionReconnect
+        for error,code in ((GmailSelectionMissing(),"gmail_label_missing"),(GmailSelectionReconnect(),"gmail_reconnect_required")):
+            with patch("focusos_api.gmail_sync.run_one_sync_page",side_effect=error):
+                step=jobs._step(TOKEN,{"kind":"gmail"})
+            self.assertEqual(step.status,"failed")
+            self.assertEqual(step.error,code)
+            self.assertTrue(step.result["message"])

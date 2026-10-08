@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 type Block = {
   id: string;
   run_id: string;
-  task_id: string;
+  task_id: string | null;
   status: string;
   payload: { title: string; start: string; end: string; timezone: string };
   provider_link: string | null;
@@ -31,6 +31,9 @@ export function ScheduleBoard() {
   }, []);
   useEffect(() => {
     void load();
+    const refresh = () => { void load(); };
+    window.addEventListener("focusos:schedule-changed", refresh);
+    return () => window.removeEventListener("focusos:schedule-changed", refresh);
   }, [load]);
   async function cancel(block: Block) {
     setBusy(true);
@@ -72,17 +75,16 @@ export function ScheduleBoard() {
           />{" "}
           Include past blocks
         </label>
-        <a href="/agent">Plan work</a>
+        <a href="/#composer">Schedule something</a>
       </div>
       <p>
-        Latest 100 saved FocusOS blocks. Availability on Today also reads events
-        created outside FocusOS.
+        Latest 100 saved FocusOS blocks. New schedules also check events created outside FocusOS.
       </p>
       {error && <p role="alert">{error}</p>}
       {!busy && !visible.length && (
         <div className="review-panel">
           <h2>No upcoming focus blocks</h2>
-          <p>Plan an active task to reserve time in your Calendar.</p>
+          <p>Describe what you want to schedule in the input above.</p>
         </div>
       )}
       <div className="workspace-list">
@@ -100,7 +102,7 @@ export function ScheduleBoard() {
                 timeStyle: "short",
                 timeZone: b.payload.timezone,
               }).format(new Date(b.payload.end))}{" "}
-              ? {b.payload.timezone}
+              ({b.payload.timezone})
             </p>
             <p>
               {b.cancellation_status === "cancelled"
@@ -110,7 +112,7 @@ export function ScheduleBoard() {
                   : b.status}
             </p>
             <div className="workspace-actions">
-              <a href={`/agent/${b.run_id}`}>View plan</a>
+
               {b.provider_link && b.cancellation_status !== "cancelled" && (
                 <a
                   href={b.provider_link}
@@ -141,8 +143,7 @@ export function ScheduleBoard() {
           <h2>Cancel this Calendar block?</h2>
           <p>{selected.payload.title}</p>
           <p>
-            The task remains active. After cancellation is confirmed, submit a
-            new plan to choose another time.
+            {selected.task_id ? "The task remains active. " : ""}After cancellation is confirmed, submit a new request to choose another time.
           </p>
           <div className="workspace-actions">
             <button disabled={busy} onClick={() => void cancel(selected)}>
