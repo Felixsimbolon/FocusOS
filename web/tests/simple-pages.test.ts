@@ -27,14 +27,17 @@ describe("simplified navigation and input", () => {
     expect(html.match(/<textarea/g)).toHaveLength(1);
     expect(html).not.toContain('href="/activity"');
     expect(html).not.toContain('href="/agent"');
-    for (const name of ["Add a task", "New project", "Task workspace", "Jobs, diagnostics"]) expect(html).not.toContain(name);
+    // Help copy may mention adding a task; only standalone creation controls are forbidden.
+    expect(html).not.toMatch(/<button[^>]*>Add a task<\/button>/);
+    for (const name of ["New project", "Task workspace", "Jobs, diagnostics"]) expect(html).not.toContain(name);
+    expect(html).not.toContain('id="sources"');
     for (const path of ["/tasks", "/schedule", "/system", "/memories", "/settings"]) expect(html).not.toContain(`href="${path}"`);
   });
   it("offers one plain text input without individual task fields", () => {
     const html = renderToStaticMarkup(React.createElement(WorkComposer));
     expect(html).toContain("Work or schedule request");
     expect(html.match(/<textarea/g)).toHaveLength(1);
-    expect(html).toContain("Submit");
+    expect(html).toMatch(/<button[^>]*type="submit"[^>]*>Send request /);
     expect(html).not.toContain("<input");
     expect(html).not.toContain("Job status");
   });

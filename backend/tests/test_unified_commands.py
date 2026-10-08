@@ -203,6 +203,35 @@ class WorkValidationTests(unittest.TestCase):
         for value in ({**valid,"title_quote":"invented meeting"}, {**valid,"selection":{**valid["selection"],"task_refs":["task-999"]}}, {**valid,"selection":{**valid["selection"],"evidence_refs":["source-forged"]}}):
             with patch("focusos_api.unified_commands.api_key",return_value="synthetic"),patch("focusos_api.unified_commands.request",return_value=self.provider_result(value)):
                 with self.assertRaises(RetryStep):infer_work(TEXT,[],NOW.isoformat(),PROFILE.timezone)
+    def test_provider_contract_accepts_capture_schedule_and_both_with_indonesian_requests(self):
+        # Model output is simulated: this covers validation, not live intent accuracy.
+        cases = [
+            ("capture", "Tolong buat tugas matematika dengan deadline 15 Oktober 2026 jam 23:00 WIB."),
+            ("schedule", TEXT),
+            ("both", "Buat tugas belajar Python dan jadwalkan besok antara jam 13 sampai 16 selama 45 menit."),
+        ]
+        for action, text in cases:
+            with self.subTest(action=action), patch("focusos_api.unified_commands.api_key", return_value="synthetic"), patch("focusos_api.unified_commands.request", return_value=self.provider_result(intent(action).model_dump())):
+                result = infer_work(text, [], NOW.isoformat(), PROFILE.timezone)
+                self.assertEqual(result.action, action)
+                self.assertEqual(result.selection.task_refs, [])
+
+    def test_capture_and_both_cannot_bind_an_unrelated_existing_task(self):
+        for action in ("capture", "both"):
+            invalid = intent(action).model_dump()
+            invalid["selection"]["task_refs"] = ["task-1"]
+            with self.subTest(action=action), patch("focusos_api.unified_commands.api_key", return_value="synthetic"), patch("focusos_api.unified_commands.request", return_value=self.provider_result(invalid)):
+                with self.assertRaises(RetryStep) as raised:
+                    infer_work("Buat tugas matematika", [TASK], NOW.isoformat(), PROFILE.timezone)
+                self.assertEqual(raised.exception.code, "intent_invalid")
+
+    def test_unconfigured_provider_does_not_make_an_external_request(self):
+        with patch("focusos_api.unified_commands.api_key", return_value=None), patch("focusos_api.unified_commands.request") as provider:
+            with self.assertRaises(RetryStep) as raised:
+                infer_work(TEXT, [], NOW.isoformat(), PROFILE.timezone)
+        self.assertEqual(raised.exception.code, "provider_unconfigured")
+        provider.assert_not_called()
+
     def test_inference_context_hides_database_ids(self):
         with patch("focusos_api.unified_commands.api_key",return_value="synthetic"),patch("focusos_api.unified_commands.request",return_value=self.provider_result(intent().model_dump())) as provider:
             self.assertEqual(infer_work(TEXT,[TASK],NOW.isoformat(),PROFILE.timezone).action,"schedule")
