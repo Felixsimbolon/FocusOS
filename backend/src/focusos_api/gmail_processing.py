@@ -15,10 +15,11 @@ class GmailProcessOne(BaseModel):
     extraction: ExtractionEnvelopeResponse | None = None
 
 
-def next_gmail_source(access_token: str) -> UUID | None:
+def next_gmail_source(access_token: str, excluded: list[str] | None = None) -> UUID | None:
     with scoped_client(access_token) as (_, client):
-        candidate = client.rpc("focusos_next_gmail_source", {
+        candidate = client.rpc("focusos_next_gmail_capture", {
             "p_schema": SCHEMA_VERSION, "p_prompt": PROMPT_VERSION, "p_model": MODEL,
+            "p_excluded": excluded or [],
         }).execute().data
     if candidate is None:
         return None

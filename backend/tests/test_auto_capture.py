@@ -99,3 +99,32 @@ class AutoCaptureTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CaptureReplayTests(unittest.TestCase):
+    def test_saved_task_is_not_reconfirmed_or_overwritten_while_missing_memory_is_recovered(self):
+        now = datetime.fromisoformat("2026-09-27T10:00:00+07:00")
+        record = ExtractionRecord(id=uuid4(), source_id=uuid4(), content_hash="a" * 64,
+            schema_version="1", prompt_version="2", model_version="gemini", status="ready",
+            validated_payload=sample(), safe_error=None, run_id=None, created_at=now,
+            updated_at=now, reviewed_at=now, confirmed_item_keys=["task-1"])
+        with patch("focusos_api.auto_capture.confirm_candidate") as confirm, patch(
+            "focusos_api.auto_capture.confirm_memory", return_value=Mock(id=uuid4())
+        ) as memory:
+            result = capture_ready("token", ExtractionEnvelopeResponse(extraction=record, replayed=True))
+        confirm.assert_not_called()
+        memory.assert_called_once()
+        self.assertEqual(result["tasks_saved"], 1)
+        self.assertEqual(result["memories_saved"], 1)
+        self.assertEqual(result["task_failures"], 0)
+
+    def test_explicitly_ignored_task_is_not_recreated_as_task_or_memory(self):
+        now = datetime.fromisoformat("2026-09-27T10:00:00+07:00")
+        record = ExtractionRecord(id=uuid4(), source_id=uuid4(), content_hash="a" * 64,
+            schema_version="1", prompt_version="2", model_version="gemini", status="ready",
+            validated_payload=sample(), safe_error=None, run_id=None, created_at=now,
+            updated_at=now, reviewed_at=now, ignored_item_keys=["task-1"])
+        with patch("focusos_api.auto_capture.confirm_candidate") as confirm, patch("focusos_api.auto_capture.confirm_memory") as memory:
+            result = capture_ready("token", ExtractionEnvelopeResponse(extraction=record, replayed=True))
+        confirm.assert_not_called(); memory.assert_not_called()
+        self.assertEqual(result["tasks_saved"] + result["memories_saved"], 0)

@@ -813,3 +813,16 @@ Verifikasi lokal perbaikan extraction: 343 tes backend dan 118 tes web lulus. Te
 
 
 Rilis extraction repair: commit `7d7ba49` sudah di-push ke main. API `dpl_AkYnCza5jjxY65biV3ErDzwWKCnu` dan web `dpl_FU2zG16KuY6SdvwzsuuG7u2kQ85p` READY pada alias produksi yang sama. Build Vercel/TypeScript lulus; hosted smoke 7/7 dan personal-product smoke 17/17 lulus. Tidak mengklaim parsing Gemini live sudah berhasil pada email pengguna; hanya diagnostic statis dari log sebelumnya dan regresi provider sintetis yang diperiksa.
+
+
+### Pemulihan Gmail yang sudah diparse tetapi belum tersimpan ke memory
+
+Log produksi tersaring menunjukkan ValidationError pada worker Gmail/source. Penyebab konkret: confirmation.py memakai TaskCreateEnvelope yang sekarang mewajibkan memory_id untuk pembuatan task manual atomik, tetapi RPC konfirmasi extraction hanya membuat task dan mengembalikan task/replayed. Task sudah committed sebelum constructor respons gagal; capture berhenti sebelum menyimpan memory task/fakta. Itu menjelaskan Activity yang memperlihatkan parsed task, error organizing, dan pencarian yang hanya menemukan memori lama.
+
+Konfirmasi extraction sekarang memakai ConfirmedTaskEnvelope sendiri, termasuk response_model route; kontrak task manual tetap mewajibkan memory_id. Capture replay melewati kandidat yang sudah confirmed agar tidak membuat ulang atau menimpa edit pengguna, dan tetap menyimpan memori yang kurang. Kandidat yang secara eksplisit ignored tidak diaktifkan kembali.
+
+Migration 20261008120000 menambah handoff owner-scoped focusos_next_gmail_capture. Ready extraction dengan task/memory yang kurang atau indexing belum ready dapat dipulihkan; hasil ready diprioritaskan karena tidak memerlukan extraction LLM baru. Perbandingan quote/text mengikuti trimming Python termasuk multiline whitespace. Memori superseded dianggap pernah dicapture agar tidak dihidupkan kembali. Source expired/deleted, lease extraction aktif dan foreign owner tetap dikecualikan. RPC lama tetap tersedia selama rollout; tidak ada perubahan secret/env.
+
+Dalam satu job Gmail, output invalid pada satu email dicatat dengan source ID/kode aman dan dilewati untuk memproses email lainnya. Exclusion disimpan dalam checkpoint, sehingga resume tidak mengulangi email yang sama dalam batch. Hasil akhir partial tetap gagal dengan pesan jumlah task/memory yang tersedia; tidak mengklaim semua email sukses. Source ID hasil sukses terakhir tetap menjadi pilihan Activity.
+
+Regresi baru memakai fungsi confirmation/memory/index/search yang sebenarnya dengan batas database/provider sintetis. Tes sebelumnya mengganti confirm_candidate secara langsung sehingga tidak menangkap mismatch constructor respons; fixture itu tetap berguna untuk planner, tetapi bukan lagi satu-satunya bukti capture. 349 tes backend dan 118 tes web lulus. Probe SQL dalam transaksi rollback memverifikasi recovery task-only/fact yang kurang/indexing pending, replay tidak menggandakan task/memory, keyword dan semantic Nusa, whitespace, owner/anon, exclusion terbatas, lease aktif, source expired, ignored task dan superseded memory. Tidak membaca isi Gmail pengguna atau melakukan Calendar write. Status migration/rilis dicatat setelah selesai.

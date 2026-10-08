@@ -236,12 +236,29 @@ def _step(token: str, job: dict) -> Step:
             if sync.state in ("busy", "backoff", "retry_wait"): raise RetryStep("gmail_backoff", 60)
             return Step(checkpoint={"phase": "process" if sync.state == "complete" else "sync"}, result={**(job.get("result") or {}), "imported": (job.get("result") or {}).get("imported", 0) + sync.imported})
         if phase == "capture":
-            return _process_capture(token, job, UUID(checkpoint["source_id"]))
-        source_id = next_gmail_source(token)
-        if source_id is None: return Step("succeeded", checkpoint, job.get("result"))
+            source_id = checkpoint["source_id"]
+            captured = _process_capture(token, job, UUID(source_id))
+            if captured.status != "failed": return captured
+            # One permanently invalid email must not block the rest of this batch.
+            previous = job.get("result") or {}
+            failures = [*(previous.get("failed_sources") or []), {"source_id": source_id, "error": captured.error}]
+            return Step(checkpoint={**checkpoint, "phase": "process",
+                                   "skipped_source_ids": [*checkpoint.get("skipped_source_ids", []), source_id]},
+                        result={**previous, "failed_sources": failures, "source_failures": len(failures)})
+        source_id = next_gmail_source(token, checkpoint.get("skipped_source_ids", []))
+        if source_id is None:
+            result = job.get("result") or {}
+            failures = result.get("source_failures", 0)
+            if failures:
+                message = (f"Saved results are available: {result.get('tasks_saved', 0)} tasks and "
+                           f"{result.get('memories_saved', 0)} memories. "
+                           f"{failures} email(s) could not be organized. Other emails were processed; "
+                           "check the affected sources before retrying.")
+                return Step("failed", checkpoint, {**result, "message": message}, "sources_incomplete")
+            return Step("succeeded", checkpoint, result)
         # Persist the selected source before extraction: a retry must not skip a ready
         # extraction whose task/memory capture failed or whose worker crashed.
-        return Step(checkpoint={"phase": "capture", "source_id": str(source_id)}, result=job.get("result"))
+        return Step(checkpoint={**checkpoint, "phase": "capture", "source_id": str(source_id)}, result=job.get("result"))
     raise ValueError("Unsupported job kind")
 
 

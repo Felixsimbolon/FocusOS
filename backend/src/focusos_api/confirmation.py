@@ -10,13 +10,18 @@ from focusos_api.database import DatabaseUnavailable, scoped_client
 from focusos_api.extraction_contracts import ExtractionEnvelope, validate_grounding
 from focusos_api.extractions import ExtractionRecord, SELECT
 from focusos_api.sources import get_source
-from focusos_api.tasks import TaskCreate, TaskCreateEnvelope, TaskRecord
+from focusos_api.tasks import TaskCreate, TaskRecord
 
 
 class ConfirmInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     local_ref: str = Field(min_length=1, max_length=80)
     task: TaskCreate
+
+
+class ConfirmedTaskEnvelope(BaseModel):
+    task: TaskRecord
+    replayed: bool
 
 
 class ConfirmNotFound(Exception):
@@ -35,7 +40,7 @@ class ConfirmProjectNotFound(Exception):
     pass
 
 
-def confirm_candidate(access_token: str, extraction_id: UUID, request: ConfirmInput) -> TaskCreateEnvelope:
+def confirm_candidate(access_token: str, extraction_id: UUID, request: ConfirmInput) -> ConfirmedTaskEnvelope:
     with scoped_client(access_token) as (owner, client):
         rows = (client.table("extraction_results").select(SELECT)
                 .eq("user_id", owner).eq("id", str(extraction_id)).eq("status", "ready")
@@ -88,5 +93,5 @@ def confirm_candidate(access_token: str, extraction_id: UUID, request: ConfirmIn
         raise ConfirmProjectNotFound()
     if outcome.get("outcome") != "confirmed" or not isinstance(outcome.get("task"), dict):
         raise DatabaseUnavailable("Unexpected confirmation response")
-    return TaskCreateEnvelope(task=TaskRecord.model_validate(outcome["task"]),
+    return ConfirmedTaskEnvelope(task=TaskRecord.model_validate(outcome["task"]),
                               replayed=outcome.get("replayed") is True)

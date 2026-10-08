@@ -234,3 +234,32 @@ class ExtractionJobFailureTests(unittest.TestCase):
                     jobs._step(TOKEN, row)
             self.assertEqual(caught.exception.code, "extraction_rate_limited")
             self.assertEqual(caught.exception.delay, 600)
+
+
+class GmailBatchRecoveryTests(unittest.TestCase):
+    def test_invalid_email_is_skipped_within_batch_and_next_email_is_selected(self):
+        source, next_source = uuid4(), uuid4()
+        job = {"kind": "gmail", "checkpoint": {"phase": "capture", "source_id": str(source)},
+               "result": {"tasks_saved": 1, "memories_saved": 2}}
+        with patch.object(jobs, "_process_capture", return_value=jobs.Step("failed", error="extraction_invalid_output")):
+            step = jobs._step(TOKEN, job)
+        self.assertEqual(step.status, "queued")
+        self.assertEqual(step.checkpoint["skipped_source_ids"], [str(source)])
+        self.assertEqual(step.result["tasks_saved"], 1)
+        self.assertEqual(step.result["source_failures"], 1)
+        job.update(checkpoint=step.checkpoint, result=step.result)
+        with patch("focusos_api.gmail_processing.next_gmail_source", return_value=next_source) as select:
+            step = jobs._step(TOKEN, job)
+        select.assert_called_once_with(TOKEN, [str(source)])
+        self.assertEqual(step.checkpoint["source_id"], str(next_source))
+        self.assertEqual(step.checkpoint["skipped_source_ids"], [str(source)])
+
+    def test_partial_batch_reports_saved_work_without_claiming_all_emails_succeeded(self):
+        job = {"kind": "gmail", "checkpoint": {"phase": "process", "skipped_source_ids": [str(uuid4())]},
+               "result": {"tasks_saved": 2, "memories_saved": 3, "source_failures": 1}}
+        with patch("focusos_api.gmail_processing.next_gmail_source", return_value=None):
+            step = jobs._step(TOKEN, job)
+        self.assertEqual(step.status, "failed")
+        self.assertEqual(step.error, "sources_incomplete")
+        self.assertIn("2 tasks and 3 memories", step.result["message"])
+        self.assertIn("Other emails were processed", step.result["message"])

@@ -16,7 +16,7 @@ from focusos_api.agent_tasks import CommandInput, CommandResult, run_tasks_comma
 from focusos_api.memory_embeddings import EmbeddingState, embed_memory
 from focusos_api.memory_search import MemorySearchInput, MemorySearchResult, search_memories
 from focusos_api.memories import (MemoryEvidenceInvalid, MemoryInput, MemoryRecord, MemoryList, confirm_memory, list_memories, supersede_memory)
-from focusos_api.confirmation import (ConfirmInput, ConfirmNotFound, ConfirmStale, ConfirmConflict, ConfirmProjectNotFound, confirm_candidate)
+from focusos_api.confirmation import (ConfirmedTaskEnvelope, ConfirmInput, ConfirmNotFound, ConfirmStale, ConfirmConflict, ConfirmProjectNotFound, confirm_candidate)
 from focusos_api.connections import GoogleConnectionEnvelope, read_google_connection
 from focusos_api.lifecycle import DisconnectResult, DeleteImportedSourceResult, disconnect_google, delete_imported_source
 from focusos_api.database import (
@@ -683,12 +683,12 @@ def source_extraction_get(source_id: UUID, access_token: str = Depends(require_a
         raise HTTPException(status_code=503, detail="Extraction unavailable") from exc
 
 
-@app.post("/extractions/{extraction_id}/confirm", response_model=TaskCreateEnvelope)
+@app.post("/extractions/{extraction_id}/confirm", response_model=ConfirmedTaskEnvelope)
 def extraction_confirm_post(
     extraction_id: UUID,
     request: ConfirmInput,
     access_token: str = Depends(require_access_token),
-) -> TaskCreateEnvelope:
+) -> ConfirmedTaskEnvelope:
     try:
         return confirm_candidate(access_token, extraction_id, request)
     except InvalidSession as exc:

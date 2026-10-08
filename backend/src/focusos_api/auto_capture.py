@@ -37,7 +37,13 @@ def capture_ready(access_token: str, response: ExtractionEnvelopeResponse) -> di
     if record.status != "ready" or record.validated_payload is None:
         return result
     payload = ExtractionEnvelope.model_validate(record.validated_payload)
-    for candidate in payload.tasks:
+    tasks = [candidate for candidate in payload.tasks if candidate.local_ref not in record.ignored_item_keys]
+    for candidate in tasks:
+        if candidate.local_ref in record.confirmed_item_keys:
+            # The write may have succeeded before its response failed. Preserve
+            # the user's saved/edited task and continue with the missing memories.
+            result["tasks_saved"] += 1
+            continue
         try:
             confirm_candidate(access_token, record.id,
                               ConfirmInput(local_ref=candidate.local_ref, task=task_input(candidate)))
@@ -46,7 +52,7 @@ def capture_ready(access_token: str, response: ExtractionEnvelopeResponse) -> di
             logger.warning("Automatic task capture failed: extraction=%s error=%s", record.id, type(error).__name__)
             result["task_failures"] += 1
     memories = [("task:" + candidate.local_ref, ("Task: " + candidate.title + ". " + candidate.description).strip()[:500], candidate.evidence[0].quote)
-                for candidate in payload.tasks]
+                for candidate in tasks]
     memories.extend((fact.kind, fact.text, fact.evidence[0].quote) for fact in payload.facts)
     for kind, text, quote in memories:
         request_key = uuid5(MEMORY_NAMESPACE, ":".join(
