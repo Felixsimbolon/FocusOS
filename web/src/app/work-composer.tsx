@@ -89,21 +89,30 @@ export function WorkComposer() {
       await observe(data.background_job, tracking.signal);
     } catch (cause) { if (!tracking.signal.aborted) { setMessage(""); setError(cause instanceof Error ? cause.message : "Could not submit. Retry the same text."); setBusy(false); } }
   }
-  return <section id="composer" className="work-composer" aria-labelledby="composer-heading">
-    <h2 id="composer-heading">What do you need to get done?</h2>
-    <p>Describe a task, reserve time, or ask for both. FocusOS takes care of the rest.</p>
-    <form onSubmit={event => void submit(event)}>
-      <label className="sr-only" htmlFor="work-request">Work or schedule request</label>
-      <textarea id="work-request" value={text} onChange={event => setText(event.target.value)} rows={5} maxLength={1000} required disabled={busy}
-        placeholder="Cari waktu besok antara jam 13 sampai 16 untuk belajar Python selama 45 menit." />
-      <div className="composer-footer"><small>Calendar requests create events automatically. Without a duration, we use your task estimate or 30 minutes.</small>
-        <button type="submit" disabled={busy || !text.trim()}>{busy ? "Working..." : "Submit"}</button></div>
-    </form>
-    {message && <p role="status" aria-live="polite" className="composer-message">{message}</p>}
-    {error && <p role="alert" className="composer-message">{error}</p>}
-    {defaultDuration && blocks.length > 0 && <p className="composer-note">Duration used: 30 minutes.</p>}
-    {blocks.length > 0 && <PaginatedItems as="ul" className="composer-results" label="created Calendar blocks" pageSize={3} items={blocks.map((block, index) => <li key={`${block.start}-${index}`}><strong>{block.title}</strong>
-      <span>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: block.timezone }).format(new Date(block.start))} - {new Intl.DateTimeFormat(undefined, { timeStyle: "short", timeZone: block.timezone }).format(new Date(block.end))} ({block.timezone})</span>
-      {block.link && <a href={block.link} target="_blank" rel="noopener noreferrer">Open in Google Calendar</a>}</li>)} />}
+  return <section id="composer" className={`work-composer${busy ? " is-processing" : ""}`} aria-labelledby="composer-heading" aria-busy={busy}>
+    <div className="composer-layout">
+      <div className="composer-intro"><span className="section-eyebrow">NEW REQUEST</span><h2 id="composer-heading">What do you need<br className="composer-heading-break" /> to get done?</h2><p>Write it as you would say it. Add a task, find a time, or ask for both.</p>
+        <a className="composer-context-link" href="/#schedule">See your scheduled work <span aria-hidden="true">&rarr;</span></a>
+      </div>
+      <form className="composer-form" onSubmit={event => void submit(event)}>
+        <div className="composer-input-frame">
+          <label className="sr-only" htmlFor="work-request">Work or schedule request</label>
+          <textarea id="work-request" value={text} onChange={event => setText(event.target.value)} rows={5} maxLength={1000} required disabled={busy} aria-describedby="composer-help"
+            placeholder={"Buat task menyiapkan outline presentasi untuk Jumat.\nCari waktu besok jam 13-16 untuk mengerjakannya selama 30 menit."} />
+          <div className="composer-input-bottom"><span>Indonesian or English. Plain text.</span><span aria-label={`${text.length} of 1000 characters`}>{text.length.toLocaleString()} / 1,000</span></div>
+        </div>
+        <div className="composer-footer"><small id="composer-help">Calendar requests create events automatically. Add a duration, or we use your task estimate or 30 minutes.</small>
+          <button type="submit" disabled={busy || !text.trim()}>{busy ? <><span className="composer-progress" aria-hidden="true" />Working...</> : <>Send request <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M5 12h14M13 6l6 6-6 6" /></svg></>}</button>
+        </div>
+      </form>
+    </div>
+    {(message || error || blocks.length > 0) && <div className="composer-response">
+      {message && <p role="status" aria-live="polite" className="composer-message">{message}</p>}
+      {error && <p role="alert" className="composer-message">{error}</p>}
+      {defaultDuration && blocks.length > 0 && <p className="composer-note">Duration used: 30 minutes.</p>}
+      {blocks.length > 0 && <PaginatedItems as="ul" className="composer-results" label="created Calendar blocks" pageSize={3} items={blocks.map((block, index) => <li key={`${block.start}-${index}`}><strong>{block.title}</strong>
+        <span>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: block.timezone }).format(new Date(block.start))} - {new Intl.DateTimeFormat(undefined, { timeStyle: "short", timeZone: block.timezone }).format(new Date(block.end))} ({block.timezone})</span>
+        {block.link && <a href={block.link} target="_blank" rel="noopener noreferrer">Open in Google Calendar</a>}</li>)} />}
+    </div>}
   </section>;
 }
