@@ -810,3 +810,6 @@ Worker mempertahankan penyebab timeout/provider error saat retry dan menghentika
 
 
 Verifikasi lokal perbaikan extraction: 343 tes backend dan 118 tes web lulus. Tes mencakup normalized deadline wording yang ditolak, repair yang sukses setelah feedback khusus, kutipan palsu yang tetap ditolak, hasil parsial yang dipertahankan, serta cooldown source/Gmail. Build Next.js dan TypeScript lulus. Provider pada regression test disimulasikan; kualitas repair Gemini live belum diukur.
+
+
+Rilis extraction repair: commit `7d7ba49` sudah di-push ke main. API `dpl_AkYnCza5jjxY65biV3ErDzwWKCnu` dan web `dpl_FU2zG16KuY6SdvwzsuuG7u2kQ85p` READY pada alias produksi yang sama. Build Vercel/TypeScript lulus; hosted smoke 7/7 dan personal-product smoke 17/17 lulus. Tidak mengklaim parsing Gemini live sudah berhasil pada email pengguna; hanya diagnostic statis dari log sebelumnya dan regresi provider sintetis yang diperiksa.
