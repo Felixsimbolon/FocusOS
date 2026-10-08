@@ -34,6 +34,6 @@ Textbox saat ini menerima maksimal 1.000 karakter. Planning memilih dari maksima
 
 ## Pengujian otomatis
 
-332 tes backend dan 111 tes frontend lulus sebelum rilis. Workflow sintetis memverifikasi task-only, standalone schedule tanpa source/task, both, task yang sudah ada, slot tidak cukup, perubahan busy event saat eksekusi, indexing, hasil parsial, dan timeout/replay tanpa duplikasi. Proxy memverifikasi autentikasi, validasi input, token server-only, dan pekerjaan setelah response. Tes SQL memakai user sintetis dalam transaksi rollback: proposal tanpa task, judul yang tidak bersumber, slot palsu, isolasi owner, automatic authorization, replay, dan batas deadline tanggal.
+334 tes backend dan 111 tes frontend lulus sebelum rilis. Workflow sintetis memverifikasi task-only, standalone schedule tanpa source/task, both, task yang sudah ada, slot tidak cukup, perubahan busy event saat eksekusi, indexing, hasil parsial, dan timeout/replay tanpa duplikasi. Proxy memverifikasi autentikasi, validasi input, token server-only, dan pekerjaan setelah response. Tes SQL memakai user sintetis dalam transaksi rollback: proposal tanpa task, judul yang tidak bersumber, slot palsu, isolasi owner, automatic authorization, replay, dan batas deadline tanggal.
 
 Build Next.js/TypeScript lulus. Layout sintetis ditinjau dengan Chrome headless pada viewport desktop dan ponsel; viewport 390px tidak overflow horizontal. Tes tersebut tidak membaca Gmail pengguna atau membuat event Google Calendar nyata. Hasil migration dan deploy dicatat di implementation-log.md setelah rilis.

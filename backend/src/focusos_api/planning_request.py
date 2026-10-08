@@ -14,7 +14,8 @@ def explicit_constraints(command: str) -> dict:
     # Ground ordinary 24-hour ranges even if the model drops or changes them.
     clock = r"(?:[01]?[0-9]|2[0-3])(?::[0-5][0-9]|\.[0-5][0-9])?"
     pattern = r"\b(?:between|from|antara|dari|jam|pukul)\s+(" + clock + r")\s*(?:and|to|until|sampai|hingga|s/d|dan|-)\s*(?:jam|pukul)?\s*(" + clock + r")(?![0-9:.])"
-    ranges = [] if re.search(r"\b[ap]\.?m\.?\b", text) else list(re.finditer(pattern, text))
+    ranges = [match for match in re.finditer(pattern, text)
+              if not re.match(r"\s*[ap]\.?m\.?", text[match.end():])]
     if len(ranges) > 1:
         return {"question": "Specify one scheduling time window."}
     if ranges:

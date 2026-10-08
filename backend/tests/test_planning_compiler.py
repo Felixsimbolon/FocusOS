@@ -39,6 +39,15 @@ class PlanningCompilerTests(unittest.TestCase):
     def compile(self, intent=None, tasks=None, options=None, profile=PROFILE, now=NOW):
         return compile_plan(intent or selection(), tasks or [TASK], options or checkpoint(), profile, now=now)
 
+    def test_twelve_hour_clock_suffix_is_not_reinterpreted_as_morning(self):
+        for command in ("Schedule for 30 minutes tomorrow between 9 and 11pm", "Schedule for 30 minutes tomorrow from 9 to 11 PM"):
+            result, free = compile_plan(selection(start_time="21:00",end_time="23:00"),[TASK],checkpoint(),PROFILE,now=NOW,command=command)
+            self.assertEqual(result["status"],"insufficient_time")
+            self.assertEqual(free.slots,[])
+    def test_ordinary_am_word_does_not_disable_explicit_24_hour_window(self):
+        result, _ = compile_plan(selection(start_time=None,end_time=None),[TASK],checkpoint(),PROFILE,now=NOW,
+            command="I am ready. Schedule for 30 minutes tomorrow between 13 and 16")
+        self.assertEqual(datetime.fromisoformat(result["blocks"][0]["start"]).astimezone(ZONE).hour,13)
     def test_explicit_command_duration_and_day_override_a_misread_model(self):
         result, _ = compile_plan(selection(duration_minutes=60, day="any"), [TASK], checkpoint(), PROFILE,
             now=NOW, command='Schedule the task "Prepare the FocusOS demo checklist" for 30 minutes tomorrow.')
