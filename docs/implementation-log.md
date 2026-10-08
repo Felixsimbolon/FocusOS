@@ -786,3 +786,12 @@ Migration 20261008090000 diterapkan pada Supabase tertaut setelah probe rollback
 Commit fitur `5d2fce3` dan perbaikan clock AM/PM `96fbe37` sudah di-push ke main. API final `dpl_FysV6FvSzMXGW79xY7MbQty8Bmga` dan web `dpl_CZuc9pGx8fbW6dRke8zz5EDpAorj` READY pada https://focusos-api.vercel.app dan https://focusos-web-five.vercel.app. Penolakan awal CLI "Not authorized" teratasi dengan scope team pemilik yang eksplisit; tidak mengganti akun, project, atau environment.
 
 334 tes backend, 111 tes web, build lokal/Vercel dan safety gate lulus. Hosted smoke 7/7 serta personal-product smoke 17/17 lulus (24 pemeriksaan HTTP anonim). Tujuh URL lama mengembalikan 307 ke section Home yang tepat. OpenAPI produksi memverifikasi POST /commands dengan hanya text/request_key dan kontrak Calendar task nullable; endpoint commands API/web tanpa sesi mengembalikan 401. Home produksi memuat halaman terbaru. Database dry-run sudah up to date. Tidak mengklaim kualitas intent Gemini live atau acceptance akun Google dari smoke anonim; seluruh penulisan Calendar dalam workflow test disimulasikan.
+
+
+### Perbaikan pemulihan job lama setelah sign-in
+
+Pesan "Processing session expired" muncul sesudah login karena daftar job mengembalikan status mentah queued/running meskipun expires_at sudah lewat. Halaman memulihkan job Gmail lama tersebut, sementara pembacaan individual baru menandainya expired. Login baru tidak gagal; yang kedaluwarsa adalah sesi pemrosesan job lama dengan batas 15 menit.
+
+API sekarang memakai aturan expiry yang sama untuk daftar dan pembacaan job. Pemulihan frontend Gmail/source/input terpadu hanya mengamati job aktif yang belum expired. Job yang kedaluwarsa ketika sedang diamati tetap berhenti dengan pesan processing request, tanpa menyuruh sign-in ulang; hasil parsial dan pengecekan Calendar sebelum mencoba ulang tetap ditampilkan. Login tidak memperpanjang credential job lama dan tidak otomatis mengulang penulisan Calendar. Tidak mengubah database atau environment.
+
+Regresi otomatis: 337 tes backend dan 115 tes web lulus, termasuk stale queued/running, owner filter, hasil parsial, terminal result yang tetap utuh, job aktif yang tetap dipulihkan, dan expiry saat observasi. Build serta status rilis dicatat sesudah pemeriksaan selesai.

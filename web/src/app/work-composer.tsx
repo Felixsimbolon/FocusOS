@@ -13,7 +13,7 @@ export function workMessage(job: Job): string {
     : saved || memories ? `Saved ${saved} task(s) and ${memories} memory item(s).` : "No tasks or facts found in this description.";
   if (["failed", "expired", "cancelled"].includes(job.status)) {
     const message = typeof result.message === "string" ? result.message : job.status === "expired"
-      ? "Your session expired. Sign in again and check saved results before retrying."
+      ? "This processing request expired. Your saved results are kept. Check Calendar before submitting a new request."
       : ["intent_unavailable", "provider_unconfigured", "extraction_unavailable", "embedding_unavailable"].includes(job.safe_error || "")
         ? "The AI service is unavailable. Your saved results are kept; try again when the service is available."
         : job.safe_error === "intent_invalid"

@@ -143,3 +143,55 @@ class GmailButtonFeedbackTests(unittest.TestCase):
             self.assertEqual(step.status,"failed")
             self.assertEqual(step.error,code)
             self.assertTrue(step.result["message"])
+
+
+class JobRecoveryTests(unittest.TestCase):
+    def row(self, status, expires_at):
+        return {"id": str(uuid4()), "kind": "gmail", "subject_id": None,
+            "status": status, "safe_error": None, "steps": 2, "failures": 0,
+            "result": {"tasks_saved": 1, "memories_saved": 2},
+            "available_at": NOW, "expires_at": expires_at,
+            "created_at": NOW, "updated_at": NOW}
+
+    def read_rows(self, rows, job_id=None):
+        query = MagicMock()
+        for method in ("select", "eq", "order", "limit"):
+            getattr(query, method).return_value = query
+        query.execute.return_value.data = rows
+        client = MagicMock()
+        client.table.return_value = query
+        @contextmanager
+        def auth(token):
+            self.assertEqual(token, TOKEN)
+            yield OWNER, client
+        with patch.object(jobs, "scoped_client", auth):
+            result = jobs.list_jobs(TOKEN) if job_id is None else jobs.get_job(TOKEN, job_id)
+        client.table.assert_called_once_with("work_jobs")
+        query.eq.assert_any_call("user_id", OWNER)
+        return result
+
+    def test_listing_and_single_read_expire_stale_work_and_preserve_results(self):
+        for status in ("queued", "running"):
+            with self.subTest(status=status):
+                row = self.row(status, NOW - timedelta(minutes=1))
+                listed = self.read_rows([row])[0]
+                fetched = self.read_rows([row], jobs.UUID(row["id"]))
+                self.assertEqual(listed, fetched)
+                self.assertEqual(listed.status, "expired")
+                self.assertEqual(listed.safe_error, "session_expired")
+                self.assertEqual(listed.result, row["result"])
+                self.assertEqual(row["status"], status)
+
+    def test_old_terminal_results_and_fresh_work_are_not_reclassified(self):
+        rows = [self.row(status, NOW - timedelta(minutes=1)) for status in jobs.TERMINAL]
+        rows += [self.row(status, NOW + timedelta(hours=1)) for status in ("queued", "running")]
+        result = self.read_rows(rows)
+        self.assertEqual([item.status for item in result], [row["status"] for row in rows])
+        self.assertTrue(all(item.result == {"tasks_saved": 1, "memories_saved": 2} for item in result))
+
+    def test_new_login_does_not_extend_the_old_jobs_processing_session(self):
+        row = self.row("queued", NOW - timedelta(minutes=1))
+        with patch.object(jobs, "_service_rpc") as write, patch.object(jobs, "session_expiry") as expiry:
+            self.assertEqual(self.read_rows([row])[0].status, "expired")
+        write.assert_not_called()
+        expiry.assert_not_called()

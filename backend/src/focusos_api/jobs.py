@@ -101,20 +101,26 @@ def enqueue_job(token: str, request: JobInput) -> JobRecord:
     return JobRecord.model_validate(row)
 
 
+def _read_job(row: dict, now: datetime) -> JobRecord:
+    """Expose expired work consistently without extending its stored credentials."""
+    job = JobRecord.model_validate(row)
+    if job.status not in TERMINAL and job.expires_at <= now:
+        return job.model_copy(update={"status": "expired", "safe_error": "session_expired"})
+    return job
+
+
 def get_job(token: str, job_id: UUID) -> JobRecord:
     with scoped_client(token) as (owner, client):
         rows = client.table("work_jobs").select(JOB_SELECT).eq("user_id", owner).eq("id", str(job_id)).limit(1).execute().data
     if not isinstance(rows, list) or len(rows) != 1: raise JobNotFound()
-    job = JobRecord.model_validate(rows[0])
-    if job.status not in TERMINAL and job.expires_at <= datetime.now(timezone.utc):
-        job = job.model_copy(update={"status": "expired", "safe_error": "session_expired"})
-    return job
+    return _read_job(rows[0], datetime.now(timezone.utc))
 
 
 def list_jobs(token: str) -> list[JobRecord]:
     with scoped_client(token) as (owner, client):
         rows = client.table("work_jobs").select(JOB_SELECT).eq("user_id", owner).order("created_at", desc=True).limit(50).execute().data
-    return [JobRecord.model_validate(row) for row in rows]
+    now = datetime.now(timezone.utc)
+    return [_read_job(row, now) for row in rows]
 
 
 def cancel_job(token: str, job_id: UUID) -> bool:

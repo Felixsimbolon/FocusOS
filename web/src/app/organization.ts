@@ -1,12 +1,14 @@
 import type { Job } from "./jobs/client";
 
-export const activeOrganization = (job: Job) => ["queued", "running"].includes(job.status);
+// Login/reload must only recover work whose original processing session is still valid.
+export const activeOrganization = (job: Job) =>
+  ["queued", "running"].includes(job.status) && Date.parse(job.expires_at) > Date.now();
 
 export function organizationMessage(job: Job): string {
   const tasks = Number(job.result?.tasks_saved ?? 0);
   const memories = Number(job.result?.memories_saved ?? 0);
   if (job.status === "succeeded") return `Organized: ${tasks} tasks, ${memories} memories`;
-  if (job.status === "expired") return "Processing session expired. Your saved results are kept; sign in and try again.";
+  if (job.status === "expired") return "This processing request expired. Your saved results are kept. Start a new request to continue.";
   if (job.status === "cancelled") return "Processing stopped. Results already saved are kept.";
   if (job.status === "failed" && typeof job.result?.message === "string") return job.result.message;
   if (job.status === "failed") return "Could not finish organizing. Your source and any saved results are kept. Try again later.";
@@ -34,13 +36,12 @@ export async function followOrganization(
   const deadline = Math.min(Date.now() + 15 * 60_000, new Date(initial.expires_at).getTime());
   while (true) {
     signal.throwIfAborted();
+    if (["queued", "running"].includes(current.status) &&
+        (!activeOrganization(current) || Date.now() >= deadline)) {
+      current = { ...current, status: "expired", safe_error: "session_expired" };
+    }
     onUpdate(current);
     if (!activeOrganization(current)) return current;
-    if (Date.now() >= deadline) {
-      current = { ...current, status: "expired" };
-      onUpdate(current);
-      return current;
-    }
     // Keep long-backoff work moving without sending users to a jobs dashboard.
     if (current.status === "queued" && Date.parse(current.available_at) <= Date.now() && Date.now() - lastResume >= 45_000) {
       lastResume = Date.now();

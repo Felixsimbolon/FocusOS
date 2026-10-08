@@ -22,6 +22,13 @@ describe("inferred composer feedback",() => {
     expect(workMessage(job("succeeded",{tasks_saved:1,memories_saved:2}))).toBe("Saved 1 task(s) and 2 memory item(s).");
   });
   it("empty capture is explained, not called organized",() => expect(workMessage(job("succeeded"))).toContain("No tasks or facts"));
+  it("an expired processing request preserves results without asking to log in again", () => {
+    const message = workMessage(job("expired", { tasks_saved: 1, memories_saved: 2, blocks_scheduled: 1 }));
+    expect(message).toContain("processing request expired");
+    expect(message).toContain("Already saved: 1");
+    expect(message).toContain("Check Calendar before");
+    expect(message).not.toContain("Sign in");
+  });
   it("failure reports partially saved tasks/events so retry cannot silently duplicate them",() => {
     const message=workMessage(job("failed",{message:"No suitable slot",tasks_saved:1,memories_saved:2,blocks_scheduled:1}));
     expect(message).toContain("No suitable slot"); expect(message).toContain("Already saved: 1"); expect(message).toContain("Check Calendar before retrying");
