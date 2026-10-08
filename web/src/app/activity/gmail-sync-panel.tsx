@@ -80,7 +80,7 @@ export function GmailSyncPanel() {
         if (status && status.connection_status !== "connected") { setError("Connect or reconnect Google to sync email."); return; }
         void run();
       }} title="Import and organize email labeled FocusOS">{busy ? "Syncing Gmail..." : "Sync Gmail"}</button>
-    {(message || error) && <div className="header-notice">
+    {(message || error) && <div className={`header-notice${error ? " has-error" : ""}`}>
       {error ? <p role="alert">{error}</p> : <p role="status" aria-live="polite">{message}</p>}
       {status?.connection_status !== "connected" && <a href="/settings/connections">Connect Google</a>}
       <button type="button" aria-label="Dismiss Gmail notification" onClick={() => { setError(""); setMessage(""); }}>Dismiss</button>

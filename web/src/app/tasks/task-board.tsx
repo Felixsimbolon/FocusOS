@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { PaginatedItems } from "../paginated-items";
 import { DeadlineCalendar, deadlineDay } from "./deadline-calendar";
 
 export type Task = {
@@ -161,7 +162,6 @@ export function TaskBoard() {
           Project: {projects.find((project) => project.id === task.project_id)?.name ?? "Project"}
         </p>
       ) : null}
-      {task.source_id ? <a href={"/activity?source=" + task.source_id}>View source evidence</a> : null}
       <div className="task-meta">
         {readableDue(task, timezone) ? <span>Due {readableDue(task, timezone)}</span> : null}
         {task.estimate_minutes ? <span>{task.estimate_minutes} min estimate</span> : null}
@@ -232,9 +232,7 @@ export function TaskBoard() {
       {loading ? (
         <p>Loading tasks…</p>
       ) : tasks.length ? (
-        <ul className="task-list">
-          {tasks.map(renderTask)}
-        </ul>
+        <PaginatedItems as="ul" className="task-list" items={tasks.map(renderTask)} pageSize={4} label="today tasks" />
       ) : (
         <p className="task-empty">No tasks due today or earlier, or without a deadline.</p>
       )}

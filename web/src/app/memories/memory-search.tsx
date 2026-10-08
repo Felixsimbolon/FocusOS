@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { PaginatedItems } from "../paginated-items";
 
 type Match = {
   id: string; text: string; evidence_quote: string; source_id: string;
@@ -58,7 +59,6 @@ export function MemorySearch() {
         <span className="activity-eyebrow">ANSWER FROM SAVED MEMORY</span>
         <h2>{result.answer.text}</h2>
         <blockquote>{result.answer.evidence_quote}</blockquote>
-        <a href={"/activity?source=" + result.answer.source_id}>View source</a>
       </article> : <p role="status" className="memory-answer-empty">
         {result.answer_status === "unavailable"
           ? "Could not verify an answer right now. You can inspect the retrieved memories below."
@@ -66,11 +66,10 @@ export function MemorySearch() {
       </p>}
       {related.length ? <details className="memory-related" open={result.answer_status === "unavailable"}>
         <summary>Related memories ({related.length})</summary>
-        <ul className="task-list">{related.map((match) => <li key={match.id}>
+        <PaginatedItems key={related.map(match => match.id).join(",")} as="ul" className="task-list" label="related memories" pageSize={3} items={related.map((match) => <li key={match.id}>
           <strong>{match.text}</strong>
           <blockquote>{match.evidence_quote}</blockquote>
-          <a href={"/activity?source=" + match.source_id}>View source</a>
-        </li>)}</ul>
+        </li>)} />
       </details> : null}
       <p className="memory-search-mode">Search mode: {result.mode === "semantic_enabled" ? "semantic" :
         result.mode === "lexical_fallback" ? "keyword fallback" : result.mode}.</p>

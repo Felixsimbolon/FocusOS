@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { PaginatedItems } from "../paginated-items";
 import type { Task } from "./task-board";
 
 const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -104,7 +105,7 @@ export function DeadlineCalendar({ tasks, timezone, today, renderTask, truncated
         </div>
         <div className="deadline-day-preview" aria-live="polite">
           {activeDay ? <><strong>{dateLabel(activeDay)}</strong>{activeTasks.length ?
-            <ul>{activeTasks.map(task => <li key={task.id}>{task.title}</li>)}</ul> : <p>No open task due on this date.</p>}</>
+            <PaginatedItems key={activeDay} as="ul" items={activeTasks.map(task => <li key={task.id}>{task.title}</li>)} pageSize={3} label="tasks on this date" /> : <p>No open task due on this date.</p>}</>
             : <p>Hover over or select a date to see its tasks.</p>}
         </div>
       </div>

@@ -3,7 +3,6 @@ import { getMe } from "@/server/api/me";
 import { TaskBoard } from "./tasks/task-board";
 import { WorkComposer } from "./work-composer";
 import { GmailSyncPanel } from "./activity/gmail-sync-panel";
-import { SourceReview } from "./activity/source-review";
 import { MemorySearch } from "./memories/memory-search";
 import { Preferences } from "./settings/preferences";
 import { ScheduleBoard } from "./schedule/schedule-board";
@@ -28,9 +27,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
       <WorkComposer />
       {me.kind === "ok" && <>
         <TaskBoard />
-        <section id="memories" className="home-memory"><div className="home-section-heading"><h2>Search your memory</h2><p>Find an answer with its original source.</p></div><MemorySearch /></section>
-        <details id="schedule" className="home-panel"><summary><span>Scheduled work</span><small>Your saved Calendar blocks</small></summary><div className="home-panel-body"><ScheduleBoard /></div></details>
-        <details id="sources" className="home-panel" open={!!params.source}><summary><span>Sources and evidence</span><small>Original notes and selected email</small></summary><div className="home-panel-body"><SourceReview /></div></details>
+        <section id="memories" className="home-memory"><div className="home-section-heading"><h2>Search your memory</h2><p>Find saved answers with the original quote.</p></div><MemorySearch /></section>
+        <details id="schedule" className="home-panel schedule-panel" open><summary><span>Scheduled work</span><small>Your saved Calendar blocks</small></summary><div className="home-panel-body"><ScheduleBoard /></div></details>
         <Preferences profile={me.data.profile} saved={params.saved} error={params.error} />
       </>}
     </> : <form action={signInWithGoogle}><button type="submit">Continue with Google</button></form>}
