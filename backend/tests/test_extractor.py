@@ -59,6 +59,37 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(caught.exception.kind, "invalid_output")
         self.assertEqual(call.call_count, 2)
 
+    def test_deadline_repair_uses_specific_trusted_feedback_and_can_succeed(self):
+        bad = sample()
+        bad["tasks"][0]["deadline"]["raw_text"] = "2026-09-24"
+        def response(value):
+            data = Mock(content=b"ok")
+            data.json.return_value = {"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": json.dumps(value)}]}}]}
+            return data
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-secret"}), patch(
+            "focusos_api.gemini.httpx.post", side_effect=[response(bad), response(sample())]
+        ) as call:
+            result = extract_structured("source-1", BODY, REF, "Asia/Jakarta")
+        self.assertEqual(result.attempts, 2)
+        payload = call.call_args.kwargs["json"]
+        instruction = json.dumps(payload["systemInstruction"])
+        self.assertIn("tasks[].deadline.raw_text", instruction)
+        self.assertIn("exact contiguous substring", instruction)
+        self.assertIn("Do not translate", instruction)
+        self.assertEqual(payload["contents"], call.call_args_list[0].kwargs["json"]["contents"])
+        self.assertEqual(result.result.tasks[0].deadline.raw_text, sample()["tasks"][0]["deadline"]["raw_text"])
+
+    def test_deadline_mismatch_is_still_rejected_after_one_repair(self):
+        bad = sample()
+        bad["tasks"][0]["deadline"]["raw_text"] = "fabricated deadline wording"
+        response = Mock(content=b"ok")
+        response.json.return_value = {"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": json.dumps(bad)}]}}]}
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-secret"}), patch("focusos_api.gemini.httpx.post", return_value=response) as call:
+            with self.assertRaises(ExtractionFailure) as caught:
+                extract_structured("source-1", BODY, REF, "Asia/Jakarta")
+        self.assertEqual(caught.exception.kind, "invalid_output")
+        self.assertEqual(call.call_count, 2)
+
     def test_refusal_and_timeout_are_typed(self):
         response = Mock(content=b"ok")
         response.json.return_value = {"candidates":[{"finishReason":"SAFETY","content":{"parts":[]}}]}

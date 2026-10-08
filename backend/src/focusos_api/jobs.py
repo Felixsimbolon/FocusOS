@@ -131,7 +131,17 @@ def cancel_job(token: str, job_id: UUID) -> bool:
 def _capture_step(token: str, job: dict, response) -> Step:
     extraction = response.extraction
     if extraction.status == "processing": raise RetryStep("processing_busy", 15)
-    if extraction.status != "ready": raise RetryStep("extraction_unavailable", 60)
+    if extraction.status != "ready":
+        error = extraction.safe_error
+        previous = job.get("result") or {}
+        if error in ("invalid_output", "refused", "incomplete", "oversize_response", "provider_unconfigured", "source_unavailable"):
+            # The extractor already attempted one bounded repair. Repeating invalid
+            # output five times spends quota without giving the user a useful result.
+            return Step("failed", job.get("checkpoint", {}),
+                        {**previous, "source_id": str(extraction.source_id)}, "extraction_" + error)
+        if error in ("timeout", "provider_error"):
+            raise RetryStep("extraction_" + error, 60)
+        raise RetryStep("extraction_unavailable", 60)
     capture = response.capture or {}
     if capture.get("task_failures") or capture.get("memory_failures"):
         raise RetryStep("capture_incomplete", 30)
@@ -141,12 +151,22 @@ def _capture_step(token: str, job: dict, response) -> Step:
     return Step(checkpoint=checkpoint, result=result)
 
 
+def _process_capture(token: str, job: dict, source_id: UUID) -> Step:
+    from focusos_api.auto_capture import process_and_capture
+    from focusos_api.extractions import ExtractionRateLimited
+    try:
+        response = process_and_capture(token, source_id)
+    except ExtractionRateLimited as exc:
+        # The database enforces five extraction runs per ten-minute window.
+        raise RetryStep("extraction_rate_limited", 600) from exc
+    return _capture_step(token, job, response)
+
+
 def _step(token: str, job: dict) -> Step:
     from focusos_api.agent_continuation import load_command_run, continue_staged_run
     from focusos_api.automatic_calendar import schedule_automatic_block, AutomaticCalendarUnavailable
     from focusos_api.approval_proposal import ProposalRejected
     from focusos_api.gmail_selection import GmailSelectionMissing, GmailSelectionReconnect, GmailSelectionUnavailable
-    from focusos_api.auto_capture import process_and_capture
     from focusos_api.gmail_sync import run_one_sync_page
     from focusos_api.gmail_processing import next_gmail_source
     from focusos_api.memory_embeddings import embed_memory
@@ -202,7 +222,7 @@ def _step(token: str, job: dict) -> Step:
         state = embed_memory(token, subject).state
         if state in ("busy", "failed"): raise RetryStep("embedding_unavailable", 30)
         return Step("succeeded" if state in ("ready", "reused") else "failed", checkpoint, {"embedding_state": state})
-    if kind == "source": return _capture_step(token, job, process_and_capture(token, subject))
+    if kind == "source": return _process_capture(token, job, subject)
     if kind == "gmail":
         if phase in (None, "sync"):
             try:
@@ -216,7 +236,7 @@ def _step(token: str, job: dict) -> Step:
             if sync.state in ("busy", "backoff", "retry_wait"): raise RetryStep("gmail_backoff", 60)
             return Step(checkpoint={"phase": "process" if sync.state == "complete" else "sync"}, result={**(job.get("result") or {}), "imported": (job.get("result") or {}).get("imported", 0) + sync.imported})
         if phase == "capture":
-            return _capture_step(token, job, process_and_capture(token, UUID(checkpoint["source_id"])))
+            return _process_capture(token, job, UUID(checkpoint["source_id"]))
         source_id = next_gmail_source(token)
         if source_id is None: return Step("succeeded", checkpoint, job.get("result"))
         # Persist the selected source before extraction: a retry must not skip a ready

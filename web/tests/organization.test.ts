@@ -65,6 +65,22 @@ describe("inline organization", () => {
     expect(await followOrganization(finished, vi.fn(), new AbortController().signal)).toEqual(finished);
     expect(fetch).not.toHaveBeenCalled();
   });
+  it("identifies failed extraction instead of blaming database availability", () => {
+    const message = organizationMessage({ ...job("failed"), safe_error: "extraction_invalid_output" });
+    expect(message).toContain("could not verify");
+    expect(message).toContain("saved results are kept");
+    expect(message).not.toContain("Supabase");
+    expect(organizationMessage({ ...job("failed"), safe_error: "database_unavailable" })).toContain("Supabase project status");
+  });
+  it("shows the extraction cooldown without implying that saved work was lost", () => {
+    expect(organizationMessage({ ...job("queued"), safe_error: "extraction_rate_limited" })).toContain("Retrying after");
+    expect(organizationMessage({ ...job("failed"), safe_error: "extraction_rate_limited" })).toContain("Wait 10 minutes");
+  });
+  it("distinguishes timeout and provider retries from database retries", () => {
+    expect(organizationMessage({ ...job("queued"), safe_error: "extraction_timeout" })).toContain("AI service timed out");
+    expect(organizationMessage({ ...job("queued"), safe_error: "extraction_provider_error" })).toContain("AI service is unavailable");
+    expect(organizationMessage({ ...job("queued"), safe_error: "database_unavailable" })).toContain("database is temporarily unavailable");
+  });
   it("keeps failed and cancelled results distinct from success", async () => {
     for (const status of ["failed", "cancelled"]) {
       const result = await followOrganization(job(status), vi.fn(), new AbortController().signal);

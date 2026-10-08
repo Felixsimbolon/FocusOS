@@ -195,3 +195,42 @@ class JobRecoveryTests(unittest.TestCase):
             self.assertEqual(self.read_rows([row])[0].status, "expired")
         write.assert_not_called()
         expiry.assert_not_called()
+
+
+class ExtractionJobFailureTests(unittest.TestCase):
+    def test_invalid_output_stops_without_another_job_retry_and_keeps_saved_counts(self):
+        source = uuid4()
+        previous = {"tasks_saved": 2, "memories_saved": 3}
+        response = MagicMock(extraction=MagicMock(status="failed", safe_error="invalid_output", source_id=source))
+        step = jobs._capture_step(TOKEN, {"result": previous, "checkpoint": {"phase": "capture"}}, response)
+        self.assertEqual(step.status, "failed")
+        self.assertEqual(step.error, "extraction_invalid_output")
+        self.assertFalse(step.failure)
+        self.assertEqual(step.result, {**previous, "source_id": str(source)})
+        self.assertEqual(step.checkpoint, {"phase": "capture"})
+
+    def test_transient_extraction_errors_keep_their_reason_for_retry_feedback(self):
+        for error in ("timeout", "provider_error"):
+            response = MagicMock(extraction=MagicMock(status="failed", safe_error=error))
+            with self.assertRaises(jobs.RetryStep) as caught:
+                jobs._capture_step(TOKEN, {}, response)
+            self.assertEqual(caught.exception.code, "extraction_" + error)
+
+    def test_permanent_failures_are_safe_and_actionable(self):
+        for error in ("refused", "incomplete", "oversize_response", "provider_unconfigured", "source_unavailable"):
+            response = MagicMock(extraction=MagicMock(status="failed", safe_error=error, source_id=uuid4()))
+            step = jobs._capture_step(TOKEN, {}, response)
+            self.assertEqual(step.status, "failed")
+            self.assertEqual(step.error, "extraction_" + error)
+
+    def test_gmail_and_source_rate_limits_wait_without_becoming_worker_errors(self):
+        from focusos_api.extractions import ExtractionRateLimited
+        source = uuid4()
+        rows = ({"kind": "source", "subject_id": str(source)},
+                {"kind": "gmail", "checkpoint": {"phase": "capture", "source_id": str(source)}})
+        for row in rows:
+            with patch("focusos_api.auto_capture.process_and_capture", side_effect=ExtractionRateLimited()):
+                with self.assertRaises(jobs.RetryStep) as caught:
+                    jobs._step(TOKEN, row)
+            self.assertEqual(caught.exception.code, "extraction_rate_limited")
+            self.assertEqual(caught.exception.delay, 600)

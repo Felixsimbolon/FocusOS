@@ -798,3 +798,15 @@ Regresi otomatis: 337 tes backend dan 115 tes web lulus, termasuk stale queued/r
 
 
 Rilis perbaikan sign-in: commit `2934202` sudah di-push ke main. API `dpl_FrGEUuuSsHqtzmSRic8wfPYd1BD4` dan web `dpl_5X5iaXdj3gwvbjog84t6rKmjpy3F` READY pada alias produksi yang sama. Build lokal dan Vercel termasuk TypeScript lulus. Hosted smoke 7/7 dan personal-product smoke 17/17 lulus (24 pemeriksaan HTTP anonim). Queue limit SQL sudah mengecualikan job expired sehingga tidak menghalangi request baru. Pemulihan sesi pengguna diuji dengan job sintetis; tidak membaca Gmail pribadi atau menulis Calendar nyata pada rilis ini.
+
+
+### Perbaikan extraction deadline dan pesan gagal Gmail
+
+Log produksi tersaring pada rilis sebelumnya menunjukkan lima extraction yang masing-masing ditolak pada dua percobaan dengan alasan statis Deadline wording does not occur in the source. Ini kegagalan grounding output Gemini, bukan bukti Supabase paused; pemeriksaan project terakhir menunjukkan ACTIVE_HEALTHY. Tidak membaca body email atau menampilkan log mentah yang mungkin berisi data pengguna.
+
+Instruksi repair kini berada di system instruction, terpisah dari source data yang tidak dipercaya. Setelah deadline.raw_text gagal, percobaan kedua meminta substring persis, tanpa translasi/parafrasa/gabungan kutipan atau tanggal ISO pada raw_text. Validator tidak dilonggarkan dan maksimal dua model call per extraction tetap berlaku. Payload/schema dan cache key extraction versi 2 tetap dipakai untuk menjaga replay hasil yang sudah confirmed; perubahan ini memperjelas feedback repair pada percobaan kedua.
+
+Worker mempertahankan penyebab timeout/provider error saat retry dan menghentikan invalid output/refusal/configuration failure secara eksplisit setelah bounded extraction, alih-alih menjalankan lima extraction identik. Result parsial dan source ID tetap tersimpan. Extraction rate limit lima run per sepuluh menit menjadi retry dengan cooldown 600 detik, bukan worker_error. UI membedakan gagal validasi AI, timeout, database, indexing dan cooldown; tidak lagi menampilkan pesan unavailable yang sama untuk semuanya. Tidak ada migration/env baru. Verifikasi dan rilis dicatat setelah selesai.
+
+
+Verifikasi lokal perbaikan extraction: 343 tes backend dan 118 tes web lulus. Tes mencakup normalized deadline wording yang ditolak, repair yang sukses setelah feedback khusus, kutipan palsu yang tetap ditolak, hasil parsial yang dipertahankan, serta cooldown source/Gmail. Build Next.js dan TypeScript lulus. Provider pada regression test disimulasikan; kualitas repair Gemini live belum diukur.

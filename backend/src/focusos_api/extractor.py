@@ -82,12 +82,13 @@ def extract_structured(source_ref: str, body: str, reference_time: datetime,
     source_data = json.dumps({"source_ref": source_ref, "reference_time": reference_time.isoformat(),
                               "timezone": timezone_name, "text": body}, ensure_ascii=False)
     previous_timeout = False
+    repair_hint = "Previous output failed validation. Regenerate valid, grounded JSON only."
     for attempt in (1, 2):
-        user = source_data
+        # Validation feedback is a trusted instruction, not part of untrusted email text.
+        instruction = system
         if attempt == 2:
-            user += ("\nPrevious request timed out. Return the JSON promptly." if previous_timeout else
-                     "\nPrevious output failed validation. Regenerate valid, grounded JSON only.")
-        payload = structured_payload(system, user, _provider_schema(), 3000)
+            instruction += "\n" + ("Previous request timed out. Return the JSON promptly." if previous_timeout else repair_hint)
+        payload = structured_payload(instruction, source_data, _provider_schema(), 3000)
         try:
             data = request(payload, timeout=25.0, max_bytes=262144)
             input_tokens, output_tokens = usage(data)
@@ -130,6 +131,17 @@ def extract_structured(source_ref: str, body: str, reference_time: datetime,
                 "Relative deadline does not match its event",
             }
             reason = str(exc) if str(exc) in known else "value_error"
+            if reason == "Deadline wording does not occur in the source":
+                repair_hint = (
+                    "Previous validation failed at tasks[].deadline.raw_text. "
+                    "Copy one exact contiguous substring from the source text, preserving its "
+                    "spelling, punctuation and spacing. Do not translate, paraphrase, concatenate "
+                    "separate phrases, or put a normalized ISO date in raw_text. "
+                    "A normalized date belongs only in deadline.value. "
+                    "If the source gives no deadline, use kind=none, raw_text=empty string, "
+                    "and null value/timezone/relation. Never invent deadline wording. "
+                    "Regenerate the complete JSON, keeping evidence quotes exact."
+                )
             logger.warning("Gemini extraction invalid: attempt=%s category=grounding reason=%s",
                            attempt, reason)
             if attempt == 2:
