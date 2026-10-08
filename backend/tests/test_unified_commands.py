@@ -115,6 +115,47 @@ class UnifiedWorkflowTests(unittest.TestCase):
             # A crash after command success but before the job finish must still recover.
             recovered=_step("session",{**saved,"checkpoint":{"phase":"command_index"}})
             self.assertEqual(recovered.status,"succeeded")
+    def test_partial_capture_persists_counts_and_retries_same_source_without_double_counting(self):
+        job = self.h.start("Prepare the checklist.")
+        self.h.work_intent = intent("capture")
+        initial = _step("session", job)
+        job.update(checkpoint=initial.checkpoint, result=initial.result)
+        partial = SimpleNamespace(extraction=SimpleNamespace(status="ready"), capture={
+            "tasks_saved": 1, "memories_saved": 0, "memory_failures": 1, "memory_ids": []})
+        complete = SimpleNamespace(extraction=SimpleNamespace(status="ready"), capture={
+            "tasks_saved": 1, "memories_saved": 1, "memory_ids": []})
+        with patch("focusos_api.unified_commands.create_manual_source", return_value=SimpleNamespace(source=SimpleNamespace(id=self.h.source_id))) as source, patch("focusos_api.unified_commands.process_and_capture", side_effect=[partial, complete]):
+            retry = _step("session", job)
+            self.assertEqual(retry.error, "capture_incomplete")
+            self.assertTrue(retry.failure)
+            self.assertEqual(retry.result["tasks_saved"], 1)
+            self.assertEqual(retry.checkpoint["phase"], "command_capture")
+            job.update(checkpoint=retry.checkpoint, result=retry.result)
+            finished, _ = self.h.drain(job)
+            self.assertEqual(finished.status, "succeeded")
+            self.assertEqual(finished.result["tasks_saved"], 1)
+            self.assertEqual(finished.result["memories_saved"], 1)
+            self.assertTrue(all(call.args[1] == self.h.run.id for call in source.call_args_list))
+        self.assertEqual(self.h.insert_count, 0)
+
+    def test_capture_skips_inactive_memory_but_retries_busy_embedding(self):
+        job = self.h.start("Prepare the checklist.")
+        self.h.work_intent = intent("capture")
+        response = SimpleNamespace(extraction=SimpleNamespace(status="ready"), capture={
+            "tasks_saved": 1, "memories_saved": 1, "memory_ids": [str(uuid4())]})
+        with patch("focusos_api.unified_commands.create_manual_source", return_value=SimpleNamespace(source=SimpleNamespace(id=self.h.source_id))), patch("focusos_api.unified_commands.process_and_capture", return_value=response):
+            for _ in range(2):
+                step = _step("session", job)
+                job.update(checkpoint=step.checkpoint, result=step.result)
+        with patch("focusos_api.unified_commands.embed_memory", return_value=SimpleNamespace(state="busy")):
+            with self.assertRaises(RetryStep) as raised: _step("session", job)
+            self.assertEqual(raised.exception.code, "embedding_busy")
+        with patch("focusos_api.unified_commands.embed_memory", return_value=SimpleNamespace(state="unavailable")):
+            finished, _ = self.h.drain(job)
+            self.assertEqual(finished.status, "succeeded")
+            self.assertEqual(finished.result["tasks_saved"], 1)
+        self.assertEqual(self.h.insert_count, 0)
+
     def test_both_captures_then_schedules_only_tasks_from_this_source(self):
         job=self.h.start("Create a task to prepare the FocusOS demo checklist and schedule it for 30 minutes tomorrow between 13 and 16.")
         self.h.work_intent=intent("both").model_copy(update={"selection":intent().selection.model_copy(update={"duration_minutes":30})})

@@ -156,14 +156,23 @@ def advance_work(token: str, job: dict, run):
         response = process_and_capture(token, source.id)
         if response.extraction.status != "ready": raise RetryStep("extraction_unavailable", 60)
         capture = response.capture or {}
-        if capture.get("task_failures") or capture.get("memory_failures"): raise RetryStep("capture_incomplete", 30)
+        saved = {**result, "source_id": str(source.id),
+                 "tasks_saved": capture.get("tasks_saved", 0),
+                 "memories_saved": capture.get("memories_saved", 0)}
+        if capture.get("task_failures") or capture.get("memory_failures"):
+            # Capture replays the same source and stable candidate/memory keys.
+            # Persist partial counts before retrying; these are totals, not increments.
+            return Step(checkpoint={**cp, "source_id": str(source.id)}, result=saved,
+                        error="capture_incomplete", delay=30, failure=True)
         return Step(checkpoint={"phase": "command_index", "source_id": str(source.id), "memory_ids": capture.get("memory_ids", []), "memory_index": 0},
-                    result={**result, "source_id": str(source.id), "tasks_saved": capture.get("tasks_saved", 0), "memories_saved": capture.get("memories_saved", 0)})
+                    result=saved)
     if phase == "command_index":
         ids = cp.get("memory_ids", []); index = cp.get("memory_index", 0)
         if index < len(ids):
             state = embed_memory(token, UUID(ids[index])).state
-            if state not in ("ready", "reused"): raise RetryStep("embedding_unavailable", 60)
+            if state == "busy": raise RetryStep("embedding_busy", 10)
+            # Superseded/deleted memories no longer need indexing.
+            if state not in ("ready", "reused", "unavailable"): raise RetryStep("embedding_unavailable", 60)
             return Step(checkpoint={**cp, "memory_index": index + 1}, result=result)
         if intent.action == "capture":
             if not _checkpoint(token, run.id, run.version, "succeeded", "done", run.checkpoint, {"status": "captured", **result}, run.model_turns, 0): raise DatabaseUnavailable("Command checkpoint changed")

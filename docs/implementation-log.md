@@ -829,3 +829,8 @@ Regresi baru memakai fungsi confirmation/memory/index/search yang sebenarnya den
 
 
 Rilis pemulihan capture Gmail: commit `585094f` sudah di-push ke main. Migration 20261008120000 diterapkan pada Supabase tertaut dan probe SQL sesudah migration lulus dengan seluruh fixture di-rollback; dry-run terakhir up to date. API `dpl_GH6ZWkMHc5SUwCk1FQBCiTU3ipPy` READY di https://focusos-api.vercel.app. Frontend tidak perlu diubah/deploy ulang; web yang ada memakai API terbaru. Hosted smoke 7/7 serta personal-product smoke 17/17 lulus. OpenAPI produksi menunjukkan ConfirmedTaskEnvelope hanya mewajibkan task/replayed, sementara TaskCreateEnvelope manual tetap mewajibkan memory_id. Tidak menjalankan sync/LLM pada email pengguna atau Calendar writes untuk acceptance live; pengguna dapat menekan Sync Gmail untuk memulihkan data yang sudah diimpor memakai sesi miliknya.
+
+
+### 2026-10-08 - Unified capture partial results and truthful feedback
+
+Read-only production diagnosis for the reported source found a capture command that failed at 14:30 UTC with worker_error after one task was committed and before any memory was saved. This predates the confirmation-response fix in 585094f. No user source was replayed. The composer no longer attributes arbitrary capture/storage/worker failures to Google connectivity. Partial capture counts now persist before a bounded retry, replay totals do not accumulate, and inactive memories are skipped while busy embeddings retry. Calendar execution still requires successful preceding stages. Added backend regression coverage for partial replay and inactive/busy embeddings, plus frontend feedback cases. Per the user instruction, tests were written but NOT RUN; no local build, smoke test, or evaluation was run.

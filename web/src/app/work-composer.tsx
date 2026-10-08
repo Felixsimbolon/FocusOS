@@ -18,7 +18,15 @@ export function workMessage(job: Job): string {
         ? "The AI service is unavailable. Your saved results are kept; try again when the service is available."
         : job.safe_error === "intent_invalid"
         ? "Could not understand the request. Try a clearer description with a day, time window, and duration."
-        : "Could not finish this request. Check your Google connection and try again.";
+        : job.safe_error === "capture_incomplete"
+        ? "Some tasks or memories could not be organized. Your saved results are kept. Check the source before resubmitting."
+        : job.safe_error === "database_unavailable"
+        ? "Storage is temporarily unavailable. Your saved results are kept. Check existing tasks before resubmitting."
+        : ["google_reconnect_required", "calendar_reconnect_required"].includes(job.safe_error || "")
+        ? "Reconnect Google Calendar before scheduling. Your saved results are kept."
+        : result.intent === "capture"
+        ? "Could not finish organizing this description. Any saved tasks are kept. Check existing tasks before resubmitting."
+        : "Could not finish this request. Any saved results are kept. Check existing tasks and Calendar before resubmitting.";
     return `${message}${saved || memories ? ` Already saved: ${saved} task(s), ${memories} memories.` : ""}${Number(result.blocks_scheduled) > 0 ? ` Already scheduled: ${Number(result.blocks_scheduled)} block(s). Check Calendar before retrying.` : ""}`;
   }
   if (job.safe_error) return `Service temporarily unavailable. Retrying after ${new Date(job.available_at).toLocaleTimeString()}...`;

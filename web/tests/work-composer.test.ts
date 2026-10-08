@@ -21,6 +21,18 @@ describe("inferred composer feedback",() => {
     expect(workMessage(job("queued",{tasks_saved:1}))).not.toContain("Saved 1");
     expect(workMessage(job("succeeded",{tasks_saved:1,memories_saved:2}))).toBe("Saved 1 task(s) and 2 memory item(s).");
   });
+  it.each(["worker_error", "capture_incomplete", "database_unavailable", "step_limit"])("capture failure %s never recommends reconnecting Google", code => {
+    const message = workMessage({ ...job("failed", { intent: "capture", tasks_saved: 1 }), safe_error: code });
+    expect(message).not.toContain("Google");
+    expect(message).toContain("Already saved: 1");
+    expect(message).toContain("kept");
+  });
+  it("unknown scheduling failure does not invent a Google connection problem", () => {
+    expect(workMessage({ ...job("failed", { intent: "schedule" }), safe_error: "worker_error" })).not.toContain("Google connection");
+  });
+  it("explicit Calendar reconnect error gives targeted connection guidance", () => {
+    expect(workMessage({ ...job("failed", { intent: "schedule" }), safe_error: "calendar_reconnect_required" })).toContain("Reconnect Google Calendar");
+  });
   it("empty capture is explained, not called organized",() => expect(workMessage(job("succeeded"))).toContain("No tasks or facts"));
   it("an expired processing request preserves results without asking to log in again", () => {
     const message = workMessage(job("expired", { tasks_saved: 1, memories_saved: 2, blocks_scheduled: 1 }));
