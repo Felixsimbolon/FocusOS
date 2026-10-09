@@ -18,9 +18,9 @@ beforeEach(() => {
   state.values = [];
   vi.stubGlobal("React", React);
 });
-function composer(overrides: { text?: string; busy?: boolean; message?: string; error?: string; blocks?: unknown[]; defaultDuration?: boolean } = {}) {
+function composer(overrides: { text?: string; busy?: boolean; message?: string; error?: string; blocks?: unknown[]; defaultDuration?: boolean; warning?: string } = {}) {
   state.values = [overrides.text ?? "", overrides.busy ?? false, overrides.message ?? "",
-    overrides.error ?? "", overrides.blocks ?? [], overrides.defaultDuration ?? false];
+    overrides.error ?? "", overrides.blocks ?? [], overrides.defaultDuration ?? false, overrides.warning ?? ""];
   return renderToStaticMarkup(React.createElement(WorkComposer));
 }
 const answer = {
@@ -64,6 +64,19 @@ describe("What do you need to get done? rendering", () => {
     expect(html).toContain("Asia/Jakarta");
     expect(html).toContain("https://calendar.google.com/calendar/event?eid=synthetic");
     expect(html).toContain('rel="noopener noreferrer"');
+  });
+  it("shows an availability shortfall alongside successfully created events", () => {
+    const html = composer({ message: "Created 1 Calendar block.",
+      warning: "Only 1 of 2 requested sessions fit. 1 session could not be scheduled.",
+      blocks: [{ title: "Build the website", start: "2026-10-13T09:00:00+07:00",
+        end: "2026-10-13T11:00:00+07:00", timezone: "Asia/Jakarta",
+        link: "https://calendar.google.com/calendar/event?eid=synthetic" }] });
+    expect(html).toContain('role="status"');
+    expect(html).toContain('role="alert" class="composer-message composer-warning"');
+    expect(html).toContain("Only 1 of 2 requested sessions fit");
+    expect(html).toContain("Build the website");
+    expect(html).toContain("https://calendar.google.com/calendar/event?eid=synthetic");
+    expect(html).not.toContain("Could not finish this request");
   });
   it("keeps event times visible when no Google link was returned", () => {
     const html = composer({ blocks: [{ title: "Study", start: "2026-10-15T13:00:00+07:00",

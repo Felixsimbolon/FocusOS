@@ -18,6 +18,7 @@ from focusos_api.profiles import read_profile
 from focusos_api.memory_search import MemorySearchInput, search_memories
 from focusos_api.agent_planner import PlanningModelError, select_planning_intent
 from focusos_api.planning_compiler import compile_plan
+from focusos_api.planning_selection import SessionSelection
 from focusos_api.planning_contract import PlanningValidationError
 from focusos_api.tasks import list_tasks
 
@@ -122,6 +123,16 @@ def _calendar_step(access_token: str, run: AgentRunState) -> tuple[dict, int]:
     current = datetime.fromisoformat(run.checkpoint["window_start"])
     zone = ZoneInfo(profile.timezone)
     end = _local_boundary(current.astimezone(zone).date() + timedelta(days=7), 0, zone)
+    sessions = run.checkpoint.get("planning_selection", {}).get("sessions")
+    if sessions:
+        request = SessionSelection.model_validate(sessions)
+        first = datetime.fromisoformat(request.date_start).date()
+        last = datetime.fromisoformat(request.date_end).date()
+        reference_day = current.astimezone(zone).date()
+        if last < reference_day or last > reference_day + timedelta(days=13):
+            raise CalendarPlanningError("Session dates must be within the next fourteen days")
+        current = max(current, _local_boundary(first, 0, zone))
+        end = _local_boundary(last + timedelta(days=1), 0, zone)
     args = {"calendar": "primary", "start": current.isoformat(), "end": end.isoformat()}
     _log(access_token, run.id, "calendar.get_events", args, "requested", ordinal=2)
     window = fetch_calendar_window(access_token, current, end)

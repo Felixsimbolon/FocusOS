@@ -40,6 +40,7 @@ export function WorkComposer() {
   const [error, setError] = useState("");
   const [blocks, setBlocks] = useState<CalendarBlock[]>([]);
   const [defaultDuration, setDefaultDuration] = useState(false);
+  const [warning, setWarning] = useState("");
   const controller = useRef<AbortController | null>(null);
   const pending = useRef<{ text: string; key: string } | null>(null);
   const observe = useCallback(async (job: Job, signal: AbortSignal) => {
@@ -50,6 +51,7 @@ export function WorkComposer() {
         setBlocks((current.result?.blocks || []) as CalendarBlock[]);
       }, signal);
       setDefaultDuration(finished.result?.default_duration === true);
+      setWarning(typeof finished.result?.warning === "string" ? finished.result.warning : "");
       if (finished.status === "succeeded") { setMessage(workMessage(finished)); setText(""); }
       else setError(workMessage(finished));
       pending.current = null;
@@ -79,7 +81,7 @@ export function WorkComposer() {
     event.preventDefault(); if (busy || !text.trim()) return;
     const description = text.trim();
     if (!pending.current || pending.current.text !== description) pending.current = { text: description, key: crypto.randomUUID() };
-    setBusy(true); setError(""); setBlocks([]); setDefaultDuration(false); setMessage("Understanding your request...");
+    setBusy(true); setError(""); setWarning(""); setBlocks([]); setDefaultDuration(false); setMessage("Understanding your request...");
     controller.current?.abort(); const tracking = new AbortController(); controller.current = tracking;
     try {
       const response = await fetch("/api/commands", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -106,9 +108,10 @@ export function WorkComposer() {
         </div>
       </form>
     </div>
-    {(message || error || blocks.length > 0) && <div className="composer-response">
+    {(message || error || warning || blocks.length > 0) && <div className="composer-response">
       {message && <p role="status" aria-live="polite" className="composer-message">{message}</p>}
       {error && <p role="alert" className="composer-message">{error}</p>}
+      {warning && <p role="alert" className="composer-message composer-warning">{warning}</p>}
       {defaultDuration && blocks.length > 0 && <p className="composer-note">Duration used: 30 minutes.</p>}
       {blocks.length > 0 && <PaginatedItems as="ul" className="composer-results" label="created Calendar blocks" pageSize={3} items={blocks.map((block, index) => <li key={`${block.start}-${index}`}><strong>{block.title}</strong>
         <span>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: block.timezone }).format(new Date(block.start))} - {new Intl.DateTimeFormat(undefined, { timeStyle: "short", timeZone: block.timezone }).format(new Date(block.end))} ({block.timezone})</span>

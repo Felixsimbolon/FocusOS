@@ -46,7 +46,7 @@ def slot_handles(free: FreeTimeResult) -> dict[str, object]:
 
 
 def validate_planning_response(raw: object, tasks: list[dict], free: FreeTimeResult,
-                               source_refs: set[str] | None = None) -> dict:
+                               source_refs: set[str] | None = None, *, allow_partial: bool = False) -> dict:
     try:
         candidate = PlanningResponse.model_validate(raw)
     except Exception as exc:
@@ -98,8 +98,12 @@ def validate_planning_response(raw: object, tasks: list[dict], free: FreeTimeRes
     if candidate.scheduled_minutes != total or candidate.shortfall_minutes != free.requested_minutes-total:
         raise PlanningValidationError("Plan totals do not match slots")
     if candidate.status == "proposed":
-        if not resolved or total != free.requested_minutes or candidate.questions:
+        if not resolved or candidate.questions or total > free.requested_minutes:
             raise PlanningValidationError("Proposal needs complete slots and no open questions")
+        if total != free.requested_minutes and not allow_partial:
+            raise PlanningValidationError("Proposal needs complete slots and no open questions")
+        if allow_partial and (free.allocated_minutes != total or free.shortfall_minutes != free.requested_minutes - total):
+            raise PlanningValidationError("Partial proposal does not match calculated availability")
     elif candidate.status == "needs_clarification":
         if resolved or not candidate.questions or total != 0:
             raise PlanningValidationError("Clarification cannot contain proposed blocks")

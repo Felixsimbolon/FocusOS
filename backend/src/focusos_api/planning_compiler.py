@@ -9,6 +9,7 @@ from focusos_api.calendar_fetch import CalendarWindow
 from focusos_api.calendar_free_time import FreeTimeResult, _local_boundary, calculate_free_time
 from focusos_api.planning_contract import PlanningValidationError, task_handles, validate_planning_response
 from focusos_api.planning_selection import PlanningSelection
+from focusos_api.session_constraints import grounded_sessions
 from focusos_api.planning_request import explicit_constraints
 from focusos_api.profiles import ProfileRecord
 
@@ -64,7 +65,16 @@ def compile_plan(raw: object, tasks: list[dict], checkpoint: dict, profile: Prof
                                     intent.questions[0], initial)
         result["questions"] = intent.questions
         return result, free
-    constraints = explicit_constraints(command or "")
+    grounded = grounded_sessions(command or "", checkpoint["window_start"], profile.timezone)
+    if grounded:
+        intent = intent.model_copy(update={"sessions": grounded, "day": "any", "date": None, "duration_minutes": grounded.minutes})
+    constraint_text = command or ""
+    if intent.sessions is not None:
+        # A range's first ISO date is not a separate single-day instruction.
+        constraint_text = re.sub(
+            r"\b(?:tanggal|dates?|between|from)\s+\d{4}-\d{2}-\d{2}\s*(?:-|to|sampai|hingga|dan|and)\s*\d{4}-\d{2}-\d{2}\b",
+            " ", constraint_text, flags=re.IGNORECASE)
+    constraints = explicit_constraints(constraint_text)
     if "question" in constraints:
         return _unavailable("needs_clarification", "request_ambiguous", constraints["question"], initial)
     if constraints:
@@ -75,6 +85,8 @@ def compile_plan(raw: object, tasks: list[dict], checkpoint: dict, profile: Prof
         return _unavailable("needs_clarification", "task_required",
                             "Choose an active task to schedule.", initial)
     selected = [known[ref] for ref in refs]
+    if intent.sessions is not None:
+        return _compile_sessions(intent, tasks, checkpoint, profile, sources, now=now)
     stated_duration = intent.duration_minutes
     if duration_override is not None and stated_duration is not None and duration_override != stated_duration:
         return _unavailable("needs_clarification", "duration_conflict",
@@ -216,3 +228,91 @@ def compile_plan(raw: object, tasks: list[dict], checkpoint: dict, profile: Prof
         "requested_minutes": duration, "scheduled_minutes": duration, "shortfall_minutes": 0,
         "assumptions": assumptions, "questions": [], "summary": "Work time is available."}
     return validate_planning_response(raw_plan, tasks, free, sources), free
+
+
+def _compile_sessions(intent, tasks, checkpoint, profile, sources, *, now=None):
+    """Earliest whole slot per day; greedy earliest dates maximize spaced sessions."""
+    request = intent.sessions
+    total = request.count * request.minutes
+    empty = _empty_free(profile.timezone, total, False)
+    refs = intent.task_refs
+    if len(refs) != 1:
+        return _unavailable("needs_clarification", "session_task_required",
+                            "Choose one activity for these work sessions.", empty)
+    if intent.day != "any" or intent.date is not None:
+        return _unavailable("needs_clarification", "session_date_conflict",
+                            "Use one date range for the work sessions.", empty)
+    if checkpoint.get("duration_minutes") is not None or intent.duration_minutes not in (None, request.minutes):
+        return _unavailable("needs_clarification", "session_duration_conflict",
+                            "Specify the same per-session duration throughout the request.", empty)
+    task = task_handles(tasks)[refs[0]]
+    snapshot = checkpoint.get("calendar")
+    if not isinstance(snapshot, dict) or snapshot.get("complete") is not True:
+        raise PlanningValidationError("Incomplete Calendar snapshot", code="calendar_snapshot_incomplete")
+    if snapshot.get("timezone") != profile.timezone or checkpoint.get("timezone") != profile.timezone:
+        raise PlanningValidationError("Scheduling timezone changed", code="profile_changed")
+    zone = ZoneInfo(profile.timezone)
+    reference = datetime.fromisoformat(checkpoint["window_start"])
+    current = now or datetime.now(timezone.utc)
+    start, end = datetime.fromisoformat(snapshot["start"]), datetime.fromisoformat(snapshot["end"])
+    fetched = datetime.fromisoformat(snapshot["fetched_at"])
+    if any(value.utcoffset() is None for value in (reference, current, start, end, fetched)):
+        raise PlanningValidationError("Invalid Calendar clock", code="calendar_snapshot_incomplete")
+    first, last = date.fromisoformat(request.date_start), date.fromisoformat(request.date_end)
+    if last < current.astimezone(zone).date():
+        return _unavailable("needs_clarification", "scheduling_day_passed", "The requested date range has passed.", empty, refs)
+    if last > reference.astimezone(zone).date() + timedelta(days=13):
+        return _unavailable("needs_clarification", "scheduling_window_exceeded", "Choose session dates within the next fourteen days.", empty, refs)
+    if start > max(reference, _local_boundary(first, 0, zone)) or end < _local_boundary(last + timedelta(days=1), 0, zone):
+        raise PlanningValidationError("Requested range was not fully fetched", code="calendar_snapshot_incomplete")
+    clock_start, clock_end = _clock(intent.start_time, 0), _clock(intent.end_time, 1440)
+    if clock_end <= clock_start:
+        return _unavailable("needs_clarification", "invalid_time_constraint", "Choose an end time after the start time.", empty, refs)
+    deadline = None
+    if task.get("due_kind") == "date":
+        deadline = _local_boundary(date.fromisoformat(task["due_date"]) + timedelta(days=1), 0, zone)
+    if task.get("due_at"):
+        deadline = datetime.fromisoformat(task["due_at"])
+        if deadline.utcoffset() is None:
+            raise PlanningValidationError("Invalid task deadline", code="task_deadline_invalid")
+    if deadline is not None and deadline <= current:
+        return _unavailable("needs_clarification", "deadline_passed", "The task deadline has passed. Update it before scheduling.", empty, refs)
+    earliest = current.astimezone(timezone.utc) + timedelta(minutes=START_BUFFER_MINUTES)
+    if earliest.second or earliest.microsecond:
+        earliest = earliest.replace(second=0, microsecond=0) + timedelta(minutes=1)
+    events = tuple({"id": item["id"], "summary": "Busy", "start": {"dateTime": item["start"]}, "end": {"dateTime": item["end"]}} for item in snapshot["events"])
+    slots, intervals, available = [], [], 0
+    previous_day = None
+    day = first
+    while day <= last:
+        day_start = max(start, earliest, _local_boundary(day, clock_start, zone))
+        day_end = min(end, _local_boundary(day, clock_end, zone))
+        if day_end > day_start:
+            free = calculate_free_time(CalendarWindow(day_start, day_end, fetched, "primary", profile.timezone, events, complete=True),
+                timezone_name=profile.timezone, working_hours=profile.working_hours,
+                duration_minutes=request.minutes, allow_split=False, deadline=deadline, minimum_block_minutes=15)
+            available += free.available_minutes
+            intervals.extend(free.free_intervals)
+            if len(slots) < request.count and free.slots and (previous_day is None or (day-previous_day).days >= request.min_days_between):
+                slots.append(free.slots[0])
+                previous_day = day
+        day += timedelta(days=1)
+    allocated = len(slots) * request.minutes
+    free = FreeTimeResult(timezone=profile.timezone, requested_minutes=total, allocated_minutes=allocated,
+        available_minutes=available, shortfall_minutes=total-allocated, allow_split=False, slots=slots, free_intervals=intervals)
+    if not slots:
+        return _unavailable("insufficient_time", "insufficient_time",
+            f"No full {request.minutes}-minute session fits between {request.date_start} and {request.date_end} within your working hours and deadline.", free, refs)
+    blocks = [{"slot_ref": f"slot-{index+1}", "task_ref": refs[0], "title": task["title"],
+        "reason": "Available work time from the saved Calendar snapshot.", "evidence_refs": intent.evidence_refs} for index in range(len(slots))]
+    raw = {"schema_version": "1", "status": "proposed", "task_refs": refs, "blocks": blocks,
+        "requested_minutes": total, "scheduled_minutes": allocated, "shortfall_minutes": total-allocated,
+        "assumptions": [f"Each session is {request.minutes} minutes, with at least {request.min_days_between} calendar day(s) between session dates."],
+        "questions": [], "summary": "Bounded work sessions are available."}
+    result = validate_planning_response(raw, tasks, free, sources, allow_partial=True)
+    result.update(requested_sessions=request.count, planned_sessions=len(slots), session_minutes=request.minutes)
+    if len(slots) < request.count:
+        result["warning"] = (f"Only {len(slots)} of {request.count} requested sessions fit. "
+            f"{request.count-len(slots)} session(s) could not be scheduled: no suitable {request.minutes}-minute slot "
+            f"with the required day spacing between {request.date_start} and {request.date_end}.")
+    return result, free

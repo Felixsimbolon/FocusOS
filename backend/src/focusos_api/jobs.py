@@ -202,7 +202,11 @@ def _step(token: str, job: dict) -> Step:
         if not run.checkpoint.get("auto_calendar"):
             return Step("succeeded", checkpoint, {"run_id": str(subject), "stage": "done"})
         index = checkpoint.get("block_index", 0)
-        if index >= len(run.result["blocks"]): return Step("succeeded", checkpoint, {**previous, "run_id": str(subject), "blocks_scheduled": index})
+        if index >= len(run.result["blocks"]):
+            result = {**previous, "run_id": str(subject), "blocks_scheduled": index}
+            for key in ("warning", "requested_sessions", "planned_sessions", "session_minutes", "shortfall_minutes"):
+                if key in run.result: result[key] = run.result[key]
+            return Step("succeeded", checkpoint, result)
         try:
             action = schedule_automatic_block(token, subject, index)
         except (ProposalRejected, AutomaticCalendarUnavailable) as exc:

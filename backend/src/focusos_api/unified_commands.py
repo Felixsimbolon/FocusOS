@@ -1,5 +1,6 @@
 """Infer one submitted command; capture work, schedule, or do both durably."""
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 import json
 from typing import Literal
 from uuid import UUID
@@ -12,6 +13,7 @@ from focusos_api.agent_continuation import load_command_run
 from focusos_api.database import DatabaseUnavailable
 from focusos_api.gemini import api_key, request, output_text, structured_payload, GeminiResponseError
 from focusos_api.planning_selection import PlanningSelection
+from focusos_api.session_constraints import grounded_sessions
 from focusos_api.profiles import read_profile
 from focusos_api.tasks import list_tasks
 from focusos_api.sources import create_manual_source, ManualSourceInput
@@ -61,7 +63,16 @@ def infer_work(text: str, tasks: list[dict], reference: str, zone: str) -> WorkI
         "For standalone schedule use no task refs and title_quote copied EXACTLY from the user's text naming the activity. "
         "For both use no existing task refs: schedule the tasks extracted from this submitted description. "
         "A deadline is not a request to create an event. Use clarify for conflicting, ambiguous or unsupported requests "
-        "(recurrence, guests, multiple dates, other timezone, exact-time-only constraints, or a memory lookup without scheduling). "
+        "(unbounded recurrence, guests, other timezone, exact-time-only constraints, or a memory lookup without scheduling). "
+        "Bounded multi-day work sessions ARE supported: use selection.sessions with count, minutes PER SESSION, "
+        "ISO date_start/date_end inclusive, and min_days_between (date difference; skip one day means 2). "
+        "Use at most 7 sessions, 15-480 minutes each, 1440 minutes total, within the next 14 days. "
+        "For sessions set day=any, date=null, duration_minutes=the per-session minutes; otherwise sessions=null. "
+        "Resolve tanggal 13-16 this month using reference_time; keep a deadline separate from the scheduling range. "
+        "The backend may schedule fewer sessions if availability is insufficient and will report the shortfall. "
+        "Do not clarify merely because sessions span multiple days or require nonconsecutive days. "
+        "Example: schedule 2 hari tanggal 13-16, tiap hari 2 jam, longkap satu hari means "
+        "count=2, minutes=120, min_days_between=2, date_start/date_end on the 13th/16th of the referenced month. "
         "selection has status selected unless clarifying, day any/today/tomorrow/date; resolve an explicit date/weekday from reference_time. "
         "start_time/end_time are explicit local HH:MM bounds. duration_minutes only if explicitly stated; otherwise null. "
         "Dates and clock limits must never be silently dropped. evidence_refs is empty. "
@@ -92,6 +103,10 @@ def infer_work(text: str, tasks: list[dict], reference: str, zone: str) -> WorkI
         intent = WorkIntent.model_validate(json.loads(output_text(data)))
     except (httpx.HTTPError, GeminiResponseError, ValueError, ValidationError) as exc:
         raise RetryStep("intent_unavailable", 60) from exc
+    grounded = grounded_sessions(text, reference, zone)
+    if grounded and intent.action in ("schedule", "both"):
+        intent = intent.model_copy(update={"selection": intent.selection.model_copy(update={
+            "sessions": grounded, "day": "any", "date": None, "duration_minutes": grounded.minutes})})
     known = {f"task-{i+1}" for i in range(len(tasks))}
     refs = intent.selection.task_refs
     if len(refs) != len(set(refs)) or any(ref not in known for ref in refs): raise RetryStep("intent_invalid", 60)
@@ -182,6 +197,17 @@ def advance_work(token: str, job: dict, run):
         profile = read_profile(token)
         if profile is None: return stop("profile_required", "Set your working hours in Preferences before scheduling.")
         selection = intent.selection.model_dump()
+        if intent.selection.sessions is not None and selection["duration_minutes"] is None:
+            selection["duration_minutes"] = intent.selection.sessions.minutes
+        if intent.selection.sessions is not None:
+            request = intent.selection.sessions
+            zone = ZoneInfo(profile.timezone)
+            reference_day = datetime.fromisoformat(run.checkpoint["window_start"]).astimezone(zone).date()
+            last = date.fromisoformat(request.date_end)
+            if last < datetime.now(timezone.utc).astimezone(zone).date():
+                return stop("scheduling_day_passed", "The requested session date range has passed. Choose future dates.")
+            if last > reference_day + timedelta(days=13):
+                return stop("scheduling_window_exceeded", "Choose session dates within the next fourteen days.")
         tasks = run.checkpoint.get("task_override", [])
         standalone = None
         if intent.action == "both":
