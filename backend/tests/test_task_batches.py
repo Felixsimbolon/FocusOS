@@ -65,6 +65,14 @@ class TaskBatchContractTests(unittest.TestCase):
         self.assertNotIn("Nusa", "".join(items))
         self.assertTrue(all(item in body for item in items))
 
+    def test_nested_steps_stay_with_their_parent_task(self):
+        body = "Buat task berikut:\n1. Build the page.\n   - Add the header.\n   - Add the footer.\n2. Review the design."
+        items = explicit_task_items(body)
+        self.assertEqual(len(items), 2)
+        self.assertIn("Add the header", items[0])
+        self.assertIn("Add the footer", items[0])
+        self.assertTrue(all(item in body for item in items))
+
     def test_ordinary_email_bullets_and_facts_do_not_force_task_creation(self):
         for body in ("Facts:\n- Demo code is Nusa.\n- Office is Jakarta.",
                      "Remember:\n1. Aurora is the code name.\n2. Monday is review day.",

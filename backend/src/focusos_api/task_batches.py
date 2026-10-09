@@ -33,16 +33,22 @@ def explicit_task_items(body: str) -> list[str]:
         if not is_heading:
             continue
         pending = []
+        item_indent = None
         while index < len(lines):
             line = lines[index]
-            if _ITEM.match(line):
+            indent = len(line.expandtabs(4)) - len(line.expandtabs(4).lstrip())
+            if _ITEM.match(line) and item_indent is not None and indent > item_indent:
+                # Nested steps belong to their parent task, not separate tasks.
+                pending.append(line)
+            elif _ITEM.match(line):
+                item_indent = indent
                 if pending:
                     items.append("".join(pending).rstrip())
                 pending = [line]
             elif not line.strip():
                 if pending:
                     pending.append(line)
-            elif pending and line[:1].isspace():
+            elif pending and indent > item_indent:
                 pending.append(line)
             else:
                 break
