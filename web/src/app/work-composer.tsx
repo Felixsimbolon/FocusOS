@@ -93,15 +93,15 @@ export function WorkComposer() {
   }
   return <section id="composer" className={`work-composer${busy ? " is-processing" : ""}`} aria-labelledby="composer-heading" aria-busy={busy}>
     <div className="composer-layout">
-      <div className="composer-intro"><span className="section-eyebrow">NEW REQUEST</span><h2 id="composer-heading">What do you need<br className="composer-heading-break" /> to get done?</h2><p>Write it as you would say it. Add a task, find a time, or ask for both.</p>
+      <div className="composer-intro"><span className="section-eyebrow">NEW REQUEST</span><h2 id="composer-heading">What do you need<br className="composer-heading-break" /> to get done?</h2><p>Write it as you would say it. Add one task or a whole list, find a time, or ask for both.</p>
         <a className="composer-context-link" href="/#schedule">See your scheduled work <span aria-hidden="true">&rarr;</span></a>
       </div>
       <form className="composer-form" onSubmit={event => void submit(event)}>
         <div className="composer-input-frame">
           <label className="sr-only" htmlFor="work-request">Work or schedule request</label>
           <textarea id="work-request" value={text} onChange={event => setText(event.target.value)} rows={5} maxLength={1000} required disabled={busy} aria-describedby="composer-help"
-            placeholder={"Buat task menyiapkan outline presentasi untuk Jumat.\nCari waktu besok jam 13-16 untuk mengerjakannya selama 30 menit."} />
-          <div className="composer-input-bottom"><span>Indonesian or English. Plain text.</span><span aria-label={`${text.length} of 1000 characters`}>{text.length.toLocaleString()} / 1,000</span></div>
+            placeholder={"Buat task berikut:\n1. Siapkan outline presentasi, deadline 13 Oktober, estimasi 30 menit.\n2. Buat halaman web, deadline 18 Oktober, estimasi 2 jam.\n\nAtau: cari waktu besok jam 13-16 untuk belajar selama 30 menit."} />
+          <div className="composer-input-bottom"><span>Indonesian or English. Up to 10 tasks per list.</span><span aria-label={`${text.length} of 1000 characters`}>{text.length.toLocaleString()} / 1,000</span></div>
         </div>
         <div className="composer-footer"><small id="composer-help">Calendar requests create events automatically. Add a duration, or we use your task estimate or 30 minutes.</small>
           <button type="submit" disabled={busy || !text.trim()}>{busy ? <><span className="composer-progress" aria-hidden="true" />Working...</> : <>Send request <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M5 12h14M13 6l6 6-6 6" /></svg></>}</button>

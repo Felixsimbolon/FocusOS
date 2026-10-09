@@ -14,6 +14,7 @@ from focusos_api.database import DatabaseUnavailable
 from focusos_api.gemini import api_key, request, output_text, structured_payload, GeminiResponseError
 from focusos_api.planning_selection import PlanningSelection
 from focusos_api.session_constraints import grounded_sessions
+from focusos_api.task_batches import MAX_BATCH_TASKS, explicit_task_items
 from focusos_api.profiles import read_profile
 from focusos_api.tasks import list_tasks
 from focusos_api.sources import create_manual_source, ManualSourceInput
@@ -55,6 +56,9 @@ def infer_work(text: str, tasks: list[dict], reference: str, zone: str) -> WorkI
     instruction = (
         "Infer what the user wants from a single work request in Indonesian or English. "
         "Return action capture for new tasks, work descriptions, notes or facts WITHOUT a request to reserve Calendar time. "
+        "A request to create several tasks, including a numbered list, is capture unless it also explicitly asks to reserve time. "
+        "A deadline on each task is still capture. Multiple tasks are supported; do not clarify just because there is more than one. "
+        "For capture use no task refs and no timing constraints: the extractor resolves each task separately. "
         "Return schedule for finding/reserving Calendar time, including a new activity that has no saved task; do NOT create a task in that case. "
         "In this interface cari waktu, cari jadwal, find a time, and find a free slot authorize automatic Calendar reservation. "
         "Return both ONLY when the user explicitly asks to save/create a task AND schedule it. "
@@ -151,6 +155,8 @@ def advance_work(token: str, job: dict, run):
         return Step("failed", cp, {**result, "message": (run.result or {}).get("summary", "Request could not be completed. Submit a clearer request.")}, run.safe_error or "request_unavailable")
     if phase == "command_plan": return None
     if phase is None:
+        if len(explicit_task_items(run.command)) > MAX_BATCH_TASKS:
+            return stop("task_batch_limit", "Create at most 10 tasks in one request. Split this list into smaller batches.")
         tasks = [_task_data(task) for task in list_tasks(token, status="open", limit=20).tasks]
         profile = read_profile(token)
         intent_data = run.checkpoint.get("work_intent")
@@ -169,7 +175,12 @@ def advance_work(token: str, job: dict, run):
     if phase == "command_capture":
         source = create_manual_source(token, run.id, ManualSourceInput(title=run.command.splitlines()[0][:120], text=run.command)).source
         response = process_and_capture(token, source.id)
-        if response.extraction.status != "ready": raise RetryStep("extraction_unavailable", 60)
+        if response.extraction.status != "ready":
+            if response.extraction.safe_error == "batch_incomplete":
+                return stop("task_batch_incomplete", "Could not identify every task in this list. Your description is kept. Give each task its own numbered line and try again.")
+            if response.extraction.safe_error == "batch_limit_exceeded":
+                return stop("task_batch_limit", "Create at most 10 tasks in one request. Split this list into smaller batches.")
+            raise RetryStep("extraction_unavailable", 60)
         capture = response.capture or {}
         saved = {**result, "source_id": str(source.id),
                  "tasks_saved": capture.get("tasks_saved", 0),

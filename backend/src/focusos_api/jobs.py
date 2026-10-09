@@ -134,6 +134,11 @@ def _capture_step(token: str, job: dict, response) -> Step:
     if extraction.status != "ready":
         error = extraction.safe_error
         previous = job.get("result") or {}
+        if error in ("batch_incomplete", "batch_limit_exceeded"):
+            message = ("Could not identify every task in the list. Give each task its own numbered line and try again."
+                       if error == "batch_incomplete" else "Create at most 10 tasks per source. Split this list into smaller batches.")
+            return Step("failed", job.get("checkpoint", {}),
+                        {**previous, "source_id": str(extraction.source_id), "message": message}, "extraction_" + error)
         if error in ("invalid_output", "refused", "incomplete", "oversize_response", "provider_unconfigured", "source_unavailable"):
             # The extractor already attempted one bounded repair. Repeating invalid
             # output five times spends quota without giving the user a useful result.

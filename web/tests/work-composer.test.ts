@@ -13,6 +13,21 @@ describe("inferred composer feedback",() => {
     expect(html).not.toContain("<select"); expect(html).not.toContain('type="radio"');
     expect(html).toContain("Calendar requests create events automatically"); expect(html).toContain("30 minutes");
   });
+  it("shows multi-task guidance in the same text input and reports all saved items", () => {
+    const html = renderToStaticMarkup(React.createElement(WorkComposer));
+    expect(html).toContain("a whole list");
+    expect(html).toContain("Up to 10 tasks per list");
+    expect(html).toContain("Buat task berikut:");
+    expect(html.match(/<textarea/g)).toHaveLength(1);
+    expect(workMessage(job("succeeded", { tasks_saved: 3, memories_saved: 3 }))).toBe("Saved 3 task(s) and 3 memory item(s).");
+    expect(workMessage(job("succeeded", { tasks_saved: 3, memories_saved: 3 }))).not.toContain("Calendar");
+  });
+  it("explains an incomplete batch without inventing a Calendar or login failure", () => {
+    const message = workMessage(job("failed", { message: "Could not identify every task in this list. Your description is kept.", intent: "capture" }));
+    expect(message).toContain("every task");
+    expect(message).not.toContain("Reconnect");
+    expect(message).not.toContain("Sign in");
+  });
   it("Gmail is a header button without a jobs panel or source counters",() => {
     const html=renderToStaticMarkup(React.createElement(GmailSyncPanel));
     expect(html).toContain("Sync Gmail"); expect(html).not.toContain("<h2"); expect(html).not.toContain("Jobs"); expect(html).not.toContain("<input");
