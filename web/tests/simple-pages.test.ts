@@ -16,10 +16,12 @@ vi.mock("../src/app/settings/actions", () => ({ saveSettings: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn((path: string) => { throw new Error(path); }) }));
 beforeEach(() => { vi.stubGlobal("React", React); vi.clearAllMocks(); });
 describe("simplified navigation and input", () => {
-  it("puts search and preferences on Home without task/project creation or dashboard links", async () => {
+  it("keeps work and preferences on Home while hiding memory search and standalone creation", async () => {
     vi.mocked(getMe).mockResolvedValue({ kind: "ok", data: { user: { id: "synthetic-owner", email: null }, profile: { timezone: "Asia/Jakarta", working_hours: { days: [1,2,3,4,5], start_minute: 540, end_minute: 1020 } } } });
     const html = renderToStaticMarkup(await Home({ searchParams: Promise.resolve({}) }));
-    expect(html).toContain('id="memories"');
+    expect(html).not.toContain('id="memories"');
+    expect(html).not.toContain('href="/#memories"');
+    expect(html).not.toContain("Search your memory");
     expect(html).toContain('id="preferences"');
     expect(html).toContain('id="schedule"');
     expect(html).toContain("Sync Gmail");
@@ -42,7 +44,7 @@ describe("simplified navigation and input", () => {
     expect(html).not.toContain("Job status");
   });
   it("old page URLs lead to the matching Home section", () => {
-    for (const [page, path] of [[Tasks, "/#tasks-heading"], [Schedule, "/#schedule"], [System, "/"], [Memories, "/#memories"]] as const) {
+    for (const [page, path] of [[Tasks, "/#tasks-heading"], [Schedule, "/#schedule"], [System, "/"], [Memories, "/"]] as const) {
       expect(() => page()).toThrow(path);
       expect(redirect).toHaveBeenLastCalledWith(path);
     }

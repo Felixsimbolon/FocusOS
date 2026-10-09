@@ -847,6 +847,7 @@ main.home-page .task-board > .paged-content > .task-list { margin:0; }
 body .deadline-calendar,body .deadline-list-panel { box-shadow:none; border-radius:.5rem; }
 .workspace-secondary { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); gap:1.5rem; align-items:start; }
 .workspace-secondary > * { min-width:0; }
+.workspace-secondary-single { grid-template-columns:minmax(0,1fr); }
 .workspace-secondary .home-memory { padding:1.4rem; border:1px solid #dce0da; border-radius:.65rem; background:#fff; }
 .home-section-heading { margin-bottom:1.25rem; }
 .home-section-heading h2 { margin:.5rem 0; font-family:Georgia,"Times New Roman",serif; font-size:1.65rem; font-weight:400; letter-spacing:-.035em; }

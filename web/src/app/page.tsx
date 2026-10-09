@@ -3,7 +3,6 @@ import { getMe } from "@/server/api/me";
 import { TaskBoard } from "./tasks/task-board";
 import { WorkComposer } from "./work-composer";
 import { GmailSyncPanel } from "./activity/gmail-sync-panel";
-import { MemorySearch } from "./memories/memory-search";
 import { Preferences } from "./settings/preferences";
 import { ScheduleBoard } from "./schedule/schedule-board";
 
@@ -25,12 +24,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
     <header className="app-header">
       <div className="app-header-inner">
         <a className="app-brand" href="/" aria-label="FocusOS home"><span className="brand-mark" aria-hidden="true">f.</span>FocusOS</a>
-        {user && <nav aria-label="Main navigation"><a href="/#composer">Write</a><a href="/#tasks">Tasks</a><a href="/#schedule">Calendar</a><a href="/#memories">Memory</a></nav>}
+        {user && <nav aria-label="Main navigation"><a href="/#composer">Write</a><a href="/#tasks">Tasks</a><a href="/#schedule">Calendar</a></nav>}
         {user && <div className="header-actions"><GmailSyncPanel /><form action={signOut}><button className="secondary-button" type="submit">Sign out</button></form></div>}
       </div>
     </header>
     <div className="home-header">
-      <div className="workspace-welcome"><time dateTime={now.toISOString()} className="workspace-date">{date}</time><h1>Your desk.</h1><p>A place for your work, your time, and the things you want to remember.</p></div>
+      <div className="workspace-welcome"><time dateTime={now.toISOString()} className="workspace-date">{date}</time><h1>Your desk.</h1><p>A place for your work and your time.</p></div>
       {user && <aside className="workspace-rhythm" aria-label="Your scheduling preferences">
         <span>YOUR WORKING WINDOW</span>
         {profile ? <><strong>{clock(profile.working_hours.start_minute)} <span aria-hidden="true">-</span> {clock(profile.working_hours.end_minute)}</strong><p>{profile.working_hours.days.map(day => dayNames[day - 1]).join(" / ")}</p><small>{timezone}</small></> : <p>Choose your working hours to start scheduling.</p>}
@@ -43,9 +42,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
       <WorkComposer />
       {me.kind === "ok" && <>
         <div id="tasks" className="workspace-tasks"><TaskBoard /></div>
-        <div className="workspace-secondary">
+        <div className="workspace-secondary workspace-secondary-single">
           <details id="schedule" className="home-panel schedule-panel" open><summary><span>Scheduled work</span><small>Your Calendar</small></summary><div className="home-panel-body"><ScheduleBoard /></div></details>
-          <section id="memories" className="home-memory"><div className="home-section-heading"><span className="section-eyebrow">SAVED KNOWLEDGE</span><h2>Search your memory</h2><p>Answers from the things you have saved.</p></div><MemorySearch /></section>
         </div>
         <Preferences profile={me.data.profile} saved={params.saved} error={params.error} />
       </>}
