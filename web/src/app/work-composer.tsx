@@ -5,17 +5,35 @@ import { type Job } from "./jobs/client";
 import { activeOrganization, followOrganization } from "./organization";
 
 type CalendarBlock = { title: string; start: string; end: string; timezone: string; link: string | null };
+type Reference = { kind: "task" | "memory" | "event"; title: string; detail?: string };
+export type Answer = { question: string; status: "answered" | "no_reference" | "unavailable"; answer: string | null; references: Reference[] };
+type ScheduleOutcome = { title: string; status: "scheduled" | "failed" | "clarify"; message?: string };
+export const NO_REFERENCE_NOTE = "No reference found in your saved tasks, memories, or scheduled work.";
+const REFERENCE_LABEL = { task: "Task", memory: "Memory", event: "Calendar" } as const;
+
+/** Problems with single parts of a request that otherwise completed. */
+export function partIssues(result: Record<string, unknown>): string[] {
+  const schedules = Array.isArray(result.schedules) ? result.schedules as ScheduleOutcome[] : [];
+  const notes = Array.isArray(result.notes) ? result.notes.filter((note): note is string => typeof note === "string") : [];
+  return [...notes, ...schedules.filter(item => item.status !== "scheduled" && item.message)
+    .map(item => schedules.length > 1 || item.status === "clarify" ? `${item.title}: ${item.message}` : item.message as string)];
+}
 export function workMessage(job: Job): string {
   const result = job.result || {};
   const saved = Number(result.tasks_saved || 0);
   const memories = Number(result.memories_saved || 0);
-  if (job.status === "succeeded") return Number(result.blocks_scheduled) > 0
-    ? `${Number(result.blocks_scheduled)} Calendar block(s) created.${saved ? ` ${saved} task(s) also saved.` : ""}`
-    : saved || memories ? `Saved ${saved} task(s) and ${memories} memory item(s).` : "No tasks or facts found in this description.";
+  const questions = Array.isArray(result.answers) ? result.answers.length : 0;
+  if (job.status === "succeeded") {
+    const parts = [Number(result.blocks_scheduled) > 0
+      ? `${Number(result.blocks_scheduled)} Calendar block(s) created.${saved ? ` ${saved} task(s) also saved.` : ""}`
+      : saved || memories ? `Saved ${saved} task(s) and ${memories} memory item(s).` : ""];
+    if (questions) parts.push(`Checked ${questions} question(s) against your saved work.`);
+    return parts.filter(Boolean).join(" ") || "No tasks or facts found in this description.";
+  }
   if (["failed", "expired", "cancelled"].includes(job.status)) {
     const message = typeof result.message === "string" ? result.message : job.status === "expired"
       ? "This processing request expired. Your saved results are kept. Check Calendar before submitting a new request."
-      : ["intent_unavailable", "provider_unconfigured", "extraction_unavailable", "embedding_unavailable"].includes(job.safe_error || "")
+      : ["intent_unavailable", "provider_unconfigured", "extraction_unavailable", "embedding_unavailable", "answer_unavailable"].includes(job.safe_error || "")
         ? "The AI service is unavailable. Your saved results are kept; try again when the service is available."
         : job.safe_error === "intent_invalid"
         ? "Could not understand the request. Try a clearer description with a day, time window, and duration."
@@ -31,7 +49,8 @@ export function workMessage(job: Job): string {
     return `${message}${saved || memories ? ` Already saved: ${saved} task(s), ${memories} memories.` : ""}${Number(result.blocks_scheduled) > 0 ? ` Already scheduled: ${Number(result.blocks_scheduled)} block(s). Check Calendar before retrying.` : ""}`;
   }
   if (job.safe_error) return `Service temporarily unavailable. Retrying after ${new Date(job.available_at).toLocaleTimeString()}...`;
-  return result.intent === "schedule" || result.intent === "both" ? "Finding a free slot and adding it to Calendar..." : "Understanding and organizing your request...";
+  return result.intent === "schedule" || result.intent === "both" ? "Finding a free slot and adding it to Calendar..."
+    : result.intent === "question" ? "Looking through your tasks and memories..." : "Understanding and organizing your request...";
 }
 export function WorkComposer() {
   const [text, setText] = useState("");
@@ -41,6 +60,8 @@ export function WorkComposer() {
   const [blocks, setBlocks] = useState<CalendarBlock[]>([]);
   const [defaultDuration, setDefaultDuration] = useState(false);
   const [warning, setWarning] = useState("");
+  const [answers, setAnswers] = useState<Answer[]>([]);
+  const [issues, setIssues] = useState<string[]>([]);
   const controller = useRef<AbortController | null>(null);
   const pending = useRef<{ text: string; key: string } | null>(null);
   const observe = useCallback(async (job: Job, signal: AbortSignal) => {
@@ -52,6 +73,8 @@ export function WorkComposer() {
       }, signal);
       setDefaultDuration(finished.result?.default_duration === true);
       setWarning(typeof finished.result?.warning === "string" ? finished.result.warning : "");
+      setAnswers(Array.isArray(finished.result?.answers) ? finished.result.answers as Answer[] : []);
+      setIssues(finished.status === "succeeded" ? partIssues(finished.result || {}) : []);
       if (finished.status === "succeeded") { setMessage(workMessage(finished)); setText(""); }
       else setError(workMessage(finished));
       pending.current = null;
@@ -81,7 +104,7 @@ export function WorkComposer() {
     event.preventDefault(); if (busy || !text.trim()) return;
     const description = text.trim();
     if (!pending.current || pending.current.text !== description) pending.current = { text: description, key: crypto.randomUUID() };
-    setBusy(true); setError(""); setWarning(""); setBlocks([]); setDefaultDuration(false); setMessage("Understanding your request...");
+    setBusy(true); setError(""); setWarning(""); setBlocks([]); setAnswers([]); setIssues([]); setDefaultDuration(false); setMessage("Understanding your request...");
     controller.current?.abort(); const tracking = new AbortController(); controller.current = tracking;
     try {
       const response = await fetch("/api/commands", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -93,14 +116,14 @@ export function WorkComposer() {
   }
   return <section id="composer" className={`work-composer${busy ? " is-processing" : ""}`} aria-labelledby="composer-heading" aria-busy={busy}>
     <div className="composer-layout">
-      <div className="composer-intro"><span className="section-eyebrow">NEW REQUEST</span><h2 id="composer-heading">What do you need<br className="composer-heading-break" /> to get done?</h2><p>Write it as you would say it. Add one task or a whole list, find a time, or ask for both.</p>
+      <div className="composer-intro"><span className="section-eyebrow">NEW REQUEST</span><h2 id="composer-heading">What do you need<br className="composer-heading-break" /> to get done?</h2><p>Write it as you would say it. Add one task or a whole list, ask about your saved work, find a time, or do it all in one message.</p>
         <a className="composer-context-link" href="/#schedule">See your scheduled work <span aria-hidden="true">&rarr;</span></a>
       </div>
       <form className="composer-form" onSubmit={event => void submit(event)}>
         <div className="composer-input-frame">
           <label className="sr-only" htmlFor="work-request">Work or schedule request</label>
           <textarea id="work-request" value={text} onChange={event => setText(event.target.value)} rows={5} maxLength={1000} required disabled={busy} aria-describedby="composer-help"
-            placeholder={"Buat task berikut:\n1. Siapkan outline presentasi, deadline 13 Oktober, estimasi 30 menit.\n2. Buat halaman web, deadline 18 Oktober, estimasi 2 jam.\n\nAtau: cari waktu besok jam 13-16 untuk belajar selama 30 menit."} />
+            placeholder={"Buat task berikut:\n1. Siapkan outline presentasi, deadline 13 Oktober, estimasi 30 menit.\n2. Buat halaman web, deadline 18 Oktober, estimasi 2 jam.\n\nCari waktu besok jam 13-16 untuk belajar selama 30 menit. Kapan deadline review desain?"} />
           <div className="composer-input-bottom"><span>Indonesian or English. Up to 10 tasks per list.</span><span aria-label={`${text.length} of 1000 characters`}>{text.length.toLocaleString()} / 1,000</span></div>
         </div>
         <div className="composer-footer"><small id="composer-help">Calendar requests create events automatically. Add a duration, or we use your task estimate or 30 minutes.</small>
@@ -108,10 +131,19 @@ export function WorkComposer() {
         </div>
       </form>
     </div>
-    {(message || error || warning || blocks.length > 0) && <div className="composer-response">
+    {(message || error || warning || blocks.length > 0 || answers.length > 0 || issues.length > 0) && <div className="composer-response">
       {message && <p role="status" aria-live="polite" className="composer-message">{message}</p>}
       {error && <p role="alert" className="composer-message">{error}</p>}
       {warning && <p role="alert" className="composer-message composer-warning">{warning}</p>}
+      {issues.map((issue, index) => <p key={index} role="alert" className="composer-message composer-warning">{issue}</p>)}
+      {answers.length > 0 && <ul className="composer-answers" aria-label="Answers from your saved work">{answers.map((item, index) => <li key={index}>
+        <span className="composer-question">{item.question}</span>
+        {item.status === "answered" && item.answer ? <p className="composer-answer">{item.answer}</p>
+          : <p className="composer-answer composer-answer-empty">{item.status === "unavailable" ? "Could not check this question right now. Ask again in a moment." : NO_REFERENCE_NOTE}</p>}
+        {item.references.length > 0 && <ul className="composer-references" aria-label="References">{item.references.map((reference, position) => <li key={position}>
+          <span className="composer-reference-kind">{REFERENCE_LABEL[reference.kind] ?? "Reference"}</span>
+          <strong>{reference.title}</strong>{reference.detail && <small>{reference.detail}</small>}</li>)}</ul>}
+      </li>)}</ul>}
       {defaultDuration && blocks.length > 0 && <p className="composer-note">Duration used: 30 minutes.</p>}
       {blocks.length > 0 && <PaginatedItems as="ul" className="composer-results" label="created Calendar blocks" pageSize={3} items={blocks.map((block, index) => <li key={`${block.start}-${index}`}><strong>{block.title}</strong>
         <span>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: block.timezone }).format(new Date(block.start))} - {new Intl.DateTimeFormat(undefined, { timeStyle: "short", timeZone: block.timezone }).format(new Date(block.end))} ({block.timezone})</span>

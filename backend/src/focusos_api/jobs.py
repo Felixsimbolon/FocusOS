@@ -167,6 +167,43 @@ def _process_capture(token: str, job: dict, source_id: UUID) -> Step:
     return _capture_step(token, job, response)
 
 
+def _plan_step(token: str, plan_id: UUID, checkpoint: dict, previous: dict) -> Step:
+    """Plan one run, then create its Calendar blocks one per step."""
+    from focusos_api.agent_continuation import load_command_run, continue_staged_run
+    from focusos_api.automatic_calendar import schedule_automatic_block, AutomaticCalendarUnavailable
+    from focusos_api.approval_proposal import ProposalRejected
+    run = load_command_run(token, plan_id)
+    if run.status in ("waiting", "running", "pending"):
+        run = continue_staged_run(token, plan_id)
+        if run.status in ("waiting", "running", "pending"):
+            return Step(checkpoint=checkpoint, result={**previous, "stage": run.stage}, delay=2 if run.status == "running" else 0)
+    if run.status != "succeeded" or not run.result or run.result.get("status") != "proposed":
+        return Step("failed", checkpoint, {**previous, "run_id": str(plan_id), "stage": run.stage, "message": (run.result or {}).get("summary", "Could not find a suitable Calendar slot. Try another time window.")}, "planning_not_scheduled")
+    if not run.checkpoint.get("auto_calendar"):
+        return Step("succeeded", checkpoint, {"run_id": str(plan_id), "stage": "done"})
+    index = checkpoint.get("block_index", 0)
+    if index >= len(run.result["blocks"]):
+        result = {**previous, "run_id": str(plan_id), "blocks_scheduled": index}
+        for key in ("warning", "requested_sessions", "planned_sessions", "session_minutes", "shortfall_minutes"):
+            if key in run.result: result[key] = run.result[key]
+        return Step("succeeded", checkpoint, result)
+    try:
+        action = schedule_automatic_block(token, plan_id, index)
+    except (ProposalRejected, AutomaticCalendarUnavailable) as exc:
+        messages = {"calendar_write_required": "Enable Calendar event writes in Google connection, then submit again.",
+                    "profile_required": "Save your timezone and working hours in Preferences.",
+                    "task_changed": "This task was changed or completed. Submit a new request for an active task.",
+                    "plan_expired": "This request expired. Check Calendar before submitting a fresh request.",
+                    "slot_expired": "The proposed slot is no longer available. Try another time window.",
+                    "plan_stale": "Calendar availability changed. Submit a new request."}
+        return Step("failed", checkpoint, {**previous, "message": messages.get(exc.code, "Could not create this Calendar event. Check your connection and try again.")}, exc.code)
+    if action.status == "succeeded":
+        return Step(checkpoint={**checkpoint, "block_index": index + 1}, result={**previous, "run_id": str(plan_id), "blocks_scheduled": index + 1, "blocks": [*(previous.get("blocks") or []), {"title": action.payload.title, "start": action.payload.start.isoformat(), "end": action.payload.end.isoformat(), "timezone": action.payload.timezone, "link": action.provider_link}]})
+    if action.status in ("executing", "approved", "unknown"):
+        raise RetryStep("calendar_pending", 15)
+    return Step("failed", checkpoint, {**previous, "run_id": str(plan_id), "blocks_scheduled": index, "message": "Could not create the Calendar event. Check your Google connection and try again."}, "calendar_not_scheduled")
+
+
 def _step(token: str, job: dict) -> Step:
     from focusos_api.agent_continuation import load_command_run, continue_staged_run
     from focusos_api.automatic_calendar import schedule_automatic_block, AutomaticCalendarUnavailable
@@ -193,40 +230,17 @@ def _step(token: str, job: dict) -> Step:
         return Step("succeeded", checkpoint, job.get("result"))
     if kind == "planning":
         run = load_command_run(token, subject)
-        if run.checkpoint.get("entrypoint") == "unified":
-            from focusos_api.unified_commands import advance_work
+        unified = run.checkpoint.get("entrypoint") == "unified"
+        if unified:
+            from focusos_api.unified_commands import advance_work, schedule_finished
             advance = advance_work(token, job, run)
             if advance is not None: return advance
-        previous = job.get("result") or {}
-        if run.status in ("waiting", "running", "pending"):
-            run = continue_staged_run(token, subject)
-            if run.status in ("waiting", "running", "pending"):
-                return Step(checkpoint=checkpoint, result={**previous, "stage": run.stage}, delay=2 if run.status == "running" else 0)
-        if run.status != "succeeded" or not run.result or run.result.get("status") != "proposed":
-            return Step("failed", checkpoint, {**previous, "run_id": str(subject), "stage": run.stage, "message": (run.result or {}).get("summary", "Could not find a suitable Calendar slot. Try another time window.")}, "planning_not_scheduled")
-        if not run.checkpoint.get("auto_calendar"):
-            return Step("succeeded", checkpoint, {"run_id": str(subject), "stage": "done"})
-        index = checkpoint.get("block_index", 0)
-        if index >= len(run.result["blocks"]):
-            result = {**previous, "run_id": str(subject), "blocks_scheduled": index}
-            for key in ("warning", "requested_sessions", "planned_sessions", "session_minutes", "shortfall_minutes"):
-                if key in run.result: result[key] = run.result[key]
-            return Step("succeeded", checkpoint, result)
-        try:
-            action = schedule_automatic_block(token, subject, index)
-        except (ProposalRejected, AutomaticCalendarUnavailable) as exc:
-            messages = {"calendar_write_required": "Enable Calendar event writes in Google connection, then submit again.",
-                        "profile_required": "Save your timezone and working hours in Preferences.",
-                        "task_changed": "This task was changed or completed. Submit a new request for an active task.",
-                        "plan_expired": "This request expired. Check Calendar before submitting a fresh request.",
-                        "slot_expired": "The proposed slot is no longer available. Try another time window.",
-                        "plan_stale": "Calendar availability changed. Submit a new request."}
-            return Step("failed", checkpoint, {**previous, "message": messages.get(exc.code, "Could not create this Calendar event. Check your connection and try again.")}, exc.code)
-        if action.status == "succeeded":
-            return Step(checkpoint={**checkpoint, "block_index": index + 1}, result={**previous, "run_id": str(subject), "blocks_scheduled": index + 1, "blocks": [*(previous.get("blocks") or []), {"title": action.payload.title, "start": action.payload.start.isoformat(), "end": action.payload.end.isoformat(), "timezone": action.payload.timezone, "link": action.provider_link}]})
-        if action.status in ("executing", "approved", "unknown"):
-            raise RetryStep("calendar_pending", 15)
-        return Step("failed", checkpoint, {**previous, "run_id": str(subject), "blocks_scheduled": index, "message": "Could not create the Calendar event. Check your Google connection and try again."}, "calendar_not_scheduled")
+        # A combined request plans its later schedules on their own runs.
+        plan_id = UUID(checkpoint["plan_run_id"]) if unified and checkpoint.get("plan_run_id") else subject
+        step = _plan_step(token, plan_id, checkpoint, job.get("result") or {})
+        if unified and step.status in ("succeeded", "failed"):
+            return schedule_finished(token, job, load_command_run(token, subject), step)
+        return step
     if kind == "embedding":
         state = embed_memory(token, subject).state
         if state in ("busy", "failed"): raise RetryStep("embedding_unavailable", 30)

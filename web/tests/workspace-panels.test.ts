@@ -18,9 +18,10 @@ beforeEach(() => {
   state.values = [];
   vi.stubGlobal("React", React);
 });
-function composer(overrides: { text?: string; busy?: boolean; message?: string; error?: string; blocks?: unknown[]; defaultDuration?: boolean; warning?: string } = {}) {
+function composer(overrides: { text?: string; busy?: boolean; message?: string; error?: string; blocks?: unknown[]; defaultDuration?: boolean; warning?: string; answers?: unknown[]; issues?: string[] } = {}) {
   state.values = [overrides.text ?? "", overrides.busy ?? false, overrides.message ?? "",
-    overrides.error ?? "", overrides.blocks ?? [], overrides.defaultDuration ?? false, overrides.warning ?? ""];
+    overrides.error ?? "", overrides.blocks ?? [], overrides.defaultDuration ?? false, overrides.warning ?? "",
+    overrides.answers ?? [], overrides.issues ?? []];
   return renderToStaticMarkup(React.createElement(WorkComposer));
 }
 const answer = {
@@ -84,6 +85,35 @@ describe("What do you need to get done? rendering", () => {
     expect(html).toContain("Study");
     expect(html).toContain("Duration used: 30 minutes.");
     expect(html).not.toContain("Open in Google Calendar");
+  });
+});
+
+describe("answers inside the composer", () => {
+  it("shows a grounded answer with the task it came from", () => {
+    const html = composer({ message: "Checked 1 question(s) against your saved work.", answers: [{
+      question: "Kapan deadline halaman web?", status: "answered", answer: "18 Oktober 2026.",
+      references: [{ kind: "task", title: "Buat halaman web", detail: "open, due 2026-10-18" }] }] });
+    expect(html).toContain("Kapan deadline halaman web?");
+    expect(html).toContain("18 Oktober 2026.");
+    expect(html).toContain("Buat halaman web");
+    expect(html).toContain("open, due 2026-10-18");
+    expect(html).toContain(">Task<");
+  });
+  it("says plainly when nothing saved answers the question", () => {
+    const html = composer({ answers: [{ question: "Berapa budget proyek?", status: "no_reference", answer: null, references: [] }] });
+    expect(html).toContain("Berapa budget proyek?");
+    expect(html).toContain("No reference found in your saved tasks, memories, or scheduled work.");
+    expect(html).not.toContain('class="composer-references"');
+  });
+  it("does not present a provider outage as a missing reference", () => {
+    const html = composer({ answers: [{ question: "Kapan rapat?", status: "unavailable", answer: null, references: [] }] });
+    expect(html).toContain("Could not check this question right now");
+    expect(html).not.toContain("No reference found");
+  });
+  it("shows a failed part as an alert next to the parts that worked", () => {
+    const html = composer({ message: "Saved 1 task(s) and 1 memory item(s).", issues: ["review desain: Not enough free time."] });
+    expect(html).toContain('role="status"');
+    expect(html).toContain('role="alert" class="composer-message composer-warning">review desain: Not enough free time.');
   });
 });
 

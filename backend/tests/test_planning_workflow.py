@@ -110,7 +110,7 @@ class WorkflowHarness:
             self.vector = json.loads(args["p_vector"])
             self.memory["embedding_status"] = "ready"
             data = True
-        elif name == "focusos_search_memories":
+        elif name in ("focusos_search_memories", "focusos_search_memories_hybrid"):
             data = [{**self.memory, "source_ref": self.source.source_ref, "match_kind": "semantic", "score": 0.99}]
         else:
             raise AssertionError(name)

@@ -713,6 +713,16 @@ body .deadline-day-preview,body .deadline-task-list li { background:#f8f9f5; bor
 .composer-results li { display:grid; gap:.45rem; padding:1rem; border:1px solid var(--workspace-line); border-radius:.5rem; }
 .composer-results span { color:#43554a; font-size:.85rem; }
 .composer-results a { color:#1d526d; font-size:.85rem; font-weight:650; }
+.composer-answers { display:grid; gap:.8rem; margin:1rem 0 0; padding:0; list-style:none; }
+.composer-answers > li { display:grid; gap:.55rem; padding:1rem; border:1px solid #bccdb1; border-radius:.5rem; background:#f1f6ec; }
+.composer-question { color:#56645d; font-size:.8rem; font-weight:650; }
+.composer-answer { margin:0; color:#2e4930; line-height:1.6; overflow-wrap:anywhere; }
+.composer-answer-empty { color:#5c6c54; font-style:italic; }
+.composer-references { display:grid; gap:.4rem; margin:0; padding:.6rem 0 0; border-top:1px solid #dce3d5; list-style:none; }
+.composer-references li { display:flex; flex-wrap:wrap; align-items:baseline; gap:.2rem .5rem; font-size:.8rem; color:#40543b; min-width:0; }
+.composer-references strong { font-weight:600; overflow-wrap:anywhere; }
+.composer-references small { flex-basis:100%; color:#65765e; overflow-wrap:anywhere; }
+.composer-reference-kind { padding:.05rem .4rem; border:1px solid #bccdb1; border-radius:.25rem; font-size:.65rem; letter-spacing:.04em; text-transform:uppercase; color:#5c6c54; }
 /* Alerts remain visible against paper and neutral cards; text carries the meaning. */
 body [role="alert"] { padding:1rem 1.1rem; border:1px solid #e39a9a; border-left:5px solid #b4232c; border-radius:.4rem; background:#fff0f0; color:#871d27 !important; font-size:.9rem; font-weight:600; line-height:1.6; overflow-wrap:anywhere; scroll-margin-top:7rem; }
 body [role="alert"]::before { content:"Attention"; display:block; margin-bottom:.2rem; font-size:.72rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#9a1d29; }

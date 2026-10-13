@@ -221,7 +221,9 @@ def _planning_step(access_token: str, run: AgentRunState) -> AgentRunState:
             raw = {"status": "selected", "task_refs": [], "duration_minutes": None,
                    "day": "any", "date": None, "start_time": None, "end_time": None,
                    "evidence_refs": [], "questions": []}
-        result, free = compile_plan(raw, tasks, leased.checkpoint, profile, command=leased.command)
+        # A combined request binds each plan only to its own quoted part.
+        result, free = compile_plan(raw, tasks, leased.checkpoint, profile,
+                                    command=leased.checkpoint.get("constraint_text") or leased.command)
         checkpoint = {**leased.checkpoint, "free_time": free.model_dump(mode="json"),
                       "resolved_duration_minutes": free.requested_minutes}
         status, error = ("succeeded" if result["status"] == "proposed" else "clarify"), None

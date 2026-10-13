@@ -100,3 +100,23 @@ def embed_memory(access_token: str, memory_id: UUID) -> EmbeddingState:
     if saved is not True:
         raise DatabaseUnavailable("Embedding lease or source changed")
     return EmbeddingState(state="ready", memory_id=memory_id)
+
+
+def refresh_stale_embeddings(access_token: str, limit: int = 6) -> int:
+    """Re-index memories whose vector was reset, e.g. by a task edit, before answering.
+
+    Editing a task rewrites its memory and clears the vector, but nothing queued a
+    new embedding, so edited tasks silently dropped out of semantic search.
+    """
+    with scoped_client(access_token) as (owner, client):
+        rows = (client.table("memories").select("id").eq("user_id", owner).eq("status", "active")
+                .in_("embedding_status", ["pending", "failed"])
+                .order("updated_at", desc=True).limit(limit).execute().data)
+    refreshed = 0
+    for row in rows if isinstance(rows, list) else []:
+        try:
+            if embed_memory(access_token, UUID(str(row["id"]))).state == "ready":
+                refreshed += 1
+        except DatabaseUnavailable:
+            continue
+    return refreshed

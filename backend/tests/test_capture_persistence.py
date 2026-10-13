@@ -73,7 +73,7 @@ class Store:
         elif name == "focusos_finish_memory_embedding":
             row = next(r for r in self.memories.values() if r["id"] == args["p_memory_id"])
             row["embedding_status"] = "ready"; data = True
-        elif name == "focusos_search_memories":
+        elif name in ("focusos_search_memories", "focusos_search_memories_hybrid"):
             rows = sorted(self.memories.values(), key=lambda r: r["text"] != FACT)
             data = [{**r,"source_ref":self.source.source_ref,"match_kind":"semantic","score":0.95} for r in rows]
         else: raise AssertionError(name)

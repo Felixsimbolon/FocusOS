@@ -163,14 +163,12 @@ class BatchExtractorTests(unittest.TestCase):
         provider.assert_not_called()
 
     def test_batch_capture_intent_does_not_request_calendar_without_reservation(self):
-        value = WorkIntent.model_validate({**intent("capture").model_dump(),
-            "selection": {**intent().selection.model_dump(), "task_refs": [], "duration_minutes": None,
-                "day": "any", "date": None, "start_time": None, "end_time": None}})
+        value = intent("capture")
         response = {"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": value.model_dump_json()}]}}]}
         with patch("focusos_api.unified_commands.api_key", return_value="synthetic"), patch("focusos_api.unified_commands.request", return_value=response):
             parsed = infer_work(BODY, [], NOW.isoformat(), "Asia/Jakarta")
         self.assertEqual(parsed.action, "capture")
-        self.assertEqual(parsed.selection.task_refs, [])
+        self.assertEqual((parsed.schedules, parsed.questions), ([], []))
 
 
 class BatchPersistenceTests(unittest.TestCase):

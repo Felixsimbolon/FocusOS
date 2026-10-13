@@ -10,19 +10,31 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from pydantic import ValidationError
-from focusos_api.unified_commands import WorkInput, WorkIntent, infer_work, advance_work
+from focusos_api.unified_commands import WorkInput, WorkIntent, ScheduleIntent, infer_work, advance_work
 from focusos_api.jobs import _step, RetryStep
 from focusos_api.approval_payload import CalendarAction, canonical_action_hash
 from focusos_api.approval_proposal import ApprovalRecord
 from focusos_api.planning_compiler import compile_plan
+from focusos_api.planning_selection import PlanningSelection
 from test_planning_compiler import NOW, PROFILE, TASK, checkpoint, selection, busy
 from test_planning_workflow import WorkflowHarness
 
 TEXT = "Cari waktu besok antara jam 13 sampai 16 untuk belajar Python selama 45 menit."
 
-def intent(action="schedule", **changes):
-    return WorkIntent(action=action, title_quote="belajar Python", explanation="Reserve time for studying.",
-        selection=selection(task_refs=[], day="tomorrow", duration_minutes=45, start_time="13:00", end_time="16:00", **changes))
+def sel(**changes):
+    return PlanningSelection.model_validate(selection(**{"task_refs": [], "day": "tomorrow", "duration_minutes": 45, "start_time": "13:00", "end_time": "16:00", **changes}))
+
+def intent(action="schedule", selection_value=None, title_quote="belajar Python", request_quote=TEXT, questions=(), **changes):
+    """Build the multi-part contract from the old single-action shorthand."""
+    value = selection_value or sel(**changes)
+    schedules = []
+    if action in ("schedule", "both"):
+        target = "new" if action == "both" else "existing" if value.task_refs else "activity"
+        schedules.append(ScheduleIntent(target=target, title_quote=title_quote if target == "activity" else None,
+                                        request_quote=request_quote, selection=value))
+    clarification = (value.questions or ["Which activity do you mean?"])[0] if action == "clarify" else None
+    return WorkIntent(capture=action in ("capture", "both"), questions=list(questions), schedules=schedules,
+                      clarification=clarification, explanation="Reserve time for studying.")
 
 class UnifiedHarness(WorkflowHarness):
     def enter(self):
@@ -78,7 +90,7 @@ class UnifiedWorkflowTests(unittest.TestCase):
         self.assertEqual(self.h.insert_count, 1)
     def test_saved_task_is_scheduled_without_new_source_or_task(self):
         self.h.extract_and_capture()
-        self.h.work_intent = intent().model_copy(update={"title_quote":None,"selection":intent().selection.model_copy(update={"task_refs":["task-1"],"duration_minutes":30})})
+        self.h.work_intent = intent(task_refs=["task-1"], duration_minutes=30)
         with patch("focusos_api.unified_commands.create_manual_source") as create:
             step, _ = self.h.drain(self.h.start("Schedule the FocusOS demo checklist for 30 minutes tomorrow between 13 and 16"))
             create.assert_not_called()
@@ -97,7 +109,7 @@ class UnifiedWorkflowTests(unittest.TestCase):
         self.h.drain(job)
         self.assertEqual(self.h.insert_count,1)
     def test_insufficient_requested_window_has_no_calendar_write(self):
-        self.h.work_intent = intent().model_copy(update={"selection":intent().selection.model_copy(update={"duration_minutes":240})})
+        self.h.work_intent = intent(duration_minutes=240)
         step, _ = self.h.drain(self.h.start(TEXT.replace("45 menit","240 menit")))
         self.assertEqual(step.status,"failed")
         self.assertIn("not enough",step.result["message"])
@@ -158,7 +170,7 @@ class UnifiedWorkflowTests(unittest.TestCase):
 
     def test_both_captures_then_schedules_only_tasks_from_this_source(self):
         job=self.h.start("Create a task to prepare the FocusOS demo checklist and schedule it for 30 minutes tomorrow between 13 and 16.")
-        self.h.work_intent=intent("both").model_copy(update={"selection":intent().selection.model_copy(update={"duration_minutes":30})})
+        self.h.work_intent=intent("both",duration_minutes=30)
         def capture(*_):
             result=self.h.extract_and_capture()
             return SimpleNamespace(extraction=SimpleNamespace(status="ready"),capture={**result,"memory_ids":[]})
@@ -184,11 +196,14 @@ class UnifiedWorkflowTests(unittest.TestCase):
         response=SimpleNamespace(extraction=SimpleNamespace(status="ready"),capture={"tasks_saved":1,"memories_saved":1,"memory_ids":[]})
         with patch("focusos_api.unified_commands.create_manual_source",return_value=SimpleNamespace(source=SimpleNamespace(id=self.h.source_id))), patch("focusos_api.unified_commands.process_and_capture",return_value=response), patch("focusos_api.unified_commands.read_profile",return_value=None):
             step,_=self.h.drain(job)
-        self.assertEqual(step.status,"failed")
+        # The saved task is a success of its own; the schedule part reports why it could not run.
+        self.assertEqual(step.status,"succeeded")
         self.assertEqual(step.result["tasks_saved"],1)
+        self.assertEqual(step.result["schedules"][0]["status"],"failed")
         self.assertIn("Preferences",step.result["message"])
+        self.assertEqual(self.h.insert_count,0)
     def test_ambiguity_is_terminal_without_any_capture_or_write(self):
-        self.h.work_intent=intent("clarify").model_copy(update={"selection":intent().selection.model_copy(update={"status":"needs_clarification","questions":["Which activity do you mean?"]})})
+        self.h.work_intent=intent("clarify")
         with patch("focusos_api.unified_commands.create_manual_source") as source:
             step,_=self.h.drain(self.h.start())
             source.assert_not_called()
@@ -199,8 +214,9 @@ class WorkValidationTests(unittest.TestCase):
     def provider_result(self,value):
         return {"candidates":[{"finishReason":"STOP","content":{"parts":[{"text":json.dumps(value)}]}}]}
     def test_model_cannot_invent_activity_task_or_evidence(self):
-        valid=intent().model_dump()
-        for value in ({**valid,"title_quote":"invented meeting"}, {**valid,"selection":{**valid["selection"],"task_refs":["task-999"]}}, {**valid,"selection":{**valid["selection"],"evidence_refs":["source-forged"]}}):
+        valid=intent().model_dump(); schedule=valid["schedules"][0]
+        for change in ({"title_quote":"invented meeting"}, {"selection":{**schedule["selection"],"task_refs":["task-999"]}}, {"selection":{**schedule["selection"],"evidence_refs":["source-forged"]}}, {"request_quote":"tomorrow at an invented time"}):
+            value={**valid,"schedules":[{**schedule,**change}]}
             with patch("focusos_api.unified_commands.api_key",return_value="synthetic"),patch("focusos_api.unified_commands.request",return_value=self.provider_result(value)):
                 with self.assertRaises(RetryStep):infer_work(TEXT,[],NOW.isoformat(),PROFILE.timezone)
     def test_provider_contract_accepts_capture_schedule_and_both_with_indonesian_requests(self):
@@ -211,15 +227,16 @@ class WorkValidationTests(unittest.TestCase):
             ("both", "Buat tugas belajar Python dan jadwalkan besok antara jam 13 sampai 16 selama 45 menit."),
         ]
         for action, text in cases:
-            with self.subTest(action=action), patch("focusos_api.unified_commands.api_key", return_value="synthetic"), patch("focusos_api.unified_commands.request", return_value=self.provider_result(intent(action).model_dump())):
+            with self.subTest(action=action), patch("focusos_api.unified_commands.api_key", return_value="synthetic"), patch("focusos_api.unified_commands.request", return_value=self.provider_result(intent(action, request_quote=text).model_dump())):
                 result = infer_work(text, [], NOW.isoformat(), PROFILE.timezone)
                 self.assertEqual(result.action, action)
-                self.assertEqual(result.selection.task_refs, [])
+                self.assertTrue(all(schedule.selection.task_refs == [] for schedule in result.schedules))
 
     def test_capture_and_both_cannot_bind_an_unrelated_existing_task(self):
         for action in ("capture", "both"):
-            invalid = intent(action).model_dump()
-            invalid["selection"]["task_refs"] = ["task-1"]
+            invalid = intent("both").model_dump()
+            invalid["schedules"][0]["selection"]["task_refs"] = ["task-1"]
+            if action == "capture": invalid["schedules"][0]["target"] = "activity"
             with self.subTest(action=action), patch("focusos_api.unified_commands.api_key", return_value="synthetic"), patch("focusos_api.unified_commands.request", return_value=self.provider_result(invalid)):
                 with self.assertRaises(RetryStep) as raised:
                     infer_work("Buat tugas matematika", [TASK], NOW.isoformat(), PROFILE.timezone)

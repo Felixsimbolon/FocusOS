@@ -20,9 +20,10 @@ from test_planning_compiler import NOW as WORKER_NOW, PROFILE, TASK, selection
 from test_unified_commands import UnifiedHarness, intent
 
 
-def session_intent(**changes):
-    base = intent()
-    return WorkIntent.model_validate({**base.model_dump(), "selection": {**base.selection.model_dump(), **changes}})
+def session_intent(title_quote="belajar Python", request_quote=None, **changes):
+    base = intent().schedules[0].selection
+    value = type(base).model_validate({**base.model_dump(), **changes})
+    return intent(selection_value=value, title_quote=title_quote, **({"request_quote": request_quote} if request_quote else {}))
 
 NOW = datetime(2026, 10, 9, 1, tzinfo=timezone.utc)
 ZONE = ZoneInfo("Asia/Jakarta")
@@ -136,12 +137,11 @@ class SpacedSessionTests(unittest.TestCase):
         self.assertIsNone(grounded_sessions(COMMAND.replace("bulan ini", "bulan depan"), NOW.isoformat(), PROFILE.timezone))
 
     def test_intent_provider_cannot_drop_explicit_spaced_session_details(self):
-        value = session_intent(day="any", duration_minutes=120, start_time=None, end_time=None).model_dump()
-        value["title_quote"] = "bikin web"
+        value = session_intent(title_quote="bikin web", request_quote=COMMAND, day="any", duration_minutes=120, start_time=None, end_time=None).model_dump()
         response = {"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": json.dumps(value)}]}}]}
         with patch("focusos_api.unified_commands.api_key", return_value="synthetic-key"), patch("focusos_api.unified_commands.request", return_value=response):
             result = infer_work(COMMAND, [], NOW.isoformat(), PROFILE.timezone)
-        self.assertEqual(result.selection.sessions.model_dump(), REQUEST)
+        self.assertEqual(result.schedules[0].selection.sessions.model_dump(), REQUEST)
 
     def test_partial_validation_requires_explicit_opt_in(self):
         result, free = self.plan([blocked(15), blocked(16)])
