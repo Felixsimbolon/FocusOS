@@ -1,9 +1,13 @@
-﻿"""Small Gemini GenerateContent adapter shared by bounded model calls."""
+"""Small Gemini GenerateContent adapter shared by bounded model calls."""
 import logging
 import re
 import os
+import sys
+import time
 
 import httpx
+
+from focusos_api import observability
 
 MODEL = "gemini-3.5-flash-lite"
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
@@ -24,10 +28,16 @@ def url(model: str = MODEL, method: str = "generateContent") -> str:
     return f"{BASE_URL}/{model}:{method}"
 
 
-def request(payload: dict, timeout: float, max_bytes: int) -> dict:
-    response = httpx.post(
-        url(), headers={"x-goog-api-key": api_key()}, json=payload, timeout=timeout
-    )
+def request(payload: dict, timeout: float, max_bytes: int, purpose: str = "generate") -> dict:
+    observability.check_budget()
+    started = time.monotonic()
+    try:
+        response = httpx.post(
+            url(), headers={"x-goog-api-key": api_key()}, json=payload, timeout=timeout
+        )
+    except httpx.HTTPError as exc:
+        observability.record(purpose, "generate", MODEL, started, exc)
+        raise
     try:
         response.raise_for_status()
     except httpx.HTTPStatusError:
@@ -55,6 +65,7 @@ def request(payload: dict, timeout: float, max_bytes: int) -> dict:
             response.status_code, provider_status or "unknown",
             reason or "unknown", field or "unknown", MODEL,
         )
+        observability.record(purpose, "generate", MODEL, started, sys.exc_info()[1])
         raise
     except httpx.HTTPError as exc:
         logger.warning(
@@ -63,10 +74,14 @@ def request(payload: dict, timeout: float, max_bytes: int) -> dict:
         )
         raise
     if len(response.content) > max_bytes:
+        observability.record(purpose, "generate", MODEL, started)
         raise GeminiResponseError("oversize_response")
     data = response.json()
     if not isinstance(data, dict):
+        observability.record(purpose, "generate", MODEL, started)
         raise GeminiResponseError("malformed")
+    prompt_tokens, output_tokens = usage(data)
+    observability.record(purpose, "generate", MODEL, started, prompt_tokens=prompt_tokens, output_tokens=output_tokens)
     return data
 
 

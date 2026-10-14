@@ -58,6 +58,12 @@ describe("product proxy", () => {
       ).status,
     ).toBe(404);
   });
+  it("forwards the usage summary with the server session only", async () => {
+    const r = await GET(new NextRequest("http://localhost"), ctx(["usage"]));
+    expect(r.status).toBe(200);
+    expect(vi.mocked(fetch).mock.calls[0][0]).toBe("https://api.example.test/product/usage");
+    expect(r.headers.get("Cache-Control")).toBe("no-store");
+  });
   it("redacts arbitrary upstream failure details", async () => {
     vi.mocked(fetch).mockResolvedValue(
       Response.json({ detail: "private provider content" }, { status: 500 }),

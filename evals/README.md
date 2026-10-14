@@ -17,3 +17,8 @@ Run `python evals/score.py` after the runner. The scorer requires one observatio
 ## Planning regression and synthetic live evaluation
 
 Run `python evals/planning_eval.py --mock` for eight deterministic backend cases with fixture model selections. This is regression coverage, not model accuracy. Run `python evals/planning_eval.py --live` only with `GEMINI_API_KEY` configured privately to exercise Gemini on the same synthetic tasks. Both modes compile against a synthetic Calendar and never write real events. Results, model/prompt/schema versions, and denominators are saved to ignored `evals/output/planning.json`. See [planning hardening](../docs/planning-hardening.md).
+
+
+## Memory retrieval and grounded answers
+
+`python evals/qa_eval.py --mock` scores retrieval (legacy vs keyword vs hybrid) and the full `answer_questions` pipeline on the synthetic workspace in `qa_corpus.json` / `qa_cases.jsonl`, with an oracle in place of Gemini. It checks plumbing, scoring and keyword retrieval, not model quality, and fails CI below the recorded baseline. `--live` (requires `GEMINI_API_KEY`) uses real embeddings and answers; `--judge` adds an LLM-as-judge faithfulness rate. `--k`, `--rrf-k` and `--semantic-threshold` mirror the SQL parameters for experiments. See [evaluation](../docs/evaluation.md).

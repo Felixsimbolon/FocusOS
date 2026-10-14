@@ -84,7 +84,7 @@ def select_planning_intent(command: str, tasks: list[dict], memory_search: dict,
     )
     try:
         data = request(structured_payload(instruction, body, _schema(), 1000),
-                       timeout=20.0, max_bytes=65536)
+                       timeout=20.0, max_bytes=65536, purpose="plan")
         value = json.loads(output_text(data))
     except httpx.TimeoutException as exc:
         raise PlanningModelError("planning_timeout") from exc

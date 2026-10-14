@@ -40,7 +40,7 @@ class AnswerTests(unittest.TestCase):
             "focusos_api.memory_answers.refresh_stale_embeddings": lambda *_: 0,
             "focusos_api.memory_answers.list_tasks": lambda *a, **k: SimpleNamespace(tasks=self.tasks, truncated=False),
             "focusos_api.memory_answers._scheduled_work": lambda *_: [],
-            "focusos_api.memory_answers.embed_text": lambda *_: [0.1] * 256,
+            "focusos_api.memory_answers.embed_text": lambda *_, **__: [0.1] * 256,
             "focusos_api.memory_answers.hybrid_matches": lambda *_: self.memories,
         }
         for target, fake in patches.items():

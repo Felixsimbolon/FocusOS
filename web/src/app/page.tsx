@@ -5,6 +5,7 @@ import { WorkComposer } from "./work-composer";
 import { GmailSyncPanel } from "./activity/gmail-sync-panel";
 import { Preferences } from "./settings/preferences";
 import { ScheduleBoard } from "./schedule/schedule-board";
+import { UsagePanel } from "./usage/usage-panel";
 
 export const dynamic = "force-dynamic";
 const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -44,6 +45,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
         <div id="tasks" className="workspace-tasks"><TaskBoard /></div>
         <div className="workspace-secondary workspace-secondary-single">
           <details id="schedule" className="home-panel schedule-panel" open><summary><span>Scheduled work</span><small>Your Calendar</small></summary><div className="home-panel-body"><ScheduleBoard /></div></details>
+          <details id="usage" className="home-panel usage-panel"><summary><span>AI usage</span><small>Last 7 days</small></summary><div className="home-panel-body"><UsagePanel /></div></details>
         </div>
         <Preferences profile={me.data.profile} saved={params.saved} error={params.error} />
       </>}

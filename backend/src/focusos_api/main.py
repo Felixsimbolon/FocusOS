@@ -1,8 +1,11 @@
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from uuid import UUID
 from datetime import datetime
 
+from focusos_api import observability
 from focusos_api.agent_continuation import (AgentRunInput, AgentRunState, CommandRequestConflict, CommandRunNotFound, continue_staged_run, load_command_run, list_run_tools, start_staged_run)
 from focusos_api.approval_proposal import ApprovalRecord, ProposalInput, ProposalRejected, propose_calendar_event
 from focusos_api.approval_decisions import DecisionInput, decide_approval, list_approvals
@@ -88,6 +91,28 @@ from focusos_api.tasks import (
 )
 
 app = FastAPI(title="FocusOS API", version="0.1.0")
+
+
+@app.middleware("http")
+async def model_call_telemetry(request: Request, call_next):
+    """Record model calls made while serving one authenticated request."""
+    scheme, _, token = request.headers.get("authorization", "").partition(" ")
+    # The worker tick carries a shared secret, not a user session; its jobs bind their own scope.
+    if scheme.lower() != "bearer" or not token or request.url.path.startswith("/internal/"):
+        return await call_next(request)
+    # Endpoints run in a thread pool that copies this context, so their calls land in this scope.
+    scope, reset = observability.open_scope(token)
+    try:
+        return await call_next(request)
+    finally:
+        observability.close_scope(reset)
+        if scope.calls:
+            await run_in_threadpool(observability.flush, scope)
+
+
+@app.exception_handler(observability.BudgetExceeded)
+def budget_exceeded(_: Request, __: observability.BudgetExceeded):
+    return JSONResponse(status_code=429, content={"detail": "Today's AI usage limit is reached. Try again tomorrow."})
 from focusos_api.job_routes import router as jobs_router
 app.include_router(jobs_router)
 from focusos_api.product import router as product_router

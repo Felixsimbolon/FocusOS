@@ -103,7 +103,7 @@ def extract_structured(source_ref: str, body: str, reference_time: datetime,
             instruction += "\n" + ("Previous request timed out. Return the JSON promptly." if previous_timeout else repair_hint)
         payload = structured_payload(instruction, source_data, _provider_schema(), 6000)
         try:
-            data = request(payload, timeout=25.0, max_bytes=262144)
+            data = request(payload, timeout=25.0, max_bytes=262144, purpose="extract")
             input_tokens, output_tokens = usage(data)
             candidate = ExtractionEnvelope.model_validate_json(output_text(data))
             validate_grounding(candidate, source_ref, body, reference_time)

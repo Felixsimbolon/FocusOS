@@ -1,0 +1,24 @@
+{"id": "q01", "category": "task", "question": "Kapan deadline halaman web portofolio?", "expected_status": "answered", "expected_refs": ["T-web"], "acceptable_refs": ["M-task-web"], "answer_any": ["18"]}
+{"id": "q02", "category": "memory", "question": "Siapa audiens demo Nusa?", "expected_status": "answered", "expected_refs": ["M-audience"], "acceptable_refs": [], "answer_any": ["backend"]}
+{"id": "q03", "category": "memory", "question": "What is the code name of the FocusOS demo project?", "expected_status": "answered", "expected_refs": ["M-codename"], "acceptable_refs": [], "answer_any": ["Nusa"]}
+{"id": "q04", "category": "memory", "question": "Where is the Nusa demo held?", "expected_status": "answered", "expected_refs": ["M-venue"], "acceptable_refs": [], "answer_any": ["Merapi"]}
+{"id": "q05", "category": "task", "question": "Outline presentasi Nusa sudah selesai belum?", "expected_status": "answered", "expected_refs": ["T-outline"], "acceptable_refs": [], "answer_any": ["sudah", "selesai", "done"]}
+{"id": "q06", "category": "task", "question": "Task apa saja yang deadline-nya minggu ini dan belum selesai?", "expected_status": "answered", "expected_refs": ["T-web", "T-review", "T-slides"], "acceptable_refs": ["E-review"], "answer_any": ["portofolio", "dashboard", "slides"]}
+{"id": "q07", "category": "memory", "question": "Who should receive the Q4 budget report?", "expected_status": "answered", "expected_refs": ["M-budget-owner"], "acceptable_refs": ["T-budget"], "answer_any": ["Maria"]}
+{"id": "q08", "category": "memory", "question": "Berapa batas budget marketing Q4?", "expected_status": "answered", "expected_refs": ["M-budget-limit"], "acceptable_refs": [], "answer_any": ["50"]}
+{"id": "q09", "category": "memory", "question": "Kapan saya bimbingan skripsi?", "expected_status": "answered", "expected_refs": ["M-thesis"], "acceptable_refs": [], "answer_any": ["Kamis", "Thursday"]}
+{"id": "q10", "category": "event", "question": "Kapan jadwal belajar Python?", "expected_status": "answered", "expected_refs": ["E-study"], "acceptable_refs": [], "answer_any": ["15", "13:00", "13.00"]}
+{"id": "q11", "category": "memory", "question": "What should the demo slides focus on?", "expected_status": "answered", "expected_refs": ["M-slides-tone"], "acceptable_refs": ["T-slides"], "answer_any": ["latency"]}
+{"id": "q12", "category": "memory", "question": "Pakai framework apa untuk web portofolio?", "expected_status": "answered", "expected_refs": ["M-stack"], "acceptable_refs": ["M-task-web", "T-web"], "answer_any": ["Next.js", "Next"]}
+{"id": "q13", "category": "memory", "question": "Apa nama Wi-Fi kantor?", "expected_status": "answered", "expected_refs": ["M-wifi"], "acceptable_refs": [], "answer_any": ["FocusLab"]}
+{"id": "q14", "category": "memory", "question": "Klien minta perubahan apa untuk dashboard?", "expected_status": "answered", "expected_refs": ["M-design-feedback"], "acceptable_refs": [], "answer_any": ["kontras", "contrast"]}
+{"id": "q15", "category": "paraphrase", "question": "Who is my thesis supervisor?", "expected_status": "answered", "expected_refs": ["M-thesis"], "acceptable_refs": [], "answer_any": ["Ratna"]}
+{"id": "q16", "category": "paraphrase", "question": "How much does my fitness subscription cost?", "expected_status": "answered", "expected_refs": ["M-gym"], "acceptable_refs": ["T-gym"], "answer_any": ["350"]}
+{"id": "q17", "category": "memory", "question": "Kapan kontrak dengan Sinar Data habis?", "expected_status": "answered", "expected_refs": ["M-contract"], "acceptable_refs": ["M-andi"], "answer_any": ["31 Desember", "31 December", "2026-12-31"]}
+{"id": "q18", "category": "paraphrase", "question": "Rapat harian tim jam berapa?", "expected_status": "answered", "expected_refs": ["M-standup"], "acceptable_refs": [], "answer_any": ["09:30", "9:30", "09.30"]}
+{"id": "q19", "category": "unanswerable", "question": "Berapa gaji saya bulan ini?", "expected_status": "no_reference", "expected_refs": [], "acceptable_refs": [], "answer_any": []}
+{"id": "q20", "category": "unanswerable", "question": "What is Maria's phone number?", "expected_status": "no_reference", "expected_refs": [], "acceptable_refs": [], "answer_any": []}
+{"id": "q21", "category": "unanswerable", "question": "Kapan deadline laporan pajak?", "expected_status": "no_reference", "expected_refs": [], "acceptable_refs": [], "answer_any": []}
+{"id": "q22", "category": "unanswerable", "question": "Siapa CEO PT Sinar Data?", "expected_status": "no_reference", "expected_refs": [], "acceptable_refs": [], "answer_any": []}
+{"id": "q23", "category": "unanswerable", "question": "Where is the gym located?", "expected_status": "no_reference", "expected_refs": [], "acceptable_refs": [], "answer_any": []}
+{"id": "q24", "category": "unanswerable", "question": "Apa password Wi-Fi kantor?", "expected_status": "no_reference", "expected_refs": [], "acceptable_refs": [], "answer_any": []}

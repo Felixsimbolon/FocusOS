@@ -11,6 +11,7 @@ from focusos_api.calendar_cancel import CancellationUnavailable, cancel_focus_bl
 from focusos_api.token_crypto import TokenCipher, TokenCipherError
 from focusos_api.extractor import MODEL
 from focusos_api.memory_embeddings import EMBED_MODEL, EMBED_DIM
+from focusos_api.profiles import read_profile
 
 router=APIRouter(prefix="/product")
 EXPORT_FIELDS={
@@ -76,8 +77,22 @@ def focus_blocks(token: str):
   rows=client.table("approval_requests").select("id,run_id,task_id,status,payload,provider_link,safe_code,cancellation_status,cancellation_error,created_at").eq("user_id",owner).order("created_at",desc=True).limit(100).execute().data
  return rows
 
+def usage(token: str) -> dict:
+ """Seven days of model usage in the user's timezone, plus the configured daily budget."""
+ from focusos_api.observability import cost_configured, daily_token_budget
+ profile=read_profile(token)
+ with scoped_client(token) as (_,client):
+  data=client.rpc("focusos_llm_usage",{"p_days":7,"p_timezone":profile.timezone if profile else "UTC"}).execute().data
+ if not isinstance(data,dict): raise DatabaseUnavailable("Usage unavailable")
+ budget=daily_token_budget()
+ return {**data,"timezone":profile.timezone if profile else "UTC","daily_token_budget":budget or None,
+   "budget_used_ratio":round(data.get("today_tokens",0)/budget,4) if budget else None,
+   "cost_configured":cost_configured()}
+
 @router.get("/diagnostics")
 def diag(token: str=Depends(access)): return protected(diagnostics,token)
+@router.get("/usage")
+def usage_route(token: str=Depends(access)): return protected(usage,token)
 @router.get("/history")
 def runs(token: str=Depends(access)): return protected(history,token)
 @router.get("/export")

@@ -2,12 +2,14 @@
 import base64
 import json
 import logging
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, model_validator
+from focusos_api import observability
 from focusos_api.database import DatabaseUnavailable, InvalidSession, scoped_client, service_client
 from focusos_api.token_crypto import TokenCipher, TokenCipherError
 
@@ -288,13 +290,19 @@ def _step(token: str, job: dict) -> Step:
 def work_one(job_id: UUID | None = None, owner: str | None = None) -> dict:
     claimed = _service_rpc("focusos_claim_job", {"p_id": str(job_id) if job_id else None, "p_owner": owner})
     if claimed is None: return {"state": "idle"}
+    started = time.monotonic()
     # Ciphertext binds to this exact job ID. Reverify Auth and owner on every claim.
     step = Step("failed", claimed.get("checkpoint", {}), result=claimed.get("result"), error="worker_error")
     try:
         token = TokenCipher.from_environment().decrypt(UUID(claimed["id"]), "job", base64.b64decode(claimed["ciphertext"], validate=True), claimed["key_version"])
         with scoped_client(token) as (verified_owner, _):
             if verified_owner != claimed["user_id"]: raise InvalidSession()
-        step = _step(token, claimed)
+        with observability.bound(token, claimed["id"]):
+            step = _step(token, claimed)
+    except observability.BudgetExceeded:
+        # Retrying today cannot succeed; saved results stay and a new request works tomorrow.
+        step = Step("failed", claimed.get("checkpoint", {}), {**(claimed.get("result") or {}),
+                    "message": "Today's AI usage limit is reached. Saved results are kept; try again tomorrow."}, "llm_budget_exceeded")
     except InvalidSession:
         step = Step("expired", claimed.get("checkpoint", {}), error="session_expired")
     except RetryStep as exc:
@@ -305,6 +313,8 @@ def work_one(job_id: UUID | None = None, owner: str | None = None) -> dict:
     except Exception as exc:
         # Log class only; provider bodies/session tokens/task text must not enter logs.
         logger.warning("Job step failed: kind=%s error=%s", claimed.get("kind"), type(exc).__name__)
+    logger.info("job_step kind=%s phase=%s status=%s error=%s duration_ms=%s", claimed.get("kind"),
+                (claimed.get("checkpoint") or {}).get("phase"), step.status, step.error, int((time.monotonic() - started) * 1000))
     saved = _service_rpc("focusos_finish_job", {"p_id": claimed["id"], "p_lease": claimed["lease_token"],
         "p_status": step.status, "p_checkpoint": step.checkpoint, "p_result": step.result,
         "p_error": step.error, "p_delay": step.delay, "p_failure": step.failure})

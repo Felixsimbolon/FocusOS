@@ -30,7 +30,7 @@ def _request(payload: dict) -> dict:
     if not api_key():
         raise AgentModelError("provider_unconfigured")
     try:
-        data = request(payload, timeout=10.0, max_bytes=131072)
+        data = request(payload, timeout=10.0, max_bytes=131072, purpose="agent_tasks")
         parts(data)
         return data
     except httpx.HTTPError as exc:

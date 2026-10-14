@@ -100,7 +100,7 @@ def _select_answer_index(query: str, matches: list[MemoryMatch]) -> int:
         "additionalProperties": False,
     }
     data = gemini_request(structured_payload(instruction, body, schema, 100),
-                          timeout=18.0, max_bytes=4096)
+                          timeout=18.0, max_bytes=4096, purpose="answer_select")
     result = json.loads(output_text(data))
     index = result.get("index") if isinstance(result, dict) else None
     if type(index) is not int or index < -1 or index >= len(matches):
@@ -111,7 +111,7 @@ def _select_answer_index(query: str, matches: list[MemoryMatch]) -> int:
 def search_memories(access_token: str, request: MemorySearchInput) -> MemorySearchResult:
     vector: list[float] | None
     try:
-        vector = embed_text(request.query.strip())
+        vector = embed_text(request.query.strip(), purpose="embed_query")
         mode = "semantic_enabled"
     except EmbeddingError:
         vector = None

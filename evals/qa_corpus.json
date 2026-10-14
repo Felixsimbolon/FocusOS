@@ -1,0 +1,37 @@
+{
+  "reference_time": "2026-10-14T09:00:00+07:00",
+  "timezone": "Asia/Jakarta",
+  "note": "Synthetic personal workspace. No real person, account or email.",
+  "tasks": [
+    {"id": "T-web", "title": "Buat halaman web portofolio", "status": "open", "priority": "high", "due_kind": "date", "due_date": "2026-10-18", "estimate_minutes": 120, "description": "Pakai Next.js"},
+    {"id": "T-outline", "title": "Siapkan outline presentasi Nusa", "status": "done", "priority": "normal", "due_kind": "date", "due_date": "2026-10-13", "estimate_minutes": 30, "description": null},
+    {"id": "T-review", "title": "Review desain dashboard", "status": "open", "priority": "normal", "due_kind": "datetime", "due_at": "2026-10-15T17:00:00+07:00", "estimate_minutes": 60, "description": null},
+    {"id": "T-budget", "title": "Submit the Q4 budget report", "status": "open", "priority": "high", "due_kind": "date", "due_date": "2026-10-20", "estimate_minutes": 90, "description": null},
+    {"id": "T-thesis", "title": "Revisi bab 2 skripsi", "status": "open", "priority": "normal", "due_kind": "none", "estimate_minutes": 180, "description": null},
+    {"id": "T-gym", "title": "Renew gym membership", "status": "open", "priority": "low", "due_kind": "date", "due_date": "2026-10-31", "estimate_minutes": 15, "description": null},
+    {"id": "T-slides", "title": "Prepare demo slides for backend team", "status": "open", "priority": "high", "due_kind": "date", "due_date": "2026-10-16", "estimate_minutes": 45, "description": null},
+    {"id": "T-email", "title": "Balas email Pak Andi soal kontrak", "status": "done", "priority": "normal", "due_kind": "date", "due_date": "2026-10-12", "estimate_minutes": 15, "description": null}
+  ],
+  "memories": [
+    {"id": "M-audience", "text": "Audiens demo Nusa adalah backend engineers.", "evidence": "Audiens demo Nusa adalah backend engineers."},
+    {"id": "M-codename", "text": "Kode nama proyek demo FocusOS adalah Nusa.", "evidence": "Kode nama proyek demo FocusOS adalah Nusa."},
+    {"id": "M-venue", "text": "The Nusa demo takes place in meeting room Merapi on the 3rd floor.", "evidence": "The Nusa demo takes place in meeting room Merapi on the 3rd floor."},
+    {"id": "M-andi", "text": "Pak Andi adalah PIC kontrak dari PT Sinar Data.", "evidence": "Pak Andi adalah PIC kontrak dari PT Sinar Data."},
+    {"id": "M-contract", "text": "Kontrak dengan PT Sinar Data berakhir 31 Desember 2026.", "evidence": "Kontrak dengan PT Sinar Data berakhir 31 Desember 2026."},
+    {"id": "M-thesis", "text": "Dosen pembimbing skripsi adalah Bu Ratna; bimbingan setiap Kamis.", "evidence": "Dosen pembimbing skripsi adalah Bu Ratna; bimbingan setiap Kamis."},
+    {"id": "M-stack", "text": "Halaman web portofolio dibangun dengan Next.js dan di-deploy ke Vercel.", "evidence": "Halaman web portofolio dibangun dengan Next.js dan di-deploy ke Vercel."},
+    {"id": "M-budget-owner", "text": "The Q4 budget report must be sent to Maria in Finance.", "evidence": "The Q4 budget report must be sent to Maria in Finance."},
+    {"id": "M-budget-limit", "text": "Marketing budget for Q4 is capped at 50 million rupiah.", "evidence": "Marketing budget for Q4 is capped at 50 million rupiah."},
+    {"id": "M-gym", "text": "Gym membership costs 350 thousand rupiah per month.", "evidence": "Gym membership costs 350 thousand rupiah per month."},
+    {"id": "M-slides-tone", "text": "Demo slides should focus on API latency results, not UI.", "evidence": "Demo slides should focus on API latency results, not UI."},
+    {"id": "M-wifi", "text": "Office Wi-Fi network name is FocusLab-5G.", "evidence": "Office Wi-Fi network name is FocusLab-5G."},
+    {"id": "M-standup", "text": "Daily standup happens at 09:30 on Google Meet.", "evidence": "Daily standup happens at 09:30 on Google Meet."},
+    {"id": "M-design-feedback", "text": "Klien minta warna dashboard lebih kontras dan font lebih besar.", "evidence": "Klien minta warna dashboard lebih kontras dan font lebih besar."},
+    {"id": "M-task-web", "text": "Task: Buat halaman web portofolio. Pakai Next.js", "evidence": "Buat halaman web portofolio"}
+  ],
+  "events": [
+    {"id": "E-study", "title": "belajar Python", "start": "2026-10-15T13:00:00+07:00", "end": "2026-10-15T13:45:00+07:00", "timezone": "Asia/Jakarta", "cancelled": false},
+    {"id": "E-review", "title": "Review desain dashboard", "start": "2026-10-15T09:00:00+07:00", "end": "2026-10-15T10:00:00+07:00", "timezone": "Asia/Jakarta", "cancelled": false},
+    {"id": "E-thesis", "title": "Revisi bab 2 skripsi", "start": "2026-10-13T14:00:00+07:00", "end": "2026-10-13T17:00:00+07:00", "timezone": "Asia/Jakarta", "cancelled": false}
+  ]
+}

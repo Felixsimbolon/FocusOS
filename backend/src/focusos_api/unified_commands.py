@@ -168,7 +168,7 @@ def infer_work(text: str, tasks: list[dict], reference: str, zone: str) -> WorkI
     # Never expose database IDs to the model.
     for task in context["tasks"]: task.pop("id", None); task.pop("source_id", None)
     try:
-        data = request(structured_payload(instruction, json.dumps(context, ensure_ascii=False), schema, 2400), timeout=25, max_bytes=65536)
+        data = request(structured_payload(instruction, json.dumps(context, ensure_ascii=False), schema, 2400), timeout=25, max_bytes=65536, purpose="intent")
         intent = WorkIntent.model_validate(json.loads(output_text(data)))
     except (httpx.HTTPError, GeminiResponseError, ValueError, ValidationError) as exc:
         raise RetryStep("intent_unavailable", 60) from exc

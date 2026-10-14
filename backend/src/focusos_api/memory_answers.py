@@ -70,7 +70,7 @@ def _memories(access_token: str, questions: list[str]) -> list[MemoryMatch]:
     found: dict[str, MemoryMatch] = {}
     for question in questions:
         try:
-            vector = embed_text(question)
+            vector = embed_text(question, purpose="embed_query")
         except EmbeddingError:
             vector = None
         for match in hybrid_matches(access_token, question, vector, MEMORIES_PER_QUESTION):
@@ -134,7 +134,7 @@ def answer_questions(access_token: str, questions: list[str], reference_time: st
                 "refs": {"type": "array", "items": {"type": "string"}}}}}}}
     try:
         data = gemini_request(structured_payload(instruction, json.dumps(context, ensure_ascii=False, default=str), schema, 2000),
-                              timeout=25.0, max_bytes=65536)
+                              timeout=25.0, max_bytes=65536, purpose="answer")
         parsed = _ModelAnswers.model_validate(json.loads(output_text(data)))
     except httpx.HTTPError as exc:
         raise AnswersUnavailable("provider_unavailable") from exc

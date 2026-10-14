@@ -20,7 +20,7 @@ async function proxy(
   const valid =
     method === "GET"
       ? path.length === 1 &&
-        ["diagnostics", "history", "export", "focus-blocks"].includes(path[0])
+        ["diagnostics", "history", "export", "focus-blocks", "usage"].includes(path[0])
       : path.length === 3 &&
         path[0] === "focus-blocks" &&
         UUID.test(path[1]) &&

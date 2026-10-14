@@ -1,13 +1,15 @@
-﻿"""Bounded Gemini embedding for one explicitly confirmed memory."""
+"""Bounded Gemini embedding for one explicitly confirmed memory."""
 
 import hashlib
 import json
 import math
+import time
 from uuid import UUID
 
 import httpx
 from pydantic import BaseModel
 
+from focusos_api import observability
 from focusos_api.database import DatabaseUnavailable, scoped_client
 from focusos_api.gemini import api_key, url
 
@@ -31,22 +33,28 @@ def embedding_content(text: str, quote: str) -> str:
     return text.strip() + "\nEvidence: " + quote.strip()
 
 
-def embed_text(text: str) -> list[float]:
+def embed_text(text: str, purpose: str = "embed") -> list[float]:
     key = api_key()
     if not key:
         raise EmbeddingError("provider_unconfigured")
     if not text or len(text.encode("utf-8")) > 2500:
         raise EmbeddingError("invalid_vector")
+    observability.check_budget()
+    started = time.monotonic()
     try:
         response = httpx.post(EMBED_URL, headers={"x-goog-api-key": key},
             json={"model": "models/" + EMBED_MODEL,
                   "content": {"parts": [{"text": text}]},
                   "embedContentConfig": {"outputDimensionality": EMBED_DIM}}, timeout=12.0)
         response.raise_for_status()
+        observability.record(purpose, "embed", EMBED_MODEL, started)
         if len(response.content) > 65536:
             raise EmbeddingError("invalid_vector")
         data = response.json()
-    except (httpx.HTTPError, ValueError) as exc:
+    except httpx.HTTPError as exc:
+        observability.record(purpose, "embed", EMBED_MODEL, started, exc)
+        raise EmbeddingError("provider_unavailable") from exc
+    except ValueError as exc:
         raise EmbeddingError("provider_unavailable") from exc
     if not isinstance(data, dict):
         raise EmbeddingError("invalid_vector")
@@ -85,7 +93,7 @@ def embed_memory(access_token: str, memory_id: UUID) -> EmbeddingState:
     if not isinstance(lease, str) or embedding_content(claim.get("text", ""), claim.get("quote", "")) != content:
         raise DatabaseUnavailable("Embedding source changed during claim")
     try:
-        vector = embed_text(content)
+        vector = embed_text(content, purpose="embed_memory")
     except EmbeddingError as exc:
         _rpc(access_token, "focusos_finish_memory_embedding", {
             "p_memory_id": str(memory_id), "p_lease_token": lease,
