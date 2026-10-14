@@ -30,9 +30,11 @@ describe("getServerUser", () => {
       error: null,
     });
 
-    await expect(getServerUser()).resolves.toEqual({
+    // The first name is kept for the greeting; provider and raw metadata never leave.
+    await expect(getServerUser()).resolves.toStrictEqual({
       id: "user-123",
       email: "owner@example.com",
+      name: "Owner",
     });
   });
 

@@ -52,6 +52,12 @@ export function workMessage(job: Job): string {
   return result.intent === "schedule" || result.intent === "both" ? "Finding a free slot and adding it to Calendar..."
     : result.intent === "question" ? "Looking through your tasks and memories..." : "Understanding and organizing your request...";
 }
+const SUGGESTIONS = [
+  { label: "Add tasks", icon: "+", text: "Buat task berikut:\n1. " },
+  { label: "Find focus time", icon: "◷", text: "Cari waktu besok jam 09-12 untuk " },
+  { label: "Ask my notes", icon: "?", text: "Kapan deadline " },
+  { label: "All at once", icon: "✦", text: "Buat task siapkan slide demo, estimasi 30 menit. Cari waktu besok jam 13-16 untuk mengerjakannya. Kapan deadline review desain?" },
+];
 export function WorkComposer() {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -116,10 +122,15 @@ export function WorkComposer() {
   }
   return <section id="composer" className={`work-composer${busy ? " is-processing" : ""}`} aria-labelledby="composer-heading" aria-busy={busy}>
     <div className="composer-layout">
-      <div className="composer-intro"><span className="section-eyebrow">NEW REQUEST</span><h2 id="composer-heading">What do you need<br className="composer-heading-break" /> to get done?</h2><p>Write it as you would say it. Add one task or a whole list, ask about your saved work, find a time, or do it all in one message.</p>
+      <div className="composer-intro"><span className="section-eyebrow"><span className="section-index">01</span>New request</span><h2 id="composer-heading">What do you need<br className="composer-heading-break" /> to get done?</h2><p>Write it as you would say it. Add one task or a whole list, ask about your saved work, find a time, or do it all in one message.</p>
         <a className="composer-context-link" href="/#schedule">See your scheduled work <span aria-hidden="true">&rarr;</span></a>
       </div>
       <form className="composer-form" onSubmit={event => void submit(event)}>
+        <div className="composer-suggestions" role="group" aria-label="Start from an example">
+          {SUGGESTIONS.map(item => <button key={item.label} type="button" className="composer-chip" disabled={busy}
+            onClick={() => { setText(current => current.trim() ? `${current.trimEnd()}\n${item.text}` : item.text); document.getElementById("work-request")?.focus(); }}>
+            <span aria-hidden="true">{item.icon}</span>{item.label}</button>)}
+        </div>
         <div className="composer-input-frame">
           <label className="sr-only" htmlFor="work-request">Work or schedule request</label>
           <textarea id="work-request" value={text} onChange={event => setText(event.target.value)} rows={5} maxLength={1000} required disabled={busy} aria-describedby="composer-help"

@@ -3,6 +3,8 @@
 export type ServerUser = {
   id: string;
   email: string | null;
+  /** First name from the Google profile, for greetings only; never sent to the API. */
+  name?: string;
 };
 
 /** Return only identity fields after Supabase verifies the current session. */
@@ -15,9 +17,13 @@ export async function getServerUser(): Promise<ServerUser | null> {
       return null;
     }
 
+    const metadata = data.user.user_metadata as Record<string, unknown> | undefined;
+    const fullName = [metadata?.full_name, metadata?.name].find(value => typeof value === "string" && value.trim());
+    const name = typeof fullName === "string" ? fullName.trim().split(/\s+/)[0].slice(0, 40) : undefined;
     return {
       id: data.user.id,
       email: data.user.email ?? null,
+      ...(name ? { name } : {}),
     };
   } catch {
     return null;

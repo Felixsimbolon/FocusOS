@@ -211,6 +211,7 @@ export function TaskBoard() {
     <section className="task-board" aria-labelledby="tasks-heading">
       <div className="task-board-heading">
         <div>
+          <span className="section-eyebrow"><span className="section-index">02</span>Your tasks</span>
           <h2 id="tasks-heading">Today</h2>
           <p>{todayContext || "Tasks due today or earlier, plus tasks without a deadline."}</p>
         </div>

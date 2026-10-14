@@ -12,7 +12,7 @@ export type Me = {
 };
 
 export type MeResult =
-  | { kind: "ok"; data: Me }
+  | { kind: "ok"; data: Me; displayName?: string }
   | { kind: "unauthorized" }
   | { kind: "unavailable"; user: ServerUser };
 
@@ -30,6 +30,8 @@ export async function getMe(): Promise<MeResult> {
 
   return {
     kind: "ok",
+    // Kept outside `data`, so /api/me still returns only id, email and profile.
+    ...(user.name ? { displayName: user.name } : {}),
     data: {
       user: { id: user.id, email: user.email },
       profile: result.profile
