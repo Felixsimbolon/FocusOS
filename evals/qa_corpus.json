@@ -3,35 +3,402 @@
   "timezone": "Asia/Jakarta",
   "note": "Synthetic personal workspace. No real person, account or email.",
   "tasks": [
-    {"id": "T-web", "title": "Buat halaman web portofolio", "status": "open", "priority": "high", "due_kind": "date", "due_date": "2026-10-18", "estimate_minutes": 120, "description": "Pakai Next.js"},
-    {"id": "T-outline", "title": "Siapkan outline presentasi Nusa", "status": "done", "priority": "normal", "due_kind": "date", "due_date": "2026-10-13", "estimate_minutes": 30, "description": null},
-    {"id": "T-review", "title": "Review desain dashboard", "status": "open", "priority": "normal", "due_kind": "datetime", "due_at": "2026-10-15T17:00:00+07:00", "estimate_minutes": 60, "description": null},
-    {"id": "T-budget", "title": "Submit the Q4 budget report", "status": "open", "priority": "high", "due_kind": "date", "due_date": "2026-10-20", "estimate_minutes": 90, "description": null},
-    {"id": "T-thesis", "title": "Revisi bab 2 skripsi", "status": "open", "priority": "normal", "due_kind": "none", "estimate_minutes": 180, "description": null},
-    {"id": "T-gym", "title": "Renew gym membership", "status": "open", "priority": "low", "due_kind": "date", "due_date": "2026-10-31", "estimate_minutes": 15, "description": null},
-    {"id": "T-slides", "title": "Prepare demo slides for backend team", "status": "open", "priority": "high", "due_kind": "date", "due_date": "2026-10-16", "estimate_minutes": 45, "description": null},
-    {"id": "T-email", "title": "Balas email Pak Andi soal kontrak", "status": "done", "priority": "normal", "due_kind": "date", "due_date": "2026-10-12", "estimate_minutes": 15, "description": null}
+    {
+      "id": "T-web",
+      "title": "Buat halaman web portofolio",
+      "status": "open",
+      "priority": "high",
+      "due_kind": "date",
+      "due_date": "2026-10-18",
+      "estimate_minutes": 120,
+      "description": "Pakai Next.js"
+    },
+    {
+      "id": "T-outline",
+      "title": "Siapkan outline presentasi Nusa",
+      "status": "done",
+      "priority": "normal",
+      "due_kind": "date",
+      "due_date": "2026-10-13",
+      "estimate_minutes": 30,
+      "description": null
+    },
+    {
+      "id": "T-review",
+      "title": "Review desain dashboard",
+      "status": "open",
+      "priority": "normal",
+      "due_kind": "datetime",
+      "due_at": "2026-10-15T17:00:00+07:00",
+      "estimate_minutes": 60,
+      "description": null
+    },
+    {
+      "id": "T-budget",
+      "title": "Submit the Q4 budget report",
+      "status": "open",
+      "priority": "high",
+      "due_kind": "date",
+      "due_date": "2026-10-20",
+      "estimate_minutes": 90,
+      "description": null
+    },
+    {
+      "id": "T-thesis",
+      "title": "Revisi bab 2 skripsi",
+      "status": "open",
+      "priority": "normal",
+      "due_kind": "none",
+      "estimate_minutes": 180,
+      "description": null
+    },
+    {
+      "id": "T-gym",
+      "title": "Renew gym membership",
+      "status": "open",
+      "priority": "low",
+      "due_kind": "date",
+      "due_date": "2026-10-31",
+      "estimate_minutes": 15,
+      "description": null
+    },
+    {
+      "id": "T-slides",
+      "title": "Prepare demo slides for backend team",
+      "status": "open",
+      "priority": "high",
+      "due_kind": "date",
+      "due_date": "2026-10-16",
+      "estimate_minutes": 45,
+      "description": null
+    },
+    {
+      "id": "T-email",
+      "title": "Balas email Pak Andi soal kontrak",
+      "status": "done",
+      "priority": "normal",
+      "due_kind": "date",
+      "due_date": "2026-10-12",
+      "estimate_minutes": 15,
+      "description": null
+    },
+    {
+      "id": "T-dentist",
+      "title": "Book dentist appointment",
+      "status": "open",
+      "priority": "normal",
+      "due_kind": "date",
+      "due_date": "2026-10-21",
+      "estimate_minutes": 10,
+      "description": null
+    },
+    {
+      "id": "T-bill",
+      "title": "Bayar tagihan listrik",
+      "status": "open",
+      "priority": "high",
+      "due_kind": "date",
+      "due_date": "2026-10-17",
+      "estimate_minutes": 10,
+      "description": null
+    },
+    {
+      "id": "T-orion-agenda",
+      "title": "Write the Orion workshop agenda",
+      "status": "open",
+      "priority": "normal",
+      "due_kind": "date",
+      "due_date": "2026-10-15",
+      "estimate_minutes": 40,
+      "description": null
+    },
+    {
+      "id": "T-invoice",
+      "title": "Kirim invoice ke PT Karya Mandiri",
+      "status": "open",
+      "priority": "high",
+      "due_kind": "date",
+      "due_date": "2026-10-19",
+      "estimate_minutes": 20,
+      "description": null
+    },
+    {
+      "id": "T-cv",
+      "title": "Update CV",
+      "status": "open",
+      "priority": "low",
+      "due_kind": "none",
+      "estimate_minutes": 60,
+      "description": null
+    },
+    {
+      "id": "T-auth",
+      "title": "Refactor auth module",
+      "status": "open",
+      "priority": "normal",
+      "due_kind": "date",
+      "due_date": "2026-10-22",
+      "estimate_minutes": 150,
+      "description": null
+    },
+    {
+      "id": "T-backup",
+      "title": "Backup laptop",
+      "status": "done",
+      "priority": "low",
+      "due_kind": "date",
+      "due_date": "2026-10-16",
+      "estimate_minutes": 20,
+      "description": null
+    },
+    {
+      "id": "T-ticket",
+      "title": "Beli tiket kereta ke Bandung",
+      "status": "open",
+      "priority": "normal",
+      "due_kind": "date",
+      "due_date": "2026-10-20",
+      "estimate_minutes": 15,
+      "description": null
+    },
+    {
+      "id": "T-pr",
+      "title": "Review PR backend dari Dodi",
+      "status": "open",
+      "priority": "normal",
+      "due_kind": "date",
+      "due_date": "2026-10-16",
+      "estimate_minutes": 30,
+      "description": null
+    },
+    {
+      "id": "T-spotify",
+      "title": "Tagih adik untuk Spotify",
+      "status": "open",
+      "priority": "low",
+      "due_kind": "date",
+      "due_date": "2026-10-25",
+      "estimate_minutes": 5,
+      "description": null
+    }
   ],
   "memories": [
-    {"id": "M-audience", "text": "Audiens demo Nusa adalah backend engineers.", "evidence": "Audiens demo Nusa adalah backend engineers."},
-    {"id": "M-codename", "text": "Kode nama proyek demo FocusOS adalah Nusa.", "evidence": "Kode nama proyek demo FocusOS adalah Nusa."},
-    {"id": "M-venue", "text": "The Nusa demo takes place in meeting room Merapi on the 3rd floor.", "evidence": "The Nusa demo takes place in meeting room Merapi on the 3rd floor."},
-    {"id": "M-andi", "text": "Pak Andi adalah PIC kontrak dari PT Sinar Data.", "evidence": "Pak Andi adalah PIC kontrak dari PT Sinar Data."},
-    {"id": "M-contract", "text": "Kontrak dengan PT Sinar Data berakhir 31 Desember 2026.", "evidence": "Kontrak dengan PT Sinar Data berakhir 31 Desember 2026."},
-    {"id": "M-thesis", "text": "Dosen pembimbing skripsi adalah Bu Ratna; bimbingan setiap Kamis.", "evidence": "Dosen pembimbing skripsi adalah Bu Ratna; bimbingan setiap Kamis."},
-    {"id": "M-stack", "text": "Halaman web portofolio dibangun dengan Next.js dan di-deploy ke Vercel.", "evidence": "Halaman web portofolio dibangun dengan Next.js dan di-deploy ke Vercel."},
-    {"id": "M-budget-owner", "text": "The Q4 budget report must be sent to Maria in Finance.", "evidence": "The Q4 budget report must be sent to Maria in Finance."},
-    {"id": "M-budget-limit", "text": "Marketing budget for Q4 is capped at 50 million rupiah.", "evidence": "Marketing budget for Q4 is capped at 50 million rupiah."},
-    {"id": "M-gym", "text": "Gym membership costs 350 thousand rupiah per month.", "evidence": "Gym membership costs 350 thousand rupiah per month."},
-    {"id": "M-slides-tone", "text": "Demo slides should focus on API latency results, not UI.", "evidence": "Demo slides should focus on API latency results, not UI."},
-    {"id": "M-wifi", "text": "Office Wi-Fi network name is FocusLab-5G.", "evidence": "Office Wi-Fi network name is FocusLab-5G."},
-    {"id": "M-standup", "text": "Daily standup happens at 09:30 on Google Meet.", "evidence": "Daily standup happens at 09:30 on Google Meet."},
-    {"id": "M-design-feedback", "text": "Klien minta warna dashboard lebih kontras dan font lebih besar.", "evidence": "Klien minta warna dashboard lebih kontras dan font lebih besar."},
-    {"id": "M-task-web", "text": "Task: Buat halaman web portofolio. Pakai Next.js", "evidence": "Buat halaman web portofolio"}
+    {
+      "id": "M-audience",
+      "text": "Audiens demo Nusa adalah backend engineers.",
+      "evidence": "Audiens demo Nusa adalah backend engineers."
+    },
+    {
+      "id": "M-codename",
+      "text": "Kode nama proyek demo FocusOS adalah Nusa.",
+      "evidence": "Kode nama proyek demo FocusOS adalah Nusa."
+    },
+    {
+      "id": "M-venue",
+      "text": "The Nusa demo takes place in meeting room Merapi on the 3rd floor.",
+      "evidence": "The Nusa demo takes place in meeting room Merapi on the 3rd floor."
+    },
+    {
+      "id": "M-andi",
+      "text": "Pak Andi adalah PIC kontrak dari PT Sinar Data.",
+      "evidence": "Pak Andi adalah PIC kontrak dari PT Sinar Data."
+    },
+    {
+      "id": "M-contract",
+      "text": "Kontrak dengan PT Sinar Data berakhir 31 Desember 2026.",
+      "evidence": "Kontrak dengan PT Sinar Data berakhir 31 Desember 2026."
+    },
+    {
+      "id": "M-thesis",
+      "text": "Dosen pembimbing skripsi adalah Bu Ratna; bimbingan setiap Kamis.",
+      "evidence": "Dosen pembimbing skripsi adalah Bu Ratna; bimbingan setiap Kamis."
+    },
+    {
+      "id": "M-stack",
+      "text": "Halaman web portofolio dibangun dengan Next.js dan di-deploy ke Vercel.",
+      "evidence": "Halaman web portofolio dibangun dengan Next.js dan di-deploy ke Vercel."
+    },
+    {
+      "id": "M-budget-owner",
+      "text": "The Q4 budget report must be sent to Maria in Finance.",
+      "evidence": "The Q4 budget report must be sent to Maria in Finance."
+    },
+    {
+      "id": "M-budget-limit",
+      "text": "Marketing budget for Q4 is capped at 50 million rupiah.",
+      "evidence": "Marketing budget for Q4 is capped at 50 million rupiah."
+    },
+    {
+      "id": "M-gym",
+      "text": "Gym membership costs 350 thousand rupiah per month.",
+      "evidence": "Gym membership costs 350 thousand rupiah per month."
+    },
+    {
+      "id": "M-slides-tone",
+      "text": "Demo slides should focus on API latency results, not UI.",
+      "evidence": "Demo slides should focus on API latency results, not UI."
+    },
+    {
+      "id": "M-wifi",
+      "text": "Office Wi-Fi network name is FocusLab-5G.",
+      "evidence": "Office Wi-Fi network name is FocusLab-5G."
+    },
+    {
+      "id": "M-standup",
+      "text": "Daily standup happens at 09:30 on Google Meet.",
+      "evidence": "Daily standup happens at 09:30 on Google Meet."
+    },
+    {
+      "id": "M-design-feedback",
+      "text": "Klien minta warna dashboard lebih kontras dan font lebih besar.",
+      "evidence": "Klien minta warna dashboard lebih kontras dan font lebih besar."
+    },
+    {
+      "id": "M-task-web",
+      "text": "Task: Buat halaman web portofolio. Pakai Next.js",
+      "evidence": "Buat halaman web portofolio"
+    },
+    {
+      "id": "M-contract-km",
+      "text": "Kontrak dengan PT Karya Mandiri berakhir 30 Juni 2027.",
+      "evidence": "Kontrak dengan PT Karya Mandiri berakhir 30 Juni 2027."
+    },
+    {
+      "id": "M-dewi",
+      "text": "Bu Dewi adalah PIC kontrak dari PT Karya Mandiri.",
+      "evidence": "Bu Dewi adalah PIC kontrak dari PT Karya Mandiri."
+    },
+    {
+      "id": "M-budget-q3",
+      "text": "Marketing budget for Q3 was capped at 40 million rupiah.",
+      "evidence": "Marketing budget for Q3 was capped at 40 million rupiah."
+    },
+    {
+      "id": "M-budget-travel",
+      "text": "Travel budget for Q4 is capped at 20 million rupiah.",
+      "evidence": "Travel budget for Q4 is capped at 20 million rupiah."
+    },
+    {
+      "id": "M-orion-venue",
+      "text": "The Orion workshop takes place in meeting room Bromo on the 2nd floor.",
+      "evidence": "The Orion workshop takes place in meeting room Bromo on the 2nd floor."
+    },
+    {
+      "id": "M-orion-audience",
+      "text": "Audiens workshop Orion adalah tim desainer.",
+      "evidence": "Audiens workshop Orion adalah tim desainer."
+    },
+    {
+      "id": "M-examiner",
+      "text": "Dosen penguji sidang skripsi adalah Pak Hendra.",
+      "evidence": "Dosen penguji sidang skripsi adalah Pak Hendra."
+    },
+    {
+      "id": "M-netflix",
+      "text": "Netflix subscription costs 186 thousand rupiah per month.",
+      "evidence": "Netflix subscription costs 186 thousand rupiah per month."
+    },
+    {
+      "id": "M-spotify-family",
+      "text": "Spotify family plan dibagi dengan adik dan biayanya 55 ribu per bulan.",
+      "evidence": "Spotify family plan dibagi dengan adik dan biayanya 55 ribu per bulan."
+    },
+    {
+      "id": "M-home-wifi",
+      "text": "Home Wi-Fi network name is RumahBiru.",
+      "evidence": "Home Wi-Fi network name is RumahBiru."
+    },
+    {
+      "id": "M-retro",
+      "text": "Sprint retrospective is held every second Friday at 15:00.",
+      "evidence": "Sprint retrospective is held every second Friday at 15:00."
+    },
+    {
+      "id": "M-backend-stack",
+      "text": "Backend portofolio memakai FastAPI dan Supabase.",
+      "evidence": "Backend portofolio memakai FastAPI dan Supabase."
+    },
+    {
+      "id": "M-oncall",
+      "text": "Dodi dari tim DevOps adalah on-call engineer untuk insiden server.",
+      "evidence": "Dodi dari tim DevOps adalah on-call engineer untuk insiden server."
+    },
+    {
+      "id": "M-passport",
+      "text": "Paspor saya berlaku sampai 14 Maret 2028.",
+      "evidence": "Paspor saya berlaku sampai 14 Maret 2028."
+    },
+    {
+      "id": "M-dentist",
+      "text": "Janji dokter gigi hari Kamis 22 Oktober pukul 16.00 di Klinik Senyum.",
+      "evidence": "Janji dokter gigi hari Kamis 22 Oktober pukul 16.00 di Klinik Senyum."
+    },
+    {
+      "id": "M-flight",
+      "text": "Flight to Bandung on 24 October departs at 06:15 from Soekarno-Hatta.",
+      "evidence": "Flight to Bandung on 24 October departs at 06:15 from Soekarno-Hatta."
+    },
+    {
+      "id": "M-rina",
+      "text": "Rina from HR handles leave requests and must be emailed 5 days ahead.",
+      "evidence": "Rina from HR handles leave requests and must be emailed 5 days ahead."
+    },
+    {
+      "id": "M-laptop",
+      "text": "Laptop kantor menggunakan disk terenkripsi dan harus dibackup setiap Jumat.",
+      "evidence": "Laptop kantor menggunakan disk terenkripsi dan harus dibackup setiap Jumat."
+    },
+    {
+      "id": "M-parking",
+      "text": "Parkir kantor memakai kartu akses lantai basement 2.",
+      "evidence": "Parkir kantor memakai kartu akses lantai basement 2."
+    },
+    {
+      "id": "M-sinar-invoice",
+      "text": "Invoice untuk PT Sinar Data dikirim ke finance@sinardata.example setiap tanggal 25.",
+      "evidence": "Invoice untuk PT Sinar Data dikirim ke finance@sinardata.example setiap tanggal 25."
+    }
   ],
   "events": [
-    {"id": "E-study", "title": "belajar Python", "start": "2026-10-15T13:00:00+07:00", "end": "2026-10-15T13:45:00+07:00", "timezone": "Asia/Jakarta", "cancelled": false},
-    {"id": "E-review", "title": "Review desain dashboard", "start": "2026-10-15T09:00:00+07:00", "end": "2026-10-15T10:00:00+07:00", "timezone": "Asia/Jakarta", "cancelled": false},
-    {"id": "E-thesis", "title": "Revisi bab 2 skripsi", "start": "2026-10-13T14:00:00+07:00", "end": "2026-10-13T17:00:00+07:00", "timezone": "Asia/Jakarta", "cancelled": false}
+    {
+      "id": "E-study",
+      "title": "belajar Python",
+      "start": "2026-10-15T13:00:00+07:00",
+      "end": "2026-10-15T13:45:00+07:00",
+      "timezone": "Asia/Jakarta",
+      "cancelled": false
+    },
+    {
+      "id": "E-review",
+      "title": "Review desain dashboard",
+      "start": "2026-10-15T09:00:00+07:00",
+      "end": "2026-10-15T10:00:00+07:00",
+      "timezone": "Asia/Jakarta",
+      "cancelled": false
+    },
+    {
+      "id": "E-thesis",
+      "title": "Revisi bab 2 skripsi",
+      "start": "2026-10-13T14:00:00+07:00",
+      "end": "2026-10-13T17:00:00+07:00",
+      "timezone": "Asia/Jakarta",
+      "cancelled": false
+    },
+    {
+      "id": "E-orion",
+      "title": "Workshop Orion",
+      "start": "2026-10-16T14:00:00+07:00",
+      "end": "2026-10-16T15:30:00+07:00",
+      "timezone": "Asia/Jakarta",
+      "cancelled": false
+    },
+    {
+      "id": "E-auth",
+      "title": "Refactor auth module",
+      "start": "2026-10-19T10:00:00+07:00",
+      "end": "2026-10-19T12:30:00+07:00",
+      "timezone": "Asia/Jakarta",
+      "cancelled": false
+    }
   ]
 }

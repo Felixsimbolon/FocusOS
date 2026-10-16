@@ -17,6 +17,7 @@ import json
 import math
 import re
 import sys
+import time
 from contextlib import ExitStack
 from datetime import date, datetime
 from pathlib import Path
@@ -32,10 +33,11 @@ from focusos_api.memory_search import MemoryMatch, query_terms
 from focusos_api import memory_answers
 
 EVALS = Path(__file__).resolve().parent
+RETRIES = 3  # live only; extra attempts after a provider outage
 NAMESPACE = UUID("6f1c2a9e-1d1b-4a8e-9d55-0c8c1f6d2b10")
-# Regression floors from the mock baseline (2026-10-14): keyword-only retrieval misses the two
-# cross-language paraphrases (q15, q18), which only live semantic search can find.
-DEFAULT_THRESHOLDS = {"hybrid_recall_at_k": 0.85, "hybrid_precision_at_k": 0.45, "answer_pass_rate": 0.9, "false_answer_rate": 0.0}
+# Regression floors from the mock baseline (2026-10-16, 55 cases): keyword-only retrieval misses the
+# cross-language paraphrases (q15, q18, q39, q40), which only live semantic search can find.
+DEFAULT_THRESHOLDS = {"hybrid_recall_at_k": 0.85, "hybrid_precision_at_k": 0.4, "answer_pass_rate": 0.9, "false_answer_rate": 0.0}
 
 
 def load(corpus_path: Path = EVALS / "qa_corpus.json", cases_path: Path = EVALS / "qa_cases.jsonl") -> tuple[dict, list[dict]]:
@@ -107,9 +109,10 @@ def legacy_ranking(question: str, question_vector, vectors: dict, memories: list
 def retrieval_metrics(rankings: dict[str, list[str]], cases: list[dict], k: int) -> dict:
     """recall@k and MRR over expected memories; precision@k counts expected or acceptable memories."""
     rows = [case for case in cases if any(ref.startswith("M-") for ref in case["expected_refs"])]
-    recall, reciprocal, precision, misses = [], [], [], []
+    recall, reciprocal, precision, misses, returned = [], [], [], [], []
     for case in rows:
         ranking = rankings[case["id"]][:k]
+        returned.append(len(ranking))
         expected = {ref for ref in case["expected_refs"] if ref.startswith("M-")}
         relevant = expected | {ref for ref in case["acceptable_refs"] if ref.startswith("M-")}
         found = expected & set(ranking)
@@ -121,7 +124,8 @@ def retrieval_metrics(rankings: dict[str, list[str]], cases: list[dict], k: int)
             misses.append(case["id"])
     count = len(rows) or 1
     return {"cases": len(rows), "recall_at_k": round(sum(recall) / count, 4), "mrr": round(sum(reciprocal) / count, 4),
-            "precision_at_k": round(sum(precision) / count, 4), "missed": misses}
+            "precision_at_k": round(sum(precision) / count, 4), "avg_returned": round(sum(returned) / count, 2),
+            "missed": misses}
 
 
 # --- Embeddings (live only, cached) ---------------------------------------------
@@ -273,10 +277,16 @@ def run_answers(corpus: dict, cases: list[dict], live: bool, config: dict, vecto
             stack.enter_context(patch.object(memory_answers, "api_key", return_value="oracle"))
             stack.enter_context(patch.object(memory_answers, "gemini_request", side_effect=oracle_model(cases, corpus)))
         for case in cases:
-            try:
-                [answer] = memory_answers.answer_questions("eval-session", [case["question"]], corpus["reference_time"], corpus["timezone"])
-            except memory_answers.AnswersUnavailable:
-                answer = {"status": "unavailable", "answer": None, "references": []}
+            answer = {"status": "unavailable", "answer": None, "references": []}
+            # A provider 503 is not an answer-quality signal: retry a few times, then report it as unavailable.
+            for attempt in range(1 + (RETRIES if live else 0)):
+                try:
+                    [answer] = memory_answers.answer_questions("eval-session", [case["question"]], corpus["reference_time"], corpus["timezone"])
+                except memory_answers.AnswersUnavailable:
+                    answer = {"status": "unavailable", "answer": None, "references": []}
+                if answer["status"] != "unavailable":
+                    break
+                time.sleep(3 * (attempt + 1))
             row = score_answer(case, answer, corpus)
             row["answer"] = answer.get("answer")
             if judge and live and answer["status"] == "answered":
@@ -325,6 +335,24 @@ def evaluate(live: bool, config: dict, judge: bool = False, cache_path: Path = E
             "retrieval": retrieval, "answers": answers, "observations": rows}
 
 
+def sweep(thresholds: list[float], config: dict, cache_path: Path = EVALS / "output/qa_embeddings.json") -> dict[float, dict]:
+    """Retrieval-only comparison of semantic thresholds. Reuses cached vectors; makes no answer calls."""
+    corpus, cases = load()
+    cache = EmbeddingCache(cache_path)
+    memories = corpus["memories"]
+    vectors = {m["id"]: cache.get(m["text"] + "\nEvidence: " + m["evidence"]) for m in memories}
+    question_vectors = {case["id"]: cache.get(case["question"]) for case in cases}
+    cache.save()
+    results = {}
+    for threshold in thresholds:
+        tuned = {**config, "semantic_threshold": threshold}
+        rankings = {name: {case["id"]: rank(case) for case in cases} for name, rank in {
+            "semantic": lambda case: semantic_ranking(question_vectors[case["id"]], vectors, memories, threshold),
+            "hybrid": lambda case: hybrid_ranking(case["question"], question_vectors[case["id"]], vectors, memories, tuned)}.items()}
+        results[threshold] = {name: retrieval_metrics(ranked, cases, config["k"]) for name, ranked in rankings.items()}
+    return results
+
+
 def check_thresholds(report: dict, thresholds: dict) -> list[str]:
     failures = []
     hybrid = report["retrieval"]["hybrid"]
@@ -347,19 +375,28 @@ def main():
     parser.add_argument("--judge", action="store_true", help="live only: add LLM-as-judge faithfulness")
     parser.add_argument("--k", type=int, default=8, help="memories retrieved per question (SQL default 8)")
     parser.add_argument("--rrf-k", type=int, default=60, help="reciprocal-rank fusion constant (SQL uses 60)")
-    parser.add_argument("--semantic-threshold", type=float, default=0.2, help="minimum cosine for a semantic rank (SQL uses 0.2)")
+    parser.add_argument("--semantic-threshold", type=float, default=0.6, help="minimum cosine for a semantic rank (SQL uses 0.6 since 2026-10-16)")
+    parser.add_argument("--sweep", action="store_true", help="live only: compare semantic thresholds 0.2-0.75 on retrieval (no answer calls)")
     parser.add_argument("--out", type=Path, default=EVALS / "output/qa.json")
     args = parser.parse_args()
     if args.live and not api_key():
         parser.error("GEMINI_API_KEY is required for live evaluation")
     config = {"k": args.k, "rrf_k": args.rrf_k, "semantic_threshold": args.semantic_threshold}
+    if args.sweep:
+        if not args.live:
+            parser.error("--sweep needs --live (it uses real embeddings)")
+        for threshold, result in sweep([0.2, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75], config).items():
+            for name, metrics in result.items():
+                print(f"  threshold={threshold:.1f} {name:8} recall@k={metrics['recall_at_k']:.2f} mrr={metrics['mrr']:.2f} "
+                      f"precision@k={metrics['precision_at_k']:.2f} avg_returned={metrics['avg_returned']:.1f} missed={','.join(metrics['missed']) or '-'}")
+        return
     report = evaluate(args.live, config, judge=args.judge)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"{report['mode']} (k={config['k']}, rrf_k={config['rrf_k']}, threshold={config['semantic_threshold']})")
     for name, metrics in report["retrieval"].items():
         print(f"  retrieval {name:8} recall@k={metrics['recall_at_k']:.2f} mrr={metrics['mrr']:.2f} "
-              f"precision@k={metrics['precision_at_k']:.2f} missed={','.join(metrics['missed']) or '-'}")
+              f"precision@k={metrics['precision_at_k']:.2f} returned={metrics['avg_returned']:.1f} missed={','.join(metrics['missed']) or '-'}")
     answers = report["answers"]
     print(f"  answers  pass={answers['pass_rate']:.2f} status={answers['status_accuracy']:.2f} "
           f"cite_p={answers['citation_precision']:.2f} cite_r={answers['citation_recall']:.2f} "

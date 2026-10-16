@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import httpx
-from focusos_api.memory_answers import AnswersUnavailable, answer_questions
+from focusos_api.memory_answers import AnswersUnavailable, _event_when, _model_reference, answer_questions
 from focusos_api.memory_embeddings import refresh_stale_embeddings
 from focusos_api.memory_search import MemoryMatch, hybrid_matches, query_terms
 
@@ -108,6 +108,22 @@ class AnswerTests(unittest.TestCase):
         with patch("focusos_api.memory_answers.refresh_stale_embeddings") as refresh:
             self.ask([{"question_index": 0, "status": "no_reference", "answer": "", "refs": []}])
         refresh.assert_called_once_with("session")
+
+
+class EventTimeTests(unittest.TestCase):
+    event = {"kind": "event", "title": "Workshop", "start": "2026-10-16T07:00:00+00:00", "end": "2026-10-16T08:30:00+00:00",
+             "timezone": "Asia/Jakarta", "cancelled": False}
+
+    def test_model_sees_one_local_time_range_not_two_timestamps(self):
+        self.assertEqual(_event_when(self.event), "Friday 2026-10-16, 14:00–15:30 (Asia/Jakarta)")
+        shown = _model_reference("E1", self.event)
+        self.assertEqual(shown["when"], "Friday 2026-10-16, 14:00–15:30 (Asia/Jakarta)")
+        self.assertNotIn("start", shown); self.assertNotIn("end", shown)
+
+    def test_unreadable_times_fall_back_to_the_raw_fields(self):
+        broken = {**self.event, "start": "not a time"}
+        self.assertIsNone(_event_when(broken))
+        self.assertEqual(_model_reference("E1", broken)["start"], "not a time")
 
 
 class RetrievalTests(unittest.TestCase):

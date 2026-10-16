@@ -1,7 +1,9 @@
 """Answer questions from the user's own tasks, memories and scheduled work, with references."""
 import json
 import logging
+from datetime import datetime
 from typing import Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -48,6 +50,26 @@ def _task_reference(task) -> dict:
     return {"kind": "task", "title": task.title, "status": task.status, "priority": task.priority,
             "due": due, "estimate_minutes": task.estimate_minutes,
             "details": _clip(task.description, 300) or None}
+
+
+def _event_when(item: dict) -> str | None:
+    """One readable local date and time range, so the model never has to copy two ISO timestamps."""
+    try:
+        zone = ZoneInfo(item.get("timezone") or "UTC")
+        start = datetime.fromisoformat(item["start"]).astimezone(zone)
+        end = datetime.fromisoformat(item["end"]).astimezone(zone)
+    except (KeyError, TypeError, ValueError, ZoneInfoNotFoundError):
+        return None
+    span = f"{start:%H:%M}–{end:%H:%M}" if start.date() == end.date() else f"{start:%H:%M} to {end:%Y-%m-%d %H:%M}"
+    return f"{start:%A} {start:%Y-%m-%d}, {span} ({zone.key})"
+
+
+def _model_reference(ref: str, item: dict) -> dict:
+    if item["kind"] != "event":
+        return {"ref": ref, **item}
+    when = _event_when(item)
+    shown = {key: value for key, value in item.items() if key not in ("start", "end", "timezone")} if when else item
+    return {"ref": ref, **shown, **({"when": when} if when else {})}
 
 
 def _scheduled_work(access_token: str) -> list[dict]:
@@ -114,7 +136,7 @@ def answer_questions(access_token: str, questions: list[str], reference_time: st
                 for question in questions]
     context = {"reference_time": reference_time, "timezone": zone,
                "questions": [{"index": i, "question": q} for i, q in enumerate(questions)],
-               "references": [{"ref": ref, **item} for ref, item in references.items()]}
+               "references": [_model_reference(ref, item) for ref, item in references.items()]}
     instruction = (
         "Answer each question using ONLY the listed references: the user's saved tasks (T), "
         "confirmed memories with exact evidence (M), and Calendar blocks FocusOS created (E). "
