@@ -6,12 +6,13 @@ from zoneinfo import ZoneInfo
 from pydantic import ValidationError
 
 from focusos_api.calendar_fetch import CalendarWindow
-from focusos_api.calendar_free_time import FreeTimeResult, _local_boundary, calculate_free_time
+from focusos_api.calendar_free_time import FreeTimeResult, Interval, _local_boundary, calculate_free_time
 from focusos_api.planning_contract import PlanningValidationError, task_handles, validate_planning_response
 from focusos_api.planning_selection import PlanningSelection
 from focusos_api.session_constraints import grounded_sessions
 from focusos_api.planning_request import explicit_constraints
 from focusos_api.profiles import ProfileRecord
+from focusos_api import scheduler_optimizer
 
 START_BUFFER_MINUTES = 5
 
@@ -190,7 +191,21 @@ def compile_plan(raw: object, tasks: list[dict], checkpoint: dict, profile: Prof
         working_hours=profile.working_hours, duration_minutes=duration, allow_split=split,
         minimum_block_minutes=15)
     base_available, free_intervals = inventory.available_minutes, inventory.free_intervals
-    for ref in sorted(refs, key=lambda key: deadlines[key] or end):
+    optimized = None
+    if len(refs) > 1 and not split:
+        # Several whole blocks: search for the best joint placement; greedy remains the fallback.
+        jobs = [scheduler_optimizer.Job(ref, allocations[ref], deadlines[ref], str(known[ref].get("priority") or "normal"))
+                for ref in refs]
+        optimized = scheduler_optimizer.optimize(jobs, [(item.start, item.end) for item in inventory.free_intervals], start)
+        if optimized is not None:
+            by_ref = {job.ref: job for job in jobs}
+            for placement in optimized.placements:
+                slot_ref = f"slot-{len(combined_slots) + 1}"
+                combined_slots.append(Interval(start=placement.start, end=placement.end))
+                blocks.append({"slot_ref": slot_ref, "task_ref": placement.ref, "title": known[placement.ref]["title"],
+                    "reason": scheduler_optimizer.reason(by_ref[placement.ref], placement, zone),
+                    "evidence_refs": intent.evidence_refs})
+    for ref in ([] if optimized is not None else sorted(refs, key=lambda key: deadlines[key] or end)):
         window = CalendarWindow(start, end, fetched, "primary", profile.timezone, tuple(events), complete=True)
         free = calculate_free_time(window, timezone_name=profile.timezone,
             working_hours=profile.working_hours, duration_minutes=allocations[ref], allow_split=split,
@@ -224,6 +239,9 @@ def compile_plan(raw: object, tasks: list[dict], checkpoint: dict, profile: Prof
         assumptions.append("Work duration uses the saved task estimates.")
     elif len(refs) == 1 and estimates[0] != duration:
         assumptions.append("Work duration uses your request rather than the saved task estimate.")
+    if optimized is not None:
+        assumptions.append("Blocks were placed together: higher priority earlier, room before deadlines, a gap between blocks."
+                           if optimized.optimal else "Blocks were placed together; the search stopped at its time limit with the best plan found.")
     raw_plan = {"schema_version": "1", "status": "proposed", "task_refs": refs, "blocks": blocks,
         "requested_minutes": duration, "scheduled_minutes": duration, "shortfall_minutes": 0,
         "assumptions": assumptions, "questions": [], "summary": "Work time is available."}

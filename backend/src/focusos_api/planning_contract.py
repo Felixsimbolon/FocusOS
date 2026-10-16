@@ -88,7 +88,9 @@ def validate_planning_response(raw: object, tasks: list[dict], free: FreeTimeRes
         resolved.append({"slot_ref": block.slot_ref, "task_ref": block.task_ref,
                          "task_id": task["id"], "start": slot.start.isoformat(),
                          "end": slot.end.isoformat(), "title": block.title,
-                         "reason": "Available work time from the saved Calendar snapshot.", "evidence_refs": block.evidence_refs})
+                         # Only the server's own optimizer explanation is kept; any other text is replaced.
+                         "reason": block.reason.strip() if block.reason.startswith("Optimized: ") and len(block.reason) <= 160
+                         else "Available work time from the saved Calendar snapshot.", "evidence_refs": block.evidence_refs})
     ordered = sorted(resolved, key=lambda block: block["start"])
     if any(datetime.fromisoformat(a["end"]) > datetime.fromisoformat(b["start"])
            for a, b in zip(ordered, ordered[1:])):

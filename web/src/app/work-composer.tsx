@@ -8,6 +8,12 @@ type CalendarBlock = { title: string; start: string; end: string; timezone: stri
 type Reference = { kind: "task" | "memory" | "event"; title: string; detail?: string };
 export type Answer = { question: string; status: "answered" | "no_reference" | "unavailable"; answer: string | null; references: Reference[] };
 type ScheduleOutcome = { title: string; status: "scheduled" | "failed" | "clarify"; message?: string };
+type EstimateAdjustment = { title: string; estimate_minutes: number; booked_minutes: number; factor: number; sessions: number };
+/** Why a block is longer or shorter than the saved estimate. */
+export function adjustmentNotes(result: Record<string, unknown>): string[] {
+  const items = Array.isArray(result.estimate_adjustments) ? result.estimate_adjustments as EstimateAdjustment[] : [];
+  return items.map(item => `Booked ${item.booked_minutes} min for ${item.title} instead of the ${item.estimate_minutes}-min estimate: your check-ins usually run about ${item.factor.toFixed(1)}× the plan (${item.sessions} check-ins). Write a duration to override this.`);
+}
 export const NO_REFERENCE_NOTE = "No reference found in your saved tasks, memories, or scheduled work.";
 const REFERENCE_LABEL = { task: "Task", memory: "Memory", event: "Calendar" } as const;
 
@@ -87,6 +93,7 @@ export function WorkComposer() {
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [issues, setIssues] = useState<string[]>([]);
   const [thread, setThread] = useState<Thread | null>(null);
+  const [adjustments, setAdjustments] = useState<string[]>([]);
   const controller = useRef<AbortController | null>(null);
   const pending = useRef<{ text: string; key: string; replyTo: string | null } | null>(null);
   const observe = useCallback(async (job: Job, signal: AbortSignal, request = "") => {
@@ -99,6 +106,7 @@ export function WorkComposer() {
       setDefaultDuration(finished.result?.default_duration === true);
       setWarning(typeof finished.result?.warning === "string" ? finished.result.warning : "");
       setAnswers(Array.isArray(finished.result?.answers) ? finished.result.answers as Answer[] : []);
+      setAdjustments(finished.status === "succeeded" ? adjustmentNotes(finished.result || {}) : []);
       const questions = finished.subject_id ? openQuestions(finished) : [];
       // Open questions are shown once, in the reply thread, not again as warnings.
       setIssues(finished.status === "succeeded" ? partIssues(finished.result || {}).filter(issue => !questions.includes(issue)) : []);
@@ -135,7 +143,7 @@ export function WorkComposer() {
     const replyTo = thread?.runId ?? null;
     if (!pending.current || pending.current.text !== description || pending.current.replyTo !== replyTo)
       pending.current = { text: description, key: crypto.randomUUID(), replyTo };
-    setBusy(true); setError(""); setWarning(""); setBlocks([]); setAnswers([]); setIssues([]); setDefaultDuration(false); setMessage("Understanding your request...");
+    setBusy(true); setError(""); setWarning(""); setBlocks([]); setAnswers([]); setIssues([]); setAdjustments([]); setDefaultDuration(false); setMessage("Understanding your request...");
     controller.current?.abort(); const tracking = new AbortController(); controller.current = tracking;
     try {
       const response = await fetch("/api/commands", { method: "POST", headers: { "Content-Type": "application/json" },
@@ -168,7 +176,7 @@ export function WorkComposer() {
         </div>
       </form>
     </div>
-    {(message || error || warning || blocks.length > 0 || answers.length > 0 || issues.length > 0) && <div className="composer-response">
+    {(message || error || warning || blocks.length > 0 || answers.length > 0 || issues.length > 0 || adjustments.length > 0) && <div className="composer-response">
       {message && <p role="status" aria-live="polite" className="composer-message">{message}</p>}
       {error && <p role="alert" className="composer-message">{error}</p>}
       {warning && <p role="alert" className="composer-message composer-warning">{warning}</p>}
@@ -182,6 +190,7 @@ export function WorkComposer() {
           <strong>{reference.title}</strong>{reference.detail && <small>{reference.detail}</small>}</li>)}</ul>}
       </li>)}</ul>}
       {defaultDuration && blocks.length > 0 && <p className="composer-note">Duration used: 30 minutes.</p>}
+      {blocks.length > 0 && adjustments.map((note, index) => <p key={index} className="composer-note">{note}</p>)}
       {blocks.length > 0 && <PaginatedItems as="ul" className="composer-results" label="created Calendar blocks" pageSize={3} items={blocks.map((block, index) => <li key={`${block.start}-${index}`}><strong>{block.title}</strong>
         <span>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: block.timezone }).format(new Date(block.start))} - {new Intl.DateTimeFormat(undefined, { timeStyle: "short", timeZone: block.timezone }).format(new Date(block.end))} ({block.timezone})</span>
         {block.link && <a href={block.link} target="_blank" rel="noopener noreferrer">Open in Google Calendar</a>}</li>)} />}

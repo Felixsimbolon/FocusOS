@@ -28,6 +28,8 @@ from focusos_api.auto_capture import process_and_capture
 from focusos_api.memory_embeddings import embed_memory
 from focusos_api.memory_answers import MAX_QUESTIONS, AnswersUnavailable, answer_questions
 from focusos_api.follow_ups import FollowUpError, follow_up
+from focusos_api import estimates
+from focusos_api.calendar_cancel import cancel_focus_block
 from focusos_api.jobs import Step, RetryStep, JobInput, enqueue_job
 from focusos_api.job_routes import access, call
 
@@ -90,11 +92,12 @@ def legacy_intent(data: dict) -> WorkIntent:
 
 
 def _task_data(task):
-    return {"id": str(task.id), "title": task.title, "due_kind": task.due_kind,
+    return {"id": str(task.id), "title": task.title, "due_kind": task.due_kind, "priority": getattr(task, "priority", None) or "normal",
             "due_date": task.due_date.isoformat() if task.due_date else None,
             "due_at": task.due_at.isoformat() if task.due_at else None,
             "estimate_minutes": task.estimate_minutes,
-            "source_id": str(task.source_id) if task.source_id else None}
+            "source_id": str(task.source_id) if task.source_id else None,
+            "project_id": str(task.project_id) if getattr(task, "project_id", None) else None}
 
 
 def _squash(value: str) -> str:
@@ -187,7 +190,7 @@ def infer_work(text: str, tasks: list[dict], reference: str, zone: str, conversa
         context["conversation"] = {key: conversation[key] for key in ("previous_request", "open_questions", "already_done")}
         grounding = f"{conversation['previous_request']}\n{text}"
     # Never expose database IDs to the model.
-    for task in context["tasks"]: task.pop("id", None); task.pop("source_id", None)
+    for task in context["tasks"]: task.pop("id", None); task.pop("source_id", None); task.pop("project_id", None)
     try:
         data = request(structured_payload(instruction, json.dumps(context, ensure_ascii=False), schema, 2400), timeout=25, max_bytes=65536, purpose="intent")
         intent = WorkIntent.model_validate(json.loads(output_text(data)))
@@ -246,6 +249,24 @@ def submit(request_input: WorkInput, token: str = Depends(access)):
     return call(start_work, token, request_input)
 
 
+class RescheduleInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    request_key: UUID
+
+
+def _reschedule(token: str, approval_id: UUID, request_input: RescheduleInput):
+    from focusos_api.calendar_conflicts import RescheduleUnavailable, start_reschedule
+    try:
+        return start_reschedule(token, approval_id, request_input.request_key)
+    except RescheduleUnavailable as exc:
+        raise HTTPException(409, exc.message) from exc
+
+
+@router.post("/commands/reschedule/{approval_id}", status_code=202)
+def reschedule(approval_id: UUID, request_input: RescheduleInput, token: str = Depends(access)):
+    return call(_reschedule, token, approval_id, request_input)
+
+
 def _fit(result: dict) -> dict:
     """Keep the job result within its storage limit, dropping the least useful detail first."""
     def size(): return len(json.dumps(result, ensure_ascii=False, default=str).encode("utf-8"))
@@ -292,6 +313,16 @@ def _finalize(token: str, run, intent: WorkIntent, cp: dict, result: dict) -> St
         warnings = [f"{item['title']}: {item['warning']}" for item in schedules if item.get("warning")]
         if warnings: result["warning"] = " ".join(warnings)
     result["blocks_scheduled"] = len(result.get("blocks", []))
+    replaces = run.checkpoint.get("replaces_approval_id")
+    if replaces and result["blocks_scheduled"] and "replaced" not in result:
+        # A moved block: remove the old event only now that the new one exists.
+        try:
+            outcome = cancel_focus_block(token, UUID(replaces))
+            result["replaced"] = outcome.get("status", "unknown")
+        except Exception:  # noqa: BLE001 - the new block stands; the user can remove the old one.
+            result["replaced"] = "unknown"
+        if result["replaced"] != "cancelled":
+            result["warning"] = "The new block was created, but the old one could not be removed. Delete it in Google Calendar."
     failures = [item for item in schedules if item["status"] != "scheduled"] + list(cp.get("failures", []))
     succeeded = (result.get("tasks_saved", 0) or result.get("memories_saved", 0) or result["blocks_scheduled"]
                  or any(answer["status"] in ("answered", "no_reference") for answer in result.get("answers", [])))
@@ -346,6 +377,20 @@ def _intent(run) -> WorkIntent:
     return legacy_intent(run.checkpoint["work_intent"])
 
 
+def _estimate_adjustment(token: str, task: dict, estimate: int) -> dict | None:
+    """Book the duration this user's check-ins suggest instead of a saved estimate that usually runs over (or under)."""
+    try:
+        factors = estimates.load_factors(token)
+    except Exception:  # noqa: BLE001 - adaptive estimates are optional; scheduling uses the saved estimate.
+        return None
+    learned = estimates.factor_for(factors, task.get("project_id"))
+    if not learned.confident(): return None
+    booked = estimates.adjusted_minutes(estimate, learned)
+    if booked == estimate: return None
+    return {"title": str(task.get("title") or "Task")[:120], "estimate_minutes": estimate, "booked_minutes": booked,
+            "factor": round(learned.factor, 2), "sessions": learned.sessions, "scope": learned.scope}
+
+
 def _prepare_schedule(token: str, run, intent: WorkIntent, cp: dict, result: dict) -> Step:
     index = cp.get("schedule_index", 0)
     schedule = intent.schedules[index]
@@ -384,13 +429,21 @@ def _prepare_schedule(token: str, run, intent: WorkIntent, cp: dict, result: dic
         tasks = [{"id": None, "title": standalone, "due_kind": "none", "due_at": None, "due_date": None, "source_id": None, "estimate_minutes": 30}]
         selection["task_refs"] = ["task-1"]
     if selection["duration_minutes"] is None and len(selection["task_refs"]) == 1:
-        estimate = tasks[int(selection["task_refs"][0].split("-")[-1]) - 1].get("estimate_minutes")
+        task = tasks[int(selection["task_refs"][0].split("-")[-1]) - 1]
+        estimate = task.get("estimate_minutes")
         if not estimate:
             selection["duration_minutes"] = 30
             result["default_duration"] = True
+        elif schedule.target == "existing":
+            adjustment = _estimate_adjustment(token, task, estimate)
+            if adjustment:
+                # An explicit duration in the text still wins: the planner reapplies stated limits.
+                selection["duration_minutes"] = adjustment["booked_minutes"]
+                result["estimate_adjustments"] = [*result.get("estimate_adjustments", []), adjustment][-3:]
     prepared = {"timezone": profile.timezone, "duration_minutes": None, "allow_split": False, "auto_calendar": True,
                 "task_override": tasks, "standalone_title": standalone, "planning_selection": selection,
-                "constraint_text": constraint_text(intent, schedule, run.command, "conversation" in run.checkpoint)}
+                "constraint_text": run.checkpoint.get("constraint_override")
+                                   or constraint_text(intent, schedule, run.command, "conversation" in run.checkpoint)}
     if not cp.get("parent_used") and run.status not in ("succeeded", "clarify", "failed"):
         # The first plan runs on the request's own run, exactly like a single schedule.
         if not _checkpoint(token, run.id, run.version, "waiting", "start", {**run.checkpoint, **prepared}, None, run.model_turns, 0):
@@ -485,7 +538,12 @@ def advance_work(token: str, job: dict, run):
                     # Superseded/deleted memories no longer need indexing.
                     raise RetryStep("embedding_unavailable", 60)
             return Step(checkpoint={**cp, "memory_index": min(index + EMBEDDINGS_PER_STEP, len(ids))}, result=result)
-        cp = {key: value for key, value in cp.items() if key not in ("memory_ids", "memory_index")}
+        if ids and not cp.get("graph_done"):
+            # New memories join the knowledge graph (best effort, one model call per batch).
+            from focusos_api.knowledge_graph import index_memories
+            index_memories(token, ids)
+            return Step(checkpoint={**cp, "graph_done": True}, result=result)
+        cp = {key: value for key, value in cp.items() if key not in ("memory_ids", "memory_index", "graph_done")}
         phase = "command_answer"
     if phase == "command_answer":
         if intent.questions and "answers" not in result:

@@ -75,4 +75,24 @@ describe("product proxy", () => {
     expect(r.status).toBe(503);
     expect(await r.text()).not.toContain("private provider");
   });
+  it("forwards only a valid check-in body and reads estimates", async () => {
+    vi.mocked(fetch).mockImplementation(async () => Response.json({ ok: true }));
+    const post = (body: unknown) => POST(new NextRequest("http://localhost", { method: "POST", body: JSON.stringify(body) }), ctx(["focus-blocks", id, "check-in"]));
+    expect((await post({ outcome: "done", actual_minutes: 75 })).status).toBe(200);
+    const [, init] = vi.mocked(fetch).mock.calls[0];
+    expect(JSON.parse(init!.body as string)).toEqual({ outcome: "done", actual_minutes: 75 });
+    expect((init!.headers as Record<string, string>)["Content-Type"]).toBe("application/json");
+    vi.mocked(fetch).mockClear();
+    for (const body of [{ outcome: "skipped", actual_minutes: 5 }, { outcome: "done" }, { outcome: "done", actual_minutes: 0 },
+      { outcome: "done", actual_minutes: 30, user_id: "other" }, { outcome: "later", actual_minutes: 30 }])
+      expect((await post(body)).status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+    expect((await post({ outcome: "skipped", actual_minutes: null })).status).toBe(200);
+    vi.mocked(fetch).mockResolvedValue(Response.json({ detail: "x" }, { status: 409 }));
+    const refused = await post({ outcome: "done", actual_minutes: 30 });
+    expect((await refused.json()).error).toBe("This block is not open for check-in.");
+    vi.mocked(fetch).mockImplementation(async () => Response.json({ ok: true }));
+    for (const path of ["estimates", "check-ins"])
+      expect((await GET(new NextRequest("http://localhost"), ctx([path]))).status).toBe(200);
+  });
 });

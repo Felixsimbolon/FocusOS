@@ -2,7 +2,7 @@
 import argparse
 import json
 from pathlib import Path
-TABLES={"profiles","projects","tasks","source_items","memories","approval_requests"}
+TABLES={"profiles","projects","tasks","source_items","memories","approval_requests","work_sessions"}
 FORBIDDEN={"access_token","refresh_token","ciphertext","lease_token","encrypted_access_token","encrypted_refresh_token","service_role_key"}
 def validate_export(data):
     if not isinstance(data,dict) or data.get("schema_version")!=1: raise ValueError("Unknown export version")

@@ -263,7 +263,13 @@ def _step(token: str, job: dict) -> Step:
         if phase == "capture":
             source_id = checkpoint["source_id"]
             captured = _process_capture(token, job, UUID(source_id))
-            if captured.status != "failed": return captured
+            if captured.status != "failed":
+                if captured.checkpoint.get("phase") == "embedding":
+                    # Captured once: prioritize it (best effort, never blocks the batch).
+                    from focusos_api.email_triage import triage_source
+                    if triage_source(token, UUID(source_id)):
+                        captured.result["triaged"] = (captured.result or {}).get("triaged", 0) + 1
+                return captured
             # One permanently invalid email must not block the rest of this batch.
             previous = job.get("result") or {}
             failures = [*(previous.get("failed_sources") or []), {"source_id": source_id, "error": captured.error}]

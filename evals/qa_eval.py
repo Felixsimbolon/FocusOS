@@ -253,7 +253,7 @@ def answer_metrics(rows: list[dict]) -> dict:
             "pass_rate_by_category": {name: mean(values) for name, values in sorted(by_category.items())}}
 
 
-def run_answers(corpus: dict, cases: list[dict], live: bool, config: dict, vectors: dict, cache, judge: bool) -> list[dict]:
+def run_answers(corpus: dict, cases: list[dict], live: bool, config: dict, vectors: dict, cache, judge: bool, agent: bool = False) -> list[dict]:
     tasks = [_task(item) for item in corpus["tasks"]]
     events = [{"kind": "event", **{key: item[key] for key in ("title", "start", "end", "timezone", "cancelled")}} for item in corpus["events"]]
     memories = {item["id"]: item for item in corpus["memories"]}
@@ -273,8 +273,10 @@ def run_answers(corpus: dict, cases: list[dict], live: bool, config: dict, vecto
             "_scheduled_work": lambda *_: events,
             "embed_text": embed,
             "hybrid_matches": search,
+            "_graph_memories": lambda *_: [],  # The synthetic corpus has no graph; this measures search alone.
         }.items():
             stack.enter_context(patch.object(memory_answers, target, side_effect=value))
+        stack.enter_context(patch.object(memory_answers.knowledge_graph, "graph_matches", return_value=[]))
         if not live:
             stack.enter_context(patch.object(memory_answers, "api_key", return_value="oracle"))
             stack.enter_context(patch.object(memory_answers, "gemini_request", side_effect=oracle_model(cases, corpus)))
@@ -290,7 +292,11 @@ def run_answers(corpus: dict, cases: list[dict], live: bool, config: dict, vecto
             # A provider 503 is not an answer-quality signal: retry a few times, then report it as unavailable.
             for attempt in range(1 + (RETRIES if live else 0)):
                 try:
-                    [answer] = memory_answers.answer_questions("eval-session", [case["question"]], corpus["reference_time"], corpus["timezone"])
+                    if agent:
+                        from focusos_api.agent_loop import answer_with_agent
+                        answer = answer_with_agent("eval-session", case["question"], corpus["reference_time"], corpus["timezone"])
+                    else:
+                        [answer] = memory_answers.answer_questions("eval-session", [case["question"]], corpus["reference_time"], corpus["timezone"])
                 except memory_answers.AnswersUnavailable:
                     answer = {"status": "unavailable", "answer": None, "references": []}
                 if answer["status"] != "unavailable":
@@ -299,6 +305,7 @@ def run_answers(corpus: dict, cases: list[dict], live: bool, config: dict, vecto
             streak = streak + 1 if answer["status"] == "unavailable" else 0
             row = score_answer(case, answer, corpus)
             row["answer"] = answer.get("answer")
+            if agent: row["tool_calls"] = answer.get("tool_calls", [])
             if judge and live and answer["status"] == "answered":
                 evidence = [_evidence_text(ref, corpus) for ref in row["cited"] if ref]
                 row["judge_supported"] = judge_faithfulness(case["question"], answer["answer"] or "", evidence)
@@ -316,7 +323,7 @@ def _evidence_text(ref: str, corpus: dict) -> str:
 
 # --- Report ----------------------------------------------------------------------
 
-def evaluate(live: bool, config: dict, judge: bool = False, cache_path: Path = EVALS / "output/qa_embeddings.json") -> dict:
+def evaluate(live: bool, config: dict, judge: bool = False, cache_path: Path = EVALS / "output/qa_embeddings.json", agent: bool = False) -> dict:
     corpus, cases = load()
     cache = EmbeddingCache(cache_path) if live else None
     vectors = {m["id"]: cache.get(m["text"] + "\nEvidence: " + m["evidence"]) for m in corpus["memories"]} if cache else {}
@@ -330,14 +337,17 @@ def evaluate(live: bool, config: dict, judge: bool = False, cache_path: Path = E
     if live:
         strategies["semantic"] = lambda case: semantic_ranking(question_vectors[case["id"]], vectors, memories, config["semantic_threshold"])
     retrieval = {name: retrieval_metrics({case["id"]: rank(case) for case in cases}, cases, k) for name, rank in strategies.items()}
-    rows = run_answers(corpus, cases, live, config, vectors, cache, judge)
+    rows = run_answers(corpus, cases, live, config, vectors, cache, judge, agent)
     if cache: cache.save()
     answers = answer_metrics(rows)
+    if agent:
+        calls = [len(row.get("tool_calls", [])) for row in rows]
+        answers["agent_avg_tool_calls"] = round(sum(calls) / len(calls), 2) if calls else None
     judged = [row["judge_supported"] for row in rows if row.get("judge_supported") is not None]
     if judge and live:
         answers["judge_supported_rate"] = round(sum(judged) / len(judged), 4) if judged else None
         answers["judge_note"] = "LLM-as-judge from the same model family; treat as a signal, not ground truth."
-    return {"mode": "live_gemini_synthetic" if live else "mock_oracle_keyword_retrieval",
+    return {"mode": ("live_gemini_agent" if agent else "live_gemini_synthetic") if live else "mock_oracle_keyword_retrieval",
             "provider_called": live, "model": MODEL if live else None, "embedding_model": EMBED_MODEL if live else None,
             "config": config, "reference_time": corpus["reference_time"],
             "note": None if live else "Mock retrieval has no vectors and the answer model is an oracle: "
@@ -386,6 +396,7 @@ def main():
     parser.add_argument("--k", type=int, default=8, help="memories retrieved per question (SQL default 8)")
     parser.add_argument("--rrf-k", type=int, default=60, help="reciprocal-rank fusion constant (SQL uses 60)")
     parser.add_argument("--semantic-threshold", type=float, default=0.6, help="minimum cosine for a semantic rank (SQL uses 0.6 since 2026-10-16)")
+    parser.add_argument("--agent", action="store_true", help="live only: answer with the experimental tool-calling agent")
     parser.add_argument("--pause", type=float, default=0.0, help="live only: seconds to wait between questions (rate limits)")
     parser.add_argument("--sweep", action="store_true", help="live only: compare semantic thresholds 0.2-0.75 on retrieval (no answer calls)")
     parser.add_argument("--out", type=Path, default=EVALS / "output/qa.json")
@@ -403,7 +414,9 @@ def main():
                 print(f"  threshold={threshold:.1f} {name:8} recall@k={metrics['recall_at_k']:.2f} mrr={metrics['mrr']:.2f} "
                       f"precision@k={metrics['precision_at_k']:.2f} avg_returned={metrics['avg_returned']:.1f} missed={','.join(metrics['missed']) or '-'}")
         return
-    report = evaluate(args.live, config, judge=args.judge)
+    if args.agent and not args.live:
+        parser.error("--agent needs --live (the mock oracle does not choose tools)")
+    report = evaluate(args.live, config, judge=args.judge, agent=args.agent)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"{report['mode']} (k={config['k']}, rrf_k={config['rrf_k']}, threshold={config['semantic_threshold']})")

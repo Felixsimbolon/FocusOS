@@ -17,7 +17,8 @@ export type Usage = {
 const PURPOSE_LABEL: Record<string, string> = {
   intent: "Understanding requests", extract: "Organizing text", answer: "Answering questions",
   answer_select: "Memory answer (legacy)", plan: "Planning", agent_tasks: "Task lookup",
-  embed_memory: "Indexing memories", embed_query: "Search queries",
+  embed_memory: "Indexing memories", embed_query: "Search queries", triage: "Email priorities",
+  graph: "Knowledge graph", review: "Weekly review", agent: "Agent (experimental)",
 };
 const number = new Intl.NumberFormat();
 

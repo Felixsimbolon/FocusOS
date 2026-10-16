@@ -7,6 +7,11 @@ import { Preferences } from "./settings/preferences";
 import { ScheduleBoard } from "./schedule/schedule-board";
 import { UsagePanel } from "./usage/usage-panel";
 import { FocusHud } from "./hud/focus-hud";
+import { CheckInPanel } from "./check-ins/check-in-panel";
+import { Conflicts } from "./schedule/conflicts";
+import { TriagePanel } from "./activity/triage-panel";
+import { GraphPanel } from "./knowledge/graph-panel";
+import { ReviewPanel } from "./review/review-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +34,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
     <header className="app-header">
       <div className="app-header-inner">
         <Brand />
-        {user && <nav aria-label="Main navigation"><a href="/#composer">Write</a><a href="/#tasks">Tasks</a><a href="/#schedule">Calendar</a><a href="/#usage">Usage</a></nav>}
+        {user && <nav aria-label="Main navigation"><a href="/#composer">Write</a><a href="/#tasks">Tasks</a><a href="/#schedule">Calendar</a><a href="/#check-ins">Check-ins</a><a href="/#review">Review</a><a href="/#usage">Usage</a></nav>}
         {user && <div className="header-actions"><GmailSyncPanel /><form action={signOut}><button className="secondary-button" type="submit">Sign out</button></form></div>}
       </div>
     </header>
@@ -47,8 +52,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
       {me.kind === "ok" && <>
         <div id="tasks" className="workspace-tasks"><TaskBoard /></div>
         <div className="workspace-secondary">
-          <details id="schedule" className="home-panel schedule-panel" open><summary><span><span className="section-index">03</span>Scheduled work</span><small>Your Calendar</small></summary><div className="home-panel-body"><ScheduleBoard /></div></details>
-          <details id="usage" className="home-panel usage-panel"><summary><span><span className="section-index">04</span>AI usage</span><small>Last 7 days</small></summary><div className="home-panel-body"><UsagePanel /></div></details>
+          <details id="schedule" className="home-panel schedule-panel" open><summary><span><span className="section-index">03</span>Scheduled work</span><small>Your Calendar</small></summary><div className="home-panel-body"><Conflicts /><ScheduleBoard /></div></details>
+          <details id="review" className="home-panel review-panel"><summary><span><span className="section-index">04</span>Weekly review</span><small>Plan vs reality</small></summary><div className="home-panel-body"><ReviewPanel /></div></details>
+          <details id="check-ins" className="home-panel check-in-panel" open><summary><span><span className="section-index">05</span>Check-ins</span><small>How long work really took</small></summary><div className="home-panel-body"><CheckInPanel /></div></details>
+          <details id="email" className="home-panel triage-panel"><summary><span><span className="section-index">06</span>Email priorities</span><small>From labeled Gmail</small></summary><div className="home-panel-body"><TriagePanel /></div></details>
+          <details id="knowledge" className="home-panel graph-panel"><summary><span><span className="section-index">07</span>Knowledge graph</span><small>How your notes connect</small></summary><div className="home-panel-body"><GraphPanel /></div></details>
+          <details id="usage" className="home-panel usage-panel"><summary><span><span className="section-index">08</span>AI usage</span><small>Last 7 days</small></summary><div className="home-panel-body"><UsagePanel /></div></details>
         </div>
         <Preferences profile={me.data.profile} saved={params.saved} error={params.error} />
       </>}
