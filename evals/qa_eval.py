@@ -34,6 +34,8 @@ from focusos_api import memory_answers
 
 EVALS = Path(__file__).resolve().parent
 RETRIES = 3  # live only; extra attempts after a provider outage
+PAUSE = 0.0  # live only; seconds between questions, to stay under per-minute quotas
+MAX_OUTAGE_STREAK = 3  # stop a live run after this many unavailable questions in a row
 NAMESPACE = UUID("6f1c2a9e-1d1b-4a8e-9d55-0c8c1f6d2b10")
 # Regression floors from the mock baseline (2026-10-16, 55 cases): keyword-only retrieval misses the
 # cross-language paraphrases (q15, q18, q39, q40), which only live semantic search can find.
@@ -276,7 +278,14 @@ def run_answers(corpus: dict, cases: list[dict], live: bool, config: dict, vecto
         if not live:
             stack.enter_context(patch.object(memory_answers, "api_key", return_value="oracle"))
             stack.enter_context(patch.object(memory_answers, "gemini_request", side_effect=oracle_model(cases, corpus)))
+        streak = 0
         for case in cases:
+            if live and streak >= MAX_OUTAGE_STREAK:
+                # Quota or outage: keep the rest unscored instead of spending more requests.
+                rows.append({**score_answer(case, {"status": "unavailable", "answer": None, "references": []}, corpus), "answer": None})
+                continue
+            if live and PAUSE and rows:
+                time.sleep(PAUSE)
             answer = {"status": "unavailable", "answer": None, "references": []}
             # A provider 503 is not an answer-quality signal: retry a few times, then report it as unavailable.
             for attempt in range(1 + (RETRIES if live else 0)):
@@ -286,7 +295,8 @@ def run_answers(corpus: dict, cases: list[dict], live: bool, config: dict, vecto
                     answer = {"status": "unavailable", "answer": None, "references": []}
                 if answer["status"] != "unavailable":
                     break
-                time.sleep(3 * (attempt + 1))
+                time.sleep(10 * (attempt + 1))
+            streak = streak + 1 if answer["status"] == "unavailable" else 0
             row = score_answer(case, answer, corpus)
             row["answer"] = answer.get("answer")
             if judge and live and answer["status"] == "answered":
@@ -376,11 +386,14 @@ def main():
     parser.add_argument("--k", type=int, default=8, help="memories retrieved per question (SQL default 8)")
     parser.add_argument("--rrf-k", type=int, default=60, help="reciprocal-rank fusion constant (SQL uses 60)")
     parser.add_argument("--semantic-threshold", type=float, default=0.6, help="minimum cosine for a semantic rank (SQL uses 0.6 since 2026-10-16)")
+    parser.add_argument("--pause", type=float, default=0.0, help="live only: seconds to wait between questions (rate limits)")
     parser.add_argument("--sweep", action="store_true", help="live only: compare semantic thresholds 0.2-0.75 on retrieval (no answer calls)")
     parser.add_argument("--out", type=Path, default=EVALS / "output/qa.json")
     args = parser.parse_args()
     if args.live and not api_key():
         parser.error("GEMINI_API_KEY is required for live evaluation")
+    global PAUSE
+    PAUSE = max(0.0, args.pause)
     config = {"k": args.k, "rrf_k": args.rrf_k, "semantic_threshold": args.semantic_threshold}
     if args.sweep:
         if not args.live:
