@@ -9,11 +9,12 @@ export async function POST(request: NextRequest) {
   if (!token) return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   const raw = await request.text();
   if (raw.length > 8000) return NextResponse.json({ error: "Description too long" }, { status: 413 });
-  let input: { text: string; request_key: string };
+  let input: { text: string; request_key: string; reply_to?: string };
   try {
     input = JSON.parse(raw);
-    if (!input || Object.keys(input).some(key => !["text", "request_key"].includes(key)) ||
-      typeof input.text !== "string" || !input.text.trim() || input.text.length > 1000 || !UUID.test(input.request_key)) throw new Error();
+    if (!input || Object.keys(input).some(key => !["text", "request_key", "reply_to"].includes(key)) ||
+      typeof input.text !== "string" || !input.text.trim() || input.text.length > 1000 || !UUID.test(input.request_key) ||
+      (input.reply_to !== undefined && (typeof input.reply_to !== "string" || !UUID.test(input.reply_to)))) throw new Error();
   } catch { return NextResponse.json({ error: "Write a description of up to 1,000 characters." }, { status: 400 }); }
   try {
     const response = await fetch(requireServerEnv("FOCUSOS_API_URL").replace(/\/$/, "") + "/commands", {
@@ -22,6 +23,9 @@ export async function POST(request: NextRequest) {
     });
     if (!response.ok) {
       const status = [401, 409, 422, 429].includes(response.status) ? response.status : 503;
+      // A reply that cannot continue gets the API's fixed explanation (never provider or database text).
+      const detail = status === 422 && input.reply_to ? await response.json().then(body => body?.detail, () => null) : null;
+      if (typeof detail === "string" && detail.length <= 200) return NextResponse.json({ error: detail }, { status });
       return NextResponse.json({ error: status === 401 ? "Sign in again to continue." : status === 429
         ? "Processing limit reached. Wait before submitting again." : status === 409
         ? "This request changed. Refresh and submit it again." : "Could not start processing. Your description is kept; try again." }, { status });

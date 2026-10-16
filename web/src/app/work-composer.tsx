@@ -18,6 +18,24 @@ export function partIssues(result: Record<string, unknown>): string[] {
   return [...notes, ...schedules.filter(item => item.status !== "scheduled" && item.message)
     .map(item => schedules.length > 1 || item.status === "clarify" ? `${item.title}: ${item.message}` : item.message as string)];
 }
+/** Questions a finished request asked the user; a reply continues that request. */
+export function openQuestions(job: Job): string[] {
+  const result = job.result || {};
+  const questions: string[] = [];
+  if (job.status === "failed" && job.safe_error === "request_ambiguous" && typeof result.message === "string") questions.push(result.message);
+  const schedules = Array.isArray(result.schedules) ? result.schedules as ScheduleOutcome[] : [];
+  for (const item of schedules) if (item.status === "clarify" && item.message) questions.push(`${item.title || "Schedule"}: ${item.message}`);
+  return questions.slice(0, 3);
+}
+export type Thread = { runId: string; request: string; questions: string[] };
+export function ReplyThread({ thread, onDismiss }: { thread: Thread; onDismiss: () => void }) {
+  return <div className="composer-thread" role="group" aria-label="Reply to FocusOS">
+    {thread.request && <p className="thread-turn thread-user"><span className="thread-speaker">You</span>{thread.request}</p>}
+    {thread.questions.map((question, index) => <p key={index} className="thread-turn thread-agent"><span className="thread-speaker">FocusOS asks</span>{question}</p>)}
+    <p className="thread-hint">Reply below in a few words, for example &ldquo;yang web&rdquo;. Parts that already finished are not repeated.
+      <button type="button" className="thread-dismiss" onClick={onDismiss}>Start a new request instead</button></p>
+  </div>;
+}
 export function workMessage(job: Job): string {
   const result = job.result || {};
   const saved = Number(result.tasks_saved || 0);
@@ -68,9 +86,10 @@ export function WorkComposer() {
   const [warning, setWarning] = useState("");
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [issues, setIssues] = useState<string[]>([]);
+  const [thread, setThread] = useState<Thread | null>(null);
   const controller = useRef<AbortController | null>(null);
-  const pending = useRef<{ text: string; key: string } | null>(null);
-  const observe = useCallback(async (job: Job, signal: AbortSignal) => {
+  const pending = useRef<{ text: string; key: string; replyTo: string | null } | null>(null);
+  const observe = useCallback(async (job: Job, signal: AbortSignal, request = "") => {
     setBusy(true);
     try {
       const finished = await followOrganization(job, current => {
@@ -80,8 +99,12 @@ export function WorkComposer() {
       setDefaultDuration(finished.result?.default_duration === true);
       setWarning(typeof finished.result?.warning === "string" ? finished.result.warning : "");
       setAnswers(Array.isArray(finished.result?.answers) ? finished.result.answers as Answer[] : []);
-      setIssues(finished.status === "succeeded" ? partIssues(finished.result || {}) : []);
+      const questions = finished.subject_id ? openQuestions(finished) : [];
+      // Open questions are shown once, in the reply thread, not again as warnings.
+      setIssues(finished.status === "succeeded" ? partIssues(finished.result || {}).filter(issue => !questions.includes(issue)) : []);
+      setThread(questions.length && finished.subject_id ? { runId: finished.subject_id, request, questions } : null);
       if (finished.status === "succeeded") { setMessage(workMessage(finished)); setText(""); }
+      else if (questions.length) { setMessage(""); setText(""); }
       else setError(workMessage(finished));
       pending.current = null;
       window.dispatchEvent(new Event("focusos:tasks-changed"));
@@ -109,15 +132,17 @@ export function WorkComposer() {
   async function submit(event: FormEvent) {
     event.preventDefault(); if (busy || !text.trim()) return;
     const description = text.trim();
-    if (!pending.current || pending.current.text !== description) pending.current = { text: description, key: crypto.randomUUID() };
+    const replyTo = thread?.runId ?? null;
+    if (!pending.current || pending.current.text !== description || pending.current.replyTo !== replyTo)
+      pending.current = { text: description, key: crypto.randomUUID(), replyTo };
     setBusy(true); setError(""); setWarning(""); setBlocks([]); setAnswers([]); setIssues([]); setDefaultDuration(false); setMessage("Understanding your request...");
     controller.current?.abort(); const tracking = new AbortController(); controller.current = tracking;
     try {
       const response = await fetch("/api/commands", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: description, request_key: pending.current.key }), signal: tracking.signal });
+        body: JSON.stringify({ text: description, request_key: pending.current.key, ...(replyTo ? { reply_to: replyTo } : {}) }), signal: tracking.signal });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not submit this request.");
-      await observe(data.background_job, tracking.signal);
+      await observe(data.background_job, tracking.signal, thread ? `${thread.request ? `${thread.request}\n` : ""}${description}` : description);
     } catch (cause) { if (!tracking.signal.aborted) { setMessage(""); setError(cause instanceof Error ? cause.message : "Could not submit. Retry the same text."); setBusy(false); } }
   }
   return <section id="composer" className={`work-composer${busy ? " is-processing" : ""}`} aria-labelledby="composer-heading" aria-busy={busy}>
@@ -131,14 +156,15 @@ export function WorkComposer() {
             onClick={() => { setText(current => current.trim() ? `${current.trimEnd()}\n${item.text}` : item.text); document.getElementById("work-request")?.focus(); }}>
             <span aria-hidden="true">{item.icon}</span>{item.label}</button>)}
         </div>
+        {thread && <ReplyThread thread={thread} onDismiss={() => { setThread(null); pending.current = null; }} />}
         <div className="composer-input-frame">
-          <label className="sr-only" htmlFor="work-request">Work or schedule request</label>
-          <textarea id="work-request" value={text} onChange={event => setText(event.target.value)} rows={5} maxLength={1000} required disabled={busy} aria-describedby="composer-help"
-            placeholder={"Buat task berikut:\n1. Siapkan outline presentasi, deadline 13 Oktober, estimasi 30 menit.\n2. Buat halaman web, deadline 18 Oktober, estimasi 2 jam.\n\nCari waktu besok jam 13-16 untuk belajar selama 30 menit. Kapan deadline review desain?"} />
+          <label className="sr-only" htmlFor="work-request">{thread ? "Reply to FocusOS" : "Work or schedule request"}</label>
+          <textarea id="work-request" value={text} onChange={event => setText(event.target.value)} rows={thread ? 2 : 5} maxLength={1000} required disabled={busy} aria-describedby="composer-help"
+            placeholder={thread ? "yang web" : "Buat task berikut:\n1. Siapkan outline presentasi, deadline 13 Oktober, estimasi 30 menit.\n2. Buat halaman web, deadline 18 Oktober, estimasi 2 jam.\n\nCari waktu besok jam 13-16 untuk belajar selama 30 menit. Kapan deadline review desain?"} />
           <div className="composer-input-bottom"><span>Indonesian or English. Up to 10 tasks per list.</span><span aria-label={`${text.length} of 1000 characters`}>{text.length.toLocaleString()} / 1,000</span></div>
         </div>
         <div className="composer-footer"><small id="composer-help">Calendar requests create events automatically. Add a duration, or we use your task estimate or 30 minutes.</small>
-          <button type="submit" disabled={busy || !text.trim()}>{busy ? <><span className="composer-progress" aria-hidden="true" />Working...</> : <>Send request <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M5 12h14M13 6l6 6-6 6" /></svg></>}</button>
+          <button type="submit" disabled={busy || !text.trim()}>{busy ? <><span className="composer-progress" aria-hidden="true" />Working...</> : <>{thread ? "Send reply" : "Send request"} <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M5 12h14M13 6l6 6-6 6" /></svg></>}</button>
         </div>
       </form>
     </div>

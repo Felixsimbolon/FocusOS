@@ -39,4 +39,15 @@ describe("one inferred work request", () => {
     const result=await POST(request({text:"Work",request_key:id}));
     expect(result.status).toBe(503); expect(await result.text()).not.toContain("private provider key"); expect(after).not.toHaveBeenCalled();
   });
+  it("forwards a reply's earlier request id and explains why a reply cannot continue", async () => {
+    const reply = "223e4567-e89b-42d3-a456-426614174000";
+    expect((await POST(request({ text:"yang web",request_key:id,reply_to:reply }))).status).toBe(202);
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toEqual({ text:"yang web",request_key:id,reply_to:reply });
+    vi.mocked(fetch).mockResolvedValue(Response.json({ detail:"The earlier request has no open question. Write a new request instead." },{ status:422 }));
+    const refused = await POST(request({ text:"yang web",request_key:id,reply_to:reply }));
+    expect(refused.status).toBe(422);
+    expect((await refused.json()).error).toContain("no open question");
+    expect((await POST(request({ text:"yang web",request_key:id,reply_to:"not-a-run" }))).status).toBe(400);
+  });
 });
+

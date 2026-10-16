@@ -1,7 +1,7 @@
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { WorkComposer, partIssues, workMessage } from "../src/app/work-composer";
+import { ReplyThread, WorkComposer, openQuestions, partIssues, workMessage } from "../src/app/work-composer";
 import { GmailSyncPanel } from "../src/app/activity/gmail-sync-panel";
 import type { Job } from "../src/app/jobs/client";
 const job=(status:string,result:Record<string,unknown>={}):Job => ({id:"synthetic",kind:"planning",subject_id:"run",status,result,safe_error:null,steps:0,failures:0,available_at:new Date().toISOString(),expires_at:new Date(Date.now()+900000).toISOString()});
@@ -75,5 +75,17 @@ describe("inferred composer feedback",() => {
   it("failure reports partially saved tasks/events so retry cannot silently duplicate them",() => {
     const message=workMessage(job("failed",{message:"No suitable slot",tasks_saved:1,memories_saved:2,blocks_scheduled:1}));
     expect(message).toContain("No suitable slot"); expect(message).toContain("Already saved: 1"); expect(message).toContain("Check Calendar before retrying");
+  });
+  it("turns a request's questions into a reply thread, and nothing else", () => {
+    const ambiguous = { ...job("failed", { message: "Which task do you mean?" }), safe_error: "request_ambiguous" };
+    expect(openQuestions(ambiguous)).toEqual(["Which task do you mean?"]);
+    expect(openQuestions(job("succeeded", { schedules: [{ title: "Saved task", status: "clarify", message: "Web or review?" },
+      { title: "Python", status: "scheduled" }] }))).toEqual(["Saved task: Web or review?"]);
+    expect(openQuestions({ ...job("failed", { message: "Reconnect Google." }), safe_error: "calendar_reconnect_required" })).toEqual([]);
+    const html = renderToStaticMarkup(React.createElement(ReplyThread, { thread: { runId: "run", request: "Cari waktu besok untuk task itu", questions: ["Saved task: Web or review?"] }, onDismiss: () => undefined }));
+    expect(html).toContain("Cari waktu besok untuk task itu");
+    expect(html).toContain("FocusOS asks");
+    expect(html).toContain("Saved task: Web or review?");
+    expect(html).toContain("Start a new request instead");
   });
 });
