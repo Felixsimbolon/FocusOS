@@ -1,12 +1,16 @@
 -- Synthetic rows only. All fixture changes are rolled back.
 begin;
 do $$
-declare o uuid:=gen_random_uuid(); other uuid:=gen_random_uuid(); s uuid; m uuid; body text:='Please sign the contract by Friday.';
+declare o uuid:=gen_random_uuid(); other uuid:=gen_random_uuid(); s uuid; m uuid; c uuid; body text:='Please sign the contract by Friday.';
 begin
  insert into auth.users(id,aud,role,email) values(o,'authenticated','authenticated',o::text||'@triage-test.invalid'),
    (other,'authenticated','authenticated',other::text||'@triage-test.invalid');
- insert into public.source_items(user_id,kind,title,normalized_body,body_hash,request_id,request_hash,received_at)
- values(o,'gmail','Contract renewal',body,encode(sha256(convert_to(body,'UTF8')),'hex'),gen_random_uuid(),repeat('f',64),now())
+ insert into public.connections(user_id,provider,provider_subject,granted_scopes,status)
+ values(o,'google','triage-rollback-probe',array['https://www.googleapis.com/auth/gmail.readonly'],'connected') returning id into c;
+ insert into public.source_items(user_id,kind,title,normalized_body,body_hash,request_id,request_hash,received_at,
+   connection_id,provider_message_id,thread_id,selected_label_id)
+ values(o,'gmail','Contract renewal',body,encode(sha256(convert_to(body,'UTF8')),'hex'),gen_random_uuid(),repeat('f',64),now(),
+   c,'probe-message-1','probe-thread-1','Label_probe')
  returning id into s;
  insert into public.source_items(user_id,kind,title,normalized_body,body_hash,request_id,request_hash,received_at)
  values(o,'manual','A manual note',body,encode(sha256(convert_to(body,'UTF8')),'hex'),gen_random_uuid(),repeat('c',64),now())

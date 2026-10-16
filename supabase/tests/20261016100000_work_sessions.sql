@@ -5,7 +5,7 @@ alter table public.approval_requests disable trigger approval_proposal_guard;
 do $$
 declare o uuid:=gen_random_uuid(); v_task uuid; v_project uuid; v_connection uuid; v_run uuid; v_past uuid; v_future uuid;
  v_start timestamptz:=date_trunc('minute',now()-interval '3 hours');
- action jsonb;
+ action jsonb; later jsonb;
 begin
  insert into auth.users(id,aud,role,email) values(o,'authenticated','authenticated',o::text||'@sessions-test.invalid');
  insert into public.connections(user_id,provider,provider_subject,granted_scopes,status)
@@ -16,12 +16,12 @@ begin
  insert into public.command_runs(user_id,request_key,command,status,stage,checkpoint,result)
  values(o,gen_random_uuid(),'Synthetic check-in probe','succeeded','done','{}'::jsonb,'{}'::jsonb) returning id into v_run;
  action:=jsonb_build_object('title','Sessions probe task','start',v_start,'end',v_start+interval '60 minutes','timezone','UTC');
+ later:=jsonb_build_object('title','Later','start',now()+interval '2 hours','end',now()+interval '3 hours','timezone','UTC');
  insert into public.approval_requests(user_id,run_id,block_index,task_id,connection_id,event_id,payload,payload_hash,status)
- values(o,v_run,0,v_task,v_connection,'fsessionsprobe0',action,repeat('a',64),'succeeded') returning id into v_past;
+ values(o,v_run,0,v_task,v_connection,'fsessionsprobe0',action,encode(sha256(convert_to(action::text,'UTF8')),'hex'),'succeeded') returning id into v_past;
  insert into public.approval_requests(user_id,run_id,block_index,task_id,connection_id,event_id,payload,payload_hash,status)
- values(o,v_run,1,v_task,v_connection,'fsessionsprobe1',
-   jsonb_build_object('title','Later','start',now()+interval '2 hours','end',now()+interval '3 hours','timezone','UTC'),
-   repeat('b',64),'succeeded') returning id into v_future;
+ values(o,v_run,1,v_task,v_connection,'fsessionsprobe1',later,encode(sha256(convert_to(later::text,'UTF8')),'hex'),'succeeded')
+ returning id into v_future;
  perform set_config('focusos.sessions.owner',o::text,true);
  perform set_config('focusos.sessions.past',v_past::text,true);
  perform set_config('focusos.sessions.future',v_future::text,true);
