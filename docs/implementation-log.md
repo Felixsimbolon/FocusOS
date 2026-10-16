@@ -937,3 +937,11 @@ The first live run of `evals/qa_eval.py` showed the 0.2 cosine floor never filte
 Verification: the new SQL test (`supabase/tests/20261016090000_hybrid_search_semantic_floor.sql`) failed on the linked project before the migration and passed after it; the earlier hybrid search test still passes. Backend 439/439, evals 14/14.
 
 Release (2026-10-16): `fe9fba1`; migration applied with `supabase db push --linked`; API redeployed (https://focusos-j2kjvbeik-felixs-projects-788aa499.vercel.app, Production, Ready). `/health` 200, `/product/usage` 401 without a session. Web unchanged. The post-release live eval is pending.
+
+## 2026-10-16 — Replies to a request's question (#2 multi-turn)
+
+When a request asks the user something (a schedule needs clarification, or nothing in the request could be acted on), the composer shows a short thread and the next message is a reply to that request. Design choice: a reply is its own request (own run, job and idempotency key) with `reply_to`, not a new conversation table or a waiting state on the old run. The server reads the earlier run (owner-scoped) and its planning job's result to find the open questions and the parts already done, so the browser cannot inject context and finished parts are never repeated. The reply run's command is the earlier text plus the reply (the 1000-character run limit still applies), so quotes and standalone event titles from the earlier request stay grounded; capture uses only the reply text, and a reply's schedules are bound to their own quoted span. Short answers ("yang web", "the second one") are resolved only against listed saved tasks; no match or several matches ask again. No migration was needed.
+
+Verification: backend 450/450 (11 new in `test_follow_ups.py`: open questions, rejected replies, quotes from the earlier text, constraint binding, reply workflow schedules once, reply captures only its own text, start rejects before saving), web 153/153, `tsc`, `next build`, safety gate, planning eval 9/9, `qa_eval --mock`.
+
+Release (2026-10-16): `0f0c528`; API and web redeployed to production (Ready). `/health` 200, web 200, `/api/commands` with `reply_to` returns 401 without a session. No signed-in reply was made against production; live intent quality for replies is not measured.
