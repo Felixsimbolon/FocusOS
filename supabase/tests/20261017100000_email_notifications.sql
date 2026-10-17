@@ -15,7 +15,7 @@ begin
  values(o,gen_random_uuid(),'Notify probe','succeeded','done','{}'::jsonb,'{}'::jsonb) returning id into run;
  block:=jsonb_build_object('title','Notify probe block','start',soon,'end',soon+interval '1 hour','timezone','UTC');
  insert into public.approval_requests(user_id,run_id,block_index,task_id,connection_id,event_id,payload,payload_hash,status)
- values(o,run,0,task,c,'fnotifyprobe0',block,encode(sha256(convert_to(block::text,'UTF8')),'hex'),'succeeded');
+ values(o,run,0,task,c,'fnotfprobe0',block,encode(sha256(convert_to(block::text,'UTF8')),'hex'),'succeeded');
  perform set_config('focusos.notify.owner',o::text,true);
  perform set_config('focusos.notify.quiet',quiet::text,true);
 end $$;
