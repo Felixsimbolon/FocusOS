@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { PaginatedItems } from "../paginated-items";
 import { DeadlineCalendar, deadlineDay } from "./deadline-calendar";
+import { KiteField } from "../art/spots";
 
 export type Task = {
   id: string;
@@ -150,96 +151,55 @@ export function TaskBoard() {
     await patchTask(task, { title: editTitle });
   }
 
-  const renderTask = (task: Task) => (
-    <li key={task.id}>
-      <div className="task-list-title">
-        <strong>{task.title}</strong>
-        <span className={"task-priority priority-" + task.priority}>{task.priority}</span>
-      </div>
-      {task.description ? <p>{task.description}</p> : null}
-      {task.project_id ? (
-        <p className="task-project">
-          Project: {projects.find((project) => project.id === task.project_id)?.name ?? "Project"}
-        </p>
-      ) : null}
-      <div className="task-meta">
-        {readableDue(task, timezone) ? <span>Due {readableDue(task, timezone)}</span> : null}
-        {task.estimate_minutes ? <span>{task.estimate_minutes} min estimate</span> : null}
-      </div>
+  const projectName = (task: Task) => task.project_id ? projects.find((project) => project.id === task.project_id)?.name ?? "Project" : null;
+  const renderTask = (task: Task) => {
+    const due = readableDue(task, timezone);
+    const details = [due ? `due ${due}` : null, task.estimate_minutes ? `${task.estimate_minutes} min` : null, projectName(task)].filter(Boolean).join(", ");
+    const busy = updatingTaskId === task.id;
+    return <li key={task.id} className={`task priority-${task.priority}${busy ? " is-busy" : ""}`}>
+      <button type="button" className="task-check" onClick={() => void patchTask(task, { status: "done" })} disabled={busy}
+        aria-label={`Mark complete: ${task.title}`} title="Mark complete">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" /><path d="M6 10.5l2.6 2.6L14 7.6" /></svg>
+      </button>
       {editingTaskId === task.id ? (
-        <form className="task-edit-form" onSubmit={(event) => void saveTitle(event, task)}>
-          <label>
-            Edit task title
-            <input
-              value={editTitle}
-              onChange={(event) => setEditTitle(event.target.value)}
-              maxLength={200}
-              required
-              autoFocus
-            />
-          </label>
-          <div className="task-actions">
-            <button type="submit" disabled={updatingTaskId === task.id}>Save changes</button>
-            <button type="button" onClick={() => setEditingTaskId(null)}>Cancel</button>
-          </div>
+        <form className="task-edit" onSubmit={(event) => void saveTitle(event, task)}>
+          <label className="sr-only" htmlFor={`edit-${task.id}`}>Edit task title</label>
+          <input id={`edit-${task.id}`} value={editTitle} onChange={(event) => setEditTitle(event.target.value)} maxLength={200} required autoFocus />
+          <button type="submit" disabled={busy}>Save changes</button>
+          <button type="button" className="quiet" onClick={() => setEditingTaskId(null)}>Cancel</button>
         </form>
       ) : (
-        <div className="task-actions">
-          <button
-            type="button"
-            onClick={() => {
-              setEditingTaskId(task.id);
-              setEditTitle(task.title);
-            }}
-            disabled={updatingTaskId === task.id}
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            onClick={() => void patchTask(task, { status: "done" })}
-            disabled={updatingTaskId === task.id}
-          >
-            Mark complete
-          </button>
+        <div className="task-body">
+          <p className="task-title">{task.title}{task.priority === "high" && <span className="task-flag">High priority</span>}</p>
+          {details && <p className="task-details">{details}</p>}
+          {task.description ? <p className="task-description">{task.description}</p> : null}
         </div>
       )}
-    </li>
-  );
+      {editingTaskId !== task.id && <button type="button" className="task-edit-button quiet" disabled={busy}
+        onClick={() => { setEditingTaskId(task.id); setEditTitle(task.title); }}>Edit</button>}
+    </li>;
+  };
 
   return (
-    <section className="task-board" aria-labelledby="tasks-heading">
-      <div className="task-board-heading">
-        <div>
-          <span className="section-eyebrow"><span className="section-index">02</span>Your tasks</span>
+    <section className="today" aria-labelledby="tasks-heading">
+      <div className="today-list">
+        <div className="section-head">
           <h2 id="tasks-heading">Today</h2>
-          <p>{todayContext || "Tasks due today or earlier, plus tasks without a deadline."}</p>
+          <button type="button" className="quiet" onClick={() => { void refresh(); void loadProjects(); }} disabled={loading}>
+            {loading ? "Loading…" : "Reload"}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            void refresh();
-            void loadProjects();
-          }}
-          disabled={loading}
-        >
-          {loading ? "Loading…" : "Reload tasks"}
-        </button>
+        <p className="section-lede">{todayContext || "Tasks due today or earlier, plus tasks without a deadline."}</p>
+        {error ? <p className="notice notice-error" role="alert">{error}</p> : null}
+        {message ? <p className="notice" role="status">{message}</p> : null}
+        {loading ? <p className="loading-line">Loading tasks…</p> : tasks.length ? (
+          <PaginatedItems as="ul" className="task-list" items={tasks.map(renderTask)} pageSize={6} label="today tasks" />
+        ) : (
+          <div className="empty"><KiteField /><p>Nothing is due today. Write a task above, or enjoy the open field.</p></div>
+        )}
       </div>
-
-      {error ? <p className="task-error" role="alert">{error}</p> : null}
-      {message ? <p className="task-message" role="status">{message}</p> : null}
-
-      {loading ? (
-        <p>Loading tasks…</p>
-      ) : tasks.length ? (
-        <PaginatedItems as="ul" className="task-list" items={tasks.map(renderTask)} pageSize={4} label="today tasks" />
-      ) : (
-        <p className="task-empty">No tasks due today or earlier, or without a deadline.</p>
-      )}
-      {loading ? <p>Loading deadlines…</p> :
-        <DeadlineCalendar tasks={upcomingTasks} timezone={timezone} today={today}
-          renderTask={renderTask} truncated={taskListTruncated} />}
+      {loading ? null : <DeadlineCalendar tasks={upcomingTasks} timezone={timezone} today={today}
+        renderTask={renderTask} truncated={taskListTruncated} />}
     </section>
   );
 }

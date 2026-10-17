@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { Constellation } from "../art/spots";
 
 export type GraphStats = { entities: number; relations: number; indexed_memories: number };
 
@@ -31,9 +32,12 @@ export function GraphPanel() {
     } catch { setNotice("Could not index memories right now."); }
     finally { setBusy(false); }
   }
-  return <div className="graph-panel-body">
-    <p className="check-in-insight">{stats ? graphSummary(stats) : "Loading your knowledge graph…"}</p>
-    <div className="graph-actions"><button type="button" onClick={() => void backfill()} disabled={busy}>{busy ? "Indexing..." : "Index older memories"}</button>
-      {notice && <span role="status">{notice}</span>}</div>
+  return <div className="graph">
+    <Constellation nodes={stats ? Math.min(9, 2 + Math.ceil(stats.entities / 3)) : 2} />
+    <div>
+      <p className="insight">{stats ? graphSummary(stats) : "Loading your knowledge graph…"}</p>
+      <div className="inline-actions"><button type="button" onClick={() => void backfill()} disabled={busy}>{busy ? "Indexing..." : "Index older memories"}</button>
+        {notice && <span role="status">{notice}</span>}</div>
+    </div>
   </div>;
 }

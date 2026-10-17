@@ -42,10 +42,10 @@ export function UsageSummary({ usage }: { usage: Usage }) {
   const errorRate = usage.totals.calls ? Math.round((usage.totals.errors / usage.totals.calls) * 100) : 0;
   const label = (day: Day) => new Intl.DateTimeFormat(undefined, { weekday: "short", timeZone: "UTC" }).format(new Date(`${day.day}T12:00:00Z`));
   return <div className="usage-summary">
-    <dl className="usage-tiles">
+    <dl className="facts">
       <div><dt>Tokens, 7 days</dt><dd>{number.format(tokens)}</dd></div>
       <div><dt>Estimated cost</dt><dd>{usage.cost_configured && usage.totals.cost_usd != null ? `$${usage.totals.cost_usd.toFixed(4)}` : "Not configured"}</dd></div>
-      <div><dt>Errors</dt><dd>{errorRate}%<small>{usage.totals.rate_limited ? ` · ${usage.totals.rate_limited} rate-limited` : ""}</small></dd></div>
+      <div><dt>Errors</dt><dd>{errorRate}%<small>{usage.totals.rate_limited ? ` (${usage.totals.rate_limited} rate-limited)` : ""}</small></dd></div>
       <div><dt>Today vs budget</dt><dd>{usage.daily_token_budget
         ? `${Math.round((usage.budget_used_ratio ?? 0) * 100)}%` : "No limit"}<small>{usage.daily_token_budget ? ` of ${number.format(usage.daily_token_budget)}` : ""}</small></dd></div>
     </dl>
@@ -54,7 +54,7 @@ export function UsageSummary({ usage }: { usage: Usage }) {
       <div className="usage-bars" role="list">
         {days.map((day, index) => <div key={day.day} className="usage-bar" role="listitem" tabIndex={0}
           aria-label={`${label(day)} ${day.day}: ${number.format(day.tokens)} tokens, ${day.calls} calls, ${day.errors} errors`}
-          data-tooltip={`${day.day} · ${number.format(day.tokens)} tokens · ${day.calls} calls${day.errors ? ` · ${day.errors} errors` : ""}`}>
+          data-tooltip={`${day.day}: ${number.format(day.tokens)} tokens, ${day.calls} calls${day.errors ? `, ${day.errors} errors` : ""}`}>
           {index === peakIndex && day.tokens > 0 && <span className="usage-bar-value">{number.format(day.tokens)}</span>}
           <span className="usage-bar-fill" style={{ height: `${Math.max(day.tokens ? 4 : 0, (day.tokens / peak) * 100)}%` }} />
           <span className="usage-bar-label">{label(day)}</span>

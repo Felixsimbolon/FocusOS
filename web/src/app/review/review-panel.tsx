@@ -24,12 +24,12 @@ export function ReviewView({ review }: { review: Review }) {
   const peak = Math.max(1, ...stats.focus_by_project.map(item => item.minutes));
   const ratio = accuracy(stats);
   return <div className="review">
-    <dl className="usage-tiles">
-      <div><dt>Focus booked</dt><dd>{hours(stats.focus_minutes)}<small> · {stats.blocks_scheduled} blocks</small></dd></div>
-      <div><dt>Tasks done</dt><dd>{stats.tasks_completed}<small> of {stats.tasks_created} new</small></dd></div>
-      <div><dt>Overdue</dt><dd>{stats.tasks_overdue}</dd></div>
-      <div><dt>Time vs plan</dt><dd>{ratio ?? "–"}<small>{stats.check_ins ? ` · ${stats.check_ins} check-ins` : " · no check-ins"}</small></dd></div>
-    </dl>
+    <p className="review-facts">
+      You booked <strong>{hours(stats.focus_minutes)}</strong> of focus across <strong>{stats.blocks_scheduled}</strong> {stats.blocks_scheduled === 1 ? "block" : "blocks"},
+      finished <strong>{stats.tasks_completed}</strong> {stats.tasks_completed === 1 ? "task" : "tasks"} and added <strong>{stats.tasks_created}</strong>.
+      {stats.tasks_overdue ? <> Right now <strong>{stats.tasks_overdue}</strong> open {stats.tasks_overdue === 1 ? "task is" : "tasks are"} past the deadline.</> : " Nothing is overdue."}
+      {ratio ? <> By your {stats.check_ins} check-ins, work took <strong>{(stats.actual_minutes_checked / stats.planned_minutes_checked).toFixed(1)}×</strong> the planned time.</> : null}
+    </p>
     {stats.focus_by_project.length > 0 && <figure className="review-projects"><figcaption>Focus by project</figcaption>
       <ul>{stats.focus_by_project.map(item => <li key={item.project}><span>{item.project}</span>
         <span className="review-bar" aria-hidden="true"><span style={{ width: `${(item.minutes / peak) * 100}%` }} /></span>
@@ -63,13 +63,15 @@ export function ReviewPanel() {
     } catch { setError("Could not write the review. Try again."); }
     finally { setBusy(false); }
   }
-  return <div className="review-panel-body">
-    <div className="review-controls" role="group" aria-label="Week">
-      <button type="button" aria-pressed={which === "previous"} onClick={() => setWhich("previous")}>Last week</button>
-      <button type="button" aria-pressed={which === "current"} onClick={() => setWhich("current")}>This week</button>
-      <button type="button" onClick={() => void generate()} disabled={busy}>{busy ? "Writing..." : review?.saved ? "Rewrite summary" : "Write summary"}</button>
+  return <div className="review-panel">
+    <div className="review-controls">
+      <div className="segmented" role="group" aria-label="Week">
+        <button type="button" aria-pressed={which === "previous"} onClick={() => setWhich("previous")}>Last week</button>
+        <button type="button" aria-pressed={which === "current"} onClick={() => setWhich("current")}>This week</button>
+      </div>
+      <button type="button" className="quiet" onClick={() => void generate()} disabled={busy}>{busy ? "Writing..." : review?.saved ? "Rewrite summary" : "Write summary"}</button>
     </div>
-    {error && <p role="alert" className="check-in-error">{error}</p>}
+    {error && <p role="alert" className="notice notice-error">{error}</p>}
     {review && <ReviewView review={review} />}
   </div>;
 }

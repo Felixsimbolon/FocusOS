@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import { PaperPlane } from "../art/spots";
 
 export type Priority = "urgent" | "normal" | "fyi";
 export type TriageItem = { source_id: string; title: string | null; received_at: string | null; priority: Priority;
@@ -11,10 +12,10 @@ export function triageCounts(items: TriageItem[]): Record<Priority, number> {
 }
 
 export function TriageList({ items, saving, onChange }: { items: TriageItem[]; saving: string | null; onChange: (item: TriageItem, priority: Priority) => void }) {
-  if (!items.length) return <p className="triage-empty">No prioritized email yet. Sync labeled Gmail messages and FocusOS will sort them into urgent, normal and FYI.</p>;
+  if (!items.length) return <div className="empty"><PaperPlane /><p>No prioritized email yet. Add the FocusOS label to messages in Gmail and press Sync Gmail; they will be sorted into urgent, normal and FYI.</p></div>;
   const counts = triageCounts(items);
   return <div className="triage">
-    <p className="triage-summary">{counts.urgent} urgent · {counts.normal} normal · {counts.fyi} FYI. Change a priority and FocusOS learns from it.</p>
+    <p className="section-lede">{counts.urgent} urgent, {counts.normal} normal and {counts.fyi} FYI. Change a priority and FocusOS learns from it.</p>
     <ul className="triage-list" aria-label="Prioritized email">{items.map(item => <li key={item.source_id} className={`triage-item triage-${item.priority}`}>
       <div className="triage-text"><strong>{item.title || "(no subject)"}</strong>
         {item.reason && <small>{item.corrected ? "You set this priority." : item.reason}</small>}</div>
@@ -50,5 +51,5 @@ export function TriagePanel() {
     } catch { setError("Could not save this priority. Try again."); }
     finally { setSaving(null); }
   }
-  return <>{error && <p role="alert" className="check-in-error">{error}</p>}<TriageList items={items} saving={saving} onChange={(item, priority) => void change(item, priority)} /></>;
+  return <>{error && <p role="alert" className="notice notice-error">{error}</p>}<TriageList items={items} saving={saving} onChange={(item, priority) => void change(item, priority)} /></>;
 }

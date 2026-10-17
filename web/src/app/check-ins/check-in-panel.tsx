@@ -40,27 +40,28 @@ function CheckInRow({ block, onSaved }: { block: PendingBlock; onSaved: () => vo
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save this check-in."); }
     finally { setSaving(false); }
   }
-  return <li className="check-in">
-    <div className="check-in-head"><strong>{block.title}</strong><small>{when} · planned {block.planned_minutes} min</small></div>
-    {outcome === null ? <div className="check-in-actions" role="group" aria-label={`How did ${block.title} go?`}>
+  return <li className={`check-in${outcome ? " is-answering" : ""}`}>
+    <p className="check-in-question">How did <strong>{block.title}</strong> go?</p>
+    <p className="check-in-when">{when}, planned {block.planned_minutes} min</p>
+    {outcome === null ? <div className="choices" role="group" aria-label={`How did ${block.title} go?`}>
       <button type="button" onClick={() => { setOutcome("done"); setMinutes(block.planned_minutes); }} disabled={saving}>Finished</button>
       <button type="button" onClick={() => { setOutcome("partial"); setMinutes(30); }} disabled={saving}>Not finished</button>
-      <button type="button" className="check-in-skip" onClick={() => void save("skipped")} disabled={saving}>Skipped</button>
+      <button type="button" className="quiet" onClick={() => void save("skipped")} disabled={saving}>Skipped</button>
     </div> : <form className="check-in-form" onSubmit={event => { event.preventDefault(); void save(outcome); }}>
       <label>{outcome === "done" ? "Minutes it took" : "Minutes still needed"}
         <input type="number" min={1} max={1440} value={minutes} onChange={event => setMinutes(Number(event.target.value))} required /></label>
       <button type="submit" disabled={saving || !(minutes >= 1)}>{saving ? "Saving..." : "Save"}</button>
-      <button type="button" className="check-in-skip" onClick={() => setOutcome(null)} disabled={saving}>Back</button>
+      <button type="button" className="quiet" onClick={() => setOutcome(null)} disabled={saving}>Back</button>
     </form>}
-    {error && <p role="alert" className="check-in-error">{error}</p>}
+    {error && <p role="alert" className="notice notice-error">{error}</p>}
   </li>;
 }
 
 export function CheckInList({ blocks, estimates, onSaved }: { blocks: PendingBlock[]; estimates: Estimates | null; onSaved: () => void }) {
   return <div className="check-ins">
-    {estimates && <p className="check-in-insight">{estimateMessage(estimates)}</p>}
+    {estimates && <p className="insight">{estimateMessage(estimates)}</p>}
     {blocks.length ? <ul className="check-in-list" aria-label="Focus blocks to check in">{blocks.map(block => <CheckInRow key={block.id} block={block} onSaved={onSaved} />)}</ul>
-      : <p className="check-in-empty">No finished focus blocks to check in. After a block ends, tell FocusOS how long the work really took.</p>}
+      : <p className="quiet-line">No finished focus blocks to check in. After a block ends, tell FocusOS how long the work really took.</p>}
   </div>;
 }
 
@@ -83,5 +84,5 @@ export function CheckInPanel() {
     window.addEventListener("focusos:schedule-changed", load);
     return () => window.removeEventListener("focusos:schedule-changed", load);
   }, [load]);
-  return <>{error ? <p role="alert" className="check-in-error">{error}</p> : <CheckInList blocks={blocks} estimates={estimates} onSaved={load} />}</>;
+  return <>{error ? <p role="alert" className="notice notice-error">{error}</p> : <CheckInList blocks={blocks} estimates={estimates} onSaved={load} />}</>;
 }

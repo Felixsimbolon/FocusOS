@@ -35,7 +35,7 @@ export function openQuestions(job: Job): string[] {
 }
 export type Thread = { runId: string; request: string; questions: string[] };
 export function ReplyThread({ thread, onDismiss }: { thread: Thread; onDismiss: () => void }) {
-  return <div className="composer-thread" role="group" aria-label="Reply to FocusOS">
+  return <div className="thread" role="group" aria-label="Reply to FocusOS">
     {thread.request && <p className="thread-turn thread-user"><span className="thread-speaker">You</span>{thread.request}</p>}
     {thread.questions.map((question, index) => <p key={index} className="thread-turn thread-agent"><span className="thread-speaker">FocusOS asks</span>{question}</p>)}
     <p className="thread-hint">Reply below in a few words, for example &ldquo;yang web&rdquo;. Parts that already finished are not repeated.
@@ -77,11 +77,20 @@ export function workMessage(job: Job): string {
     : result.intent === "question" ? "Looking through your tasks and memories..." : "Understanding and organizing your request...";
 }
 const SUGGESTIONS = [
-  { label: "Add tasks", icon: "+", text: "Buat task berikut:\n1. " },
-  { label: "Find focus time", icon: "◷", text: "Cari waktu besok jam 09-12 untuk " },
-  { label: "Ask my notes", icon: "?", text: "Kapan deadline " },
-  { label: "All at once", icon: "✦", text: "Buat task siapkan slide demo, estimasi 30 menit. Cari waktu besok jam 13-16 untuk mengerjakannya. Kapan deadline review desain?" },
-];
+  { label: "Add tasks", icon: "list", text: "Buat task berikut:\n1. " },
+  { label: "Find focus time", icon: "sun", text: "Cari waktu besok jam 09-12 untuk " },
+  { label: "Ask my notes", icon: "ask", text: "Kapan deadline " },
+  { label: "All at once", icon: "all", text: "Buat task siapkan slide demo, estimasi 30 menit. Cari waktu besok jam 13-16 untuk mengerjakannya. Kapan deadline review desain?" },
+] as const;
+function SuggestionIcon({ kind }: { kind: "list" | "sun" | "ask" | "all" }) {
+  const paths = {
+    list: <><path d="M4 6h10M4 10h10M4 14h6" /></>,
+    sun: <><path d="M2 15h16" /><path d="M5 15a5 5 0 0 1 10 0" /><path d="M10 4v2M4.5 7.5l1.4 1.4M15.5 7.5l-1.4 1.4" /></>,
+    ask: <><path d="M7.5 7.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.4V12" /><circle cx="10" cy="15" r=".6" /></>,
+    all: <><path d="M3 15h14" /><path d="M6 15a4 4 0 0 1 8 0" /><path d="M4 6h6M4 9h4" /></>,
+  };
+  return <svg className="suggestion-icon" viewBox="0 0 20 20" aria-hidden="true">{paths[kind]}</svg>;
+}
 export function WorkComposer() {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -153,32 +162,29 @@ export function WorkComposer() {
       await observe(data.background_job, tracking.signal, thread ? `${thread.request ? `${thread.request}\n` : ""}${description}` : description);
     } catch (cause) { if (!tracking.signal.aborted) { setMessage(""); setError(cause instanceof Error ? cause.message : "Could not submit. Retry the same text."); setBusy(false); } }
   }
-  return <section id="composer" className={`work-composer${busy ? " is-processing" : ""}`} aria-labelledby="composer-heading" aria-busy={busy}>
-    <div className="composer-layout">
-      <div className="composer-intro"><span className="section-eyebrow"><span className="section-index">01</span>New request</span><h2 id="composer-heading">What do you need<br className="composer-heading-break" /> to get done?</h2><p>Write it as you would say it. Add one task or a whole list, ask about your saved work, find a time, or do it all in one message.</p>
-        <a className="composer-context-link" href="/#schedule">See your scheduled work <span aria-hidden="true">&rarr;</span></a>
-      </div>
-      <form className="composer-form" onSubmit={event => void submit(event)}>
-        <div className="composer-suggestions" role="group" aria-label="Start from an example">
-          {SUGGESTIONS.map(item => <button key={item.label} type="button" className="composer-chip" disabled={busy}
+  const responding = message || error || warning || blocks.length > 0 || answers.length > 0 || issues.length > 0 || adjustments.length > 0;
+  return <section id="composer" className={`composer${busy ? " is-processing" : ""}${thread ? " is-replying" : ""}`} aria-labelledby="composer-heading" aria-busy={busy}>
+    <h2 id="composer-heading">{thread ? "FocusOS has a question" : "What is on your mind?"}</h2>
+    <p className="section-lede">Write it the way you would say it: one task or a whole list, a question about your saved work, a time to find, or all of it at once.</p>
+    {thread && <ReplyThread thread={thread} onDismiss={() => { setThread(null); pending.current = null; }} />}
+    <form className="composer-form" onSubmit={event => void submit(event)}>
+      <label className="sr-only" htmlFor="work-request">{thread ? "Reply to FocusOS" : "Work or schedule request"}</label>
+      <textarea id="work-request" value={text} onChange={event => setText(event.target.value)} rows={thread ? 2 : 6} maxLength={1000} required disabled={busy} aria-describedby="composer-help"
+        placeholder={thread ? "yang web" : "Buat task berikut:\n1. Siapkan outline presentasi, deadline 13 Oktober, estimasi 30 menit.\n2. Buat halaman web, deadline 18 Oktober, estimasi 2 jam.\n\nCari waktu besok jam 13-16 untuk belajar selama 30 menit. Kapan deadline review desain?"} />
+      <div className="composer-bar">
+        {!thread && <div className="composer-suggestions" role="group" aria-label="Start from an example">
+          {SUGGESTIONS.map(item => <button key={item.label} type="button" className="suggestion" disabled={busy}
             onClick={() => { setText(current => current.trim() ? `${current.trimEnd()}\n${item.text}` : item.text); document.getElementById("work-request")?.focus(); }}>
-            <span aria-hidden="true">{item.icon}</span>{item.label}</button>)}
-        </div>
-        {thread && <ReplyThread thread={thread} onDismiss={() => { setThread(null); pending.current = null; }} />}
-        <div className="composer-input-frame">
-          <label className="sr-only" htmlFor="work-request">{thread ? "Reply to FocusOS" : "Work or schedule request"}</label>
-          <textarea id="work-request" value={text} onChange={event => setText(event.target.value)} rows={thread ? 2 : 5} maxLength={1000} required disabled={busy} aria-describedby="composer-help"
-            placeholder={thread ? "yang web" : "Buat task berikut:\n1. Siapkan outline presentasi, deadline 13 Oktober, estimasi 30 menit.\n2. Buat halaman web, deadline 18 Oktober, estimasi 2 jam.\n\nCari waktu besok jam 13-16 untuk belajar selama 30 menit. Kapan deadline review desain?"} />
-          <div className="composer-input-bottom"><span>Indonesian or English. Up to 10 tasks per list.</span><span aria-label={`${text.length} of 1000 characters`}>{text.length.toLocaleString()} / 1,000</span></div>
-        </div>
-        <div className="composer-footer"><small id="composer-help">Calendar requests create events automatically. Add a duration, or we use your task estimate or 30 minutes.</small>
-          <button type="submit" disabled={busy || !text.trim()}>{busy ? <><span className="composer-progress" aria-hidden="true" />Working...</> : <>{thread ? "Send reply" : "Send request"} <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M5 12h14M13 6l6 6-6 6" /></svg></>}</button>
-        </div>
-      </form>
-    </div>
-    {(message || error || warning || blocks.length > 0 || answers.length > 0 || issues.length > 0 || adjustments.length > 0) && <div className="composer-response">
+            <SuggestionIcon kind={item.icon} />{item.label}</button>)}
+        </div>}
+        <span className="composer-count" aria-label={`${text.length} of 1000 characters`}>{text.length.toLocaleString()} / 1,000</span>
+        <button type="submit" className="button composer-send" disabled={busy || !text.trim()}>{busy ? <><span className="composer-progress" aria-hidden="true" />Working...</> : thread ? "Send reply" : "Send request"}</button>
+      </div>
+      <p id="composer-help" className="composer-help">Indonesian or English. Up to 10 tasks per list. Calendar requests create events automatically. Add a duration, or we use your task estimate or 30 minutes.</p>
+    </form>
+    {responding && <div className="composer-response">
       {message && <p role="status" aria-live="polite" className="composer-message">{message}</p>}
-      {error && <p role="alert" className="composer-message">{error}</p>}
+      {error && <p role="alert" className="composer-message composer-error">{error}</p>}
       {warning && <p role="alert" className="composer-message composer-warning">{warning}</p>}
       {issues.map((issue, index) => <p key={index} role="alert" className="composer-message composer-warning">{issue}</p>)}
       {answers.length > 0 && <ul className="composer-answers" aria-label="Answers from your saved work">{answers.map((item, index) => <li key={index}>

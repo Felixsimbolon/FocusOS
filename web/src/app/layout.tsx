@@ -1,18 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google";
+import { Bricolage_Grotesque, Newsreader } from "next/font/google";
 import "./globals.css";
 
 // Self-hosted at build time; the browser never requests Google Fonts.
-const body = Geist({ subsets: ["latin"], variable: "--font-body" });
-const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
-const display = Space_Grotesk({ subsets: ["latin"], variable: "--font-display" });
+const ui = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-ui", axes: ["wdth", "opsz"] });
+const prose = Newsreader({ subsets: ["latin"], variable: "--font-prose", style: ["normal", "italic"], axes: ["opsz"] });
 
 export const metadata: Metadata = {
   title: "FocusOS",
-  description: "A personal AI productivity agent.",
+  description: "Say what is on your mind; FocusOS saves the work, answers from your notes and finds time for it.",
 };
 
-export const viewport: Viewport = { themeColor: "#07090f", colorScheme: "dark" };
+export const viewport: Viewport = { themeColor: "#eef2ef" };
 
 export default function RootLayout({
   children,
@@ -20,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${body.variable} ${mono.variable} ${display.variable}`}>
+    <html lang="en" className={`${ui.variable} ${prose.variable}`} data-phase="day">
       <body>{children}</body>
     </html>
   );

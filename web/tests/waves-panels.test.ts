@@ -36,7 +36,7 @@ describe("email priorities", () => {
   it("counts and lists priorities with a correction control", () => {
     expect(triageCounts(items)).toEqual({ urgent: 1, normal: 0, fyi: 1 });
     const html = renderToStaticMarkup(React.createElement(TriageList, { items, saving: null, onChange: () => undefined }));
-    expect(html).toContain("1 urgent · 0 normal · 1 FYI");
+    expect(html).toContain("1 urgent, 0 normal and 1 FYI");
     expect(html).toContain("Payment due today.");
     expect(html).toContain("You set this priority.");
     expect(html.match(/<select/g)).toHaveLength(2);

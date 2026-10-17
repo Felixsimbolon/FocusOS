@@ -39,7 +39,7 @@ describe("simplified navigation and input", () => {
     const html = renderToStaticMarkup(React.createElement(WorkComposer));
     expect(html).toContain("Work or schedule request");
     expect(html.match(/<textarea/g)).toHaveLength(1);
-    expect(html).toMatch(/<button[^>]*type="submit"[^>]*>Send request /);
+    expect(html).toMatch(/<button[^>]*type="submit"[^>]*>Send request</);
     expect(html).not.toContain("<input");
     expect(html).not.toContain("Job status");
   });

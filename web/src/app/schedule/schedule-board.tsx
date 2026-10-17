@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { PaginatedItems } from "../paginated-items";
+import { StillWater } from "../art/spots";
 type Block = {
   id: string;
   run_id: string;
@@ -62,36 +63,41 @@ export function ScheduleBoard() {
   const visible = blocks
     .filter((b) => showPast || new Date(b.payload.end).getTime() > Date.now())
     .sort((a, b) => Date.parse(a.payload.start) - Date.parse(b.payload.start));
-  return <section className="schedule-workspace" aria-label="Saved scheduled work" aria-busy={busy}>
-    <div className="schedule-toolbar">
-      <label className="schedule-past-toggle"><input type="checkbox" checked={showPast} onChange={e => setShowPast(e.target.checked)} />Include past blocks</label>
-      <div className="schedule-toolbar-actions"><button type="button" disabled={busy} onClick={() => void load()}>{busy ? "Refreshing..." : "Refresh"}</button>
-        <a className="control-button" href="/#composer">Schedule work</a></div>
+  const dayOf = (b: Block) => new Intl.DateTimeFormat(undefined, { weekday: "long", day: "numeric", month: "long", timeZone: b.payload.timezone }).format(new Date(b.payload.start));
+  const time = (value: string, zone: string) => new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: zone }).format(new Date(value));
+  const items = visible.map((b, index) => {
+    const zone = b.payload.timezone;
+    const cancelled = b.cancellation_status === "cancelled";
+    const pending = !cancelled && (b.status !== "succeeded" || b.cancellation_status !== "none");
+    const status = cancelled ? "Cancelled" : b.cancellation_status !== "none" ? `Cancellation ${b.cancellation_status}` : b.status === "succeeded" ? null : b.status;
+    const newDay = index % 6 === 0 || dayOf(visible[index - 1]) !== dayOf(b); // 6 = page size: each page names its first day.
+    return <li key={b.id} className={`rail-item${cancelled ? " is-cancelled" : ""}${pending ? " is-pending" : ""}`}>
+      {newDay && <p className="rail-day">{dayOf(b)}</p>}
+      <div className="rail-entry">
+        <span className="rail-time"><time dateTime={b.payload.start}>{time(b.payload.start, zone)}</time><time dateTime={b.payload.end}>{time(b.payload.end, zone)}</time></span>
+        <div className="rail-body">
+          <p className="rail-title">{b.payload.title}</p>
+          <p className="rail-meta">{status ? `${status}. ` : ""}{zone}</p>
+          <div className="rail-actions">
+            {b.provider_link && !cancelled && <a href={b.provider_link} target="_blank" rel="noopener noreferrer">Open Calendar</a>}
+            {b.status === "succeeded" && !["cancelled", "changed"].includes(b.cancellation_status) && <button type="button" className="quiet" disabled={busy} onClick={() => setSelected(b)}>{b.cancellation_status === "unknown" ? "Reconcile cancellation" : "Cancel block"}</button>}
+          </div>
+          {selected?.id === b.id && <div className="confirm" role="region" aria-label="Cancel focus block">
+            <p><strong>Cancel this Calendar block?</strong> {b.task_id ? "The task stays on your list. " : ""}After cancellation is confirmed, you can ask for another time.</p>
+            <div className="confirm-actions"><button type="button" className="danger" disabled={busy} onClick={() => void cancel(b)}>Cancel Calendar block</button><button type="button" className="quiet" disabled={busy} onClick={() => setSelected(null)}>Keep block</button></div>
+          </div>}
+        </div>
+      </div>
+    </li>;
+  });
+  return <div className="schedule-board" aria-label="Saved scheduled work" aria-busy={busy}>
+    <div className="schedule-tools">
+      <label className="toggle"><input type="checkbox" checked={showPast} onChange={e => setShowPast(e.target.checked)} />Include past blocks</label>
+      <button type="button" className="quiet" disabled={busy} onClick={() => void load()}>{busy ? "Refreshing..." : "Refresh"}</button>
     </div>
-    <p className="schedule-caption">{visible.length} {showPast ? "saved" : "upcoming"} blocks from your latest 100. Planning also checks other Google Calendar events.</p>
-    {error && <p role="alert">{error}</p>}
-    {!busy && !visible.length && <div className="schedule-empty"><h3>{showPast ? "No saved blocks" : "Your schedule has room."}</h3><p>Describe the work and a time window in the input above.</p></div>}
-    <PaginatedItems key={String(showPast)} label="scheduled work" pageSize={4} className="schedule-list" items={visible.map(b => {
-      const date = new Date(b.payload.start);
-      const zone = b.payload.timezone;
-      const cancelled = b.cancellation_status === "cancelled";
-      const status = cancelled ? "Cancelled" : b.cancellation_status !== "none" ? `Cancellation: ${b.cancellation_status}` : b.status === "succeeded" ? "Scheduled" : b.status;
-      return <article className={`schedule-row${cancelled ? " is-cancelled" : ""}`} key={b.id}>
-        <div className="schedule-date"><span>{new Intl.DateTimeFormat(undefined, { month: "short", timeZone: zone }).format(date)}</span><strong>{new Intl.DateTimeFormat(undefined, { day: "2-digit", timeZone: zone }).format(date)}</strong><span>{new Intl.DateTimeFormat(undefined, { year: "numeric", timeZone: zone }).format(date)}</span></div>
-        <div className="schedule-details"><h3>{b.payload.title}</h3>
-          <p><time dateTime={b.payload.start}>{new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: zone }).format(date)}</time>{" - "}<time dateTime={b.payload.end}>{new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: zone }).format(new Date(b.payload.end))}</time><span className="schedule-zone">{zone}</span></p>
-          <span className={`schedule-status${cancelled ? " status-cancelled" : b.status !== "succeeded" || b.cancellation_status !== "none" ? " status-pending" : ""}`}>{status}</span>
-        </div>
-        <div className="schedule-row-actions">
-          {b.provider_link && !cancelled && <a className="control-button" href={b.provider_link} target="_blank" rel="noopener noreferrer">Open Calendar</a>}
-          {b.status === "succeeded" && !["cancelled", "changed"].includes(b.cancellation_status) && <button type="button" disabled={busy} onClick={() => setSelected(b)}>{b.cancellation_status === "unknown" ? "Reconcile cancellation" : "Cancel block"}</button>}
-        </div>
-      </article>;
-    })} />
-    {selected && <div className="schedule-cancel-panel" role="region" aria-label="Cancel focus block">
-      <h3>Cancel this Calendar block?</h3><p><strong>{selected.payload.title}</strong></p>
-      <p>{selected.task_id ? "The task remains active. " : ""}After cancellation is confirmed, you can request another time.</p>
-      <div className="schedule-toolbar-actions"><button type="button" disabled={busy} onClick={() => void cancel(selected)}>Cancel Calendar block</button><button type="button" disabled={busy} onClick={() => setSelected(null)}>Keep block</button></div>
-    </div>}
-  </section>;
+    {error && <p className="notice notice-error" role="alert">{error}</p>}
+    {!busy && !visible.length ? <div className="empty"><StillWater /><p>{showPast ? "No saved blocks yet." : "Your calendar has room."} Ask for a time in the box above, for example &ldquo;cari waktu besok jam 9-11 untuk menulis&rdquo;.</p><a className="button" href="/#composer">Schedule work</a></div>
+      : <PaginatedItems key={String(showPast)} as="ul" label="scheduled work" pageSize={6} className="rail" items={items} />}
+    <p className="quiet-line">{visible.length} {showPast ? "saved" : "upcoming"} blocks from your latest 100.</p>
+  </div>;
 }

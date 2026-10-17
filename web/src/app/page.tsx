@@ -12,13 +12,15 @@ import { Conflicts } from "./schedule/conflicts";
 import { TriagePanel } from "./activity/triage-panel";
 import { GraphPanel } from "./knowledge/graph-panel";
 import { ReviewPanel } from "./review/review-panel";
+import { Ridges } from "./art/ridges";
+import { Sunrise } from "./art/spots";
 
 export const dynamic = "force-dynamic";
 
 function Brand() {
-  return <a className="app-brand" href="/" aria-label="FocusOS home">
-    <span className="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><path d="M12 3v3M12 18v3M3 12h3M18 12h3" /></svg></span>
-    <span>Focus<span className="brand-os">OS</span></span>
+  return <a className="brand" href="/" aria-label="FocusOS home">
+    <svg viewBox="0 0 32 20" aria-hidden="true"><path d="M2 18 H30" /><path d="M7 18 A9 9 0 0 1 25 18" /><circle cx="16" cy="11" r="3.2" /></svg>
+    FocusOS
   </a>;
 }
 
@@ -27,48 +29,62 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
   const user = me.kind === "ok" ? me.data.user : me.kind === "unavailable" ? me.user : null;
   const profile = me.kind === "ok" ? me.data.profile : null;
   const name = me.kind === "ok" ? me.displayName : me.kind === "unavailable" ? me.user.name : undefined;
-  const authError = params.authError === "callback" ? "Google sign-in did not complete. Please try again."
-    : params.authError === "start" ? "Could not start Google sign-in." : params.authError === "logout" ? "Could not sign out. Please try again." : null;
-  return <main className="home-page">
-    <div className="ambient" aria-hidden="true"><span className="ambient-orb orb-a" /><span className="ambient-orb orb-b" /><span className="ambient-grid" /></div>
-    <header className="app-header">
-      <div className="app-header-inner">
-        <Brand />
-        {user && <nav aria-label="Main navigation"><a href="/#composer">Write</a><a href="/#tasks">Tasks</a><a href="/#schedule">Calendar</a><a href="/#check-ins">Check-ins</a><a href="/#review">Review</a><a href="/#usage">Usage</a></nav>}
-        {user && <div className="header-actions"><GmailSyncPanel /><form action={signOut}><button className="secondary-button" type="submit">Sign out</button></form></div>}
-      </div>
+  const authError = params.authError === "callback" ? "Google sign-in did not complete. Try again."
+    : params.authError === "start" ? "Could not start Google sign-in. Try again." : params.authError === "logout" ? "Could not sign out. Try again." : null;
+  return <main className="home">
+    <header className="topbar">
+      <Brand />
+      {user && <nav aria-label="Main navigation"><a href="/#composer">Write</a><a href="/#tasks">Today</a><a href="/#schedule">Calendar</a><a href="/#review">Review</a></nav>}
+      {user && <div className="topbar-actions"><GmailSyncPanel /><form action={signOut}><button className="quiet" type="submit">Sign out</button></form></div>}
     </header>
     {authError && <p role="alert" className="page-alert">{authError}</p>}
     {user ? <>
-      {me.kind === "unavailable" && <p role="alert" className="page-alert">Your profile is temporarily unavailable. Refresh to try again.</p>}
       {profile ? <FocusHud timezone={profile.timezone} hours={profile.working_hours} name={name} />
-        : <section className="hud hud-setup" aria-label="Get started">
-          <div className="hud-greeting"><span className="hud-eyebrow"><span className="hud-pulse" aria-hidden="true" />Welcome</span>
+        : <section className="horizon horizon-setup" aria-label="Get started">
+          <svg className="horizon-art" viewBox="0 0 1440 420" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><Ridges /></svg>
+          <div className="horizon-text">
             <h1>Hello{name ? `, ${name}` : ""}.</h1>
-            <p className="hud-status">Set your working hours once, and FocusOS will find time for your work inside them.</p>
-            <a className="control-button" href="/#preferences">Set working hours</a></div>
+            <p className="horizon-status">Tell FocusOS when you like to work, and it will draw your day here and find free time inside those hours.</p>
+            <a className="button" href="/#preferences">Set working hours</a>
+          </div>
         </section>}
-      <WorkComposer />
-      {me.kind === "ok" && <>
-        <div id="tasks" className="workspace-tasks"><TaskBoard /></div>
-        <div className="workspace-secondary">
-          <details id="schedule" className="home-panel schedule-panel" open><summary><span><span className="section-index">03</span>Scheduled work</span><small>Your Calendar</small></summary><div className="home-panel-body"><Conflicts /><ScheduleBoard /></div></details>
-          <details id="review" className="home-panel review-panel"><summary><span><span className="section-index">04</span>Weekly review</span><small>Plan vs reality</small></summary><div className="home-panel-body"><ReviewPanel /></div></details>
-          <details id="check-ins" className="home-panel check-in-panel" open><summary><span><span className="section-index">05</span>Check-ins</span><small>How long work really took</small></summary><div className="home-panel-body"><CheckInPanel /></div></details>
-          <details id="email" className="home-panel triage-panel"><summary><span><span className="section-index">06</span>Email priorities</span><small>From labeled Gmail</small></summary><div className="home-panel-body"><TriagePanel /></div></details>
-          <details id="knowledge" className="home-panel graph-panel"><summary><span><span className="section-index">07</span>Knowledge graph</span><small>How your notes connect</small></summary><div className="home-panel-body"><GraphPanel /></div></details>
-          <details id="usage" className="home-panel usage-panel"><summary><span><span className="section-index">08</span>AI usage</span><small>Last 7 days</small></summary><div className="home-panel-body"><UsagePanel /></div></details>
-        </div>
-        <Preferences profile={me.data.profile} saved={params.saved} error={params.error} />
-      </>}
-      <footer className="workspace-footer"><span>FocusOS · your personal operating system for focus</span><a href="/#composer">Back to the top ↑</a></footer>
-    </> : <section className="workspace-signin">
-      <div className="signin-visual" aria-hidden="true"><span className="signin-ring ring-1" /><span className="signin-ring ring-2" /><span className="signin-ring ring-3" /><span className="signin-core" /></div>
-      <div className="signin-copy">
-        <span className="hud-eyebrow"><span className="hud-pulse" aria-hidden="true" />Personal focus system</span>
-        <h1>Say what&apos;s on your mind. <span className="text-gradient">Get time for it.</span></h1>
-        <p>Write tasks, questions and plans in one sentence. FocusOS saves the work, answers from your own notes, and books focus time on your Calendar.</p>
-        <form action={signInWithGoogle}><button type="submit" className="primary-button">Continue with Google</button></form>
+      <div className="ground">
+        {me.kind === "unavailable" && <p role="alert" className="page-alert">Your profile is temporarily unavailable. Refresh to try again.</p>}
+        <WorkComposer />
+        {me.kind === "ok" && <>
+          <div id="tasks"><TaskBoard /></div>
+          <div className="calendar-area">
+            <section id="schedule" className="schedule" aria-labelledby="schedule-heading">
+              <h2 id="schedule-heading">Calendar</h2>
+              <p className="section-lede">Focus blocks FocusOS booked for you. Other Google Calendar events are checked whenever it plans.</p>
+              <Conflicts />
+              <ScheduleBoard />
+            </section>
+            <section id="check-ins" className="check-in-area" aria-labelledby="check-ins-heading">
+              <h2 id="check-ins-heading">How did it go?</h2>
+              <CheckInPanel />
+            </section>
+          </div>
+          <section id="review" className="review-band" aria-labelledby="review-heading">
+            <h2 id="review-heading">Your week</h2>
+            <ReviewPanel />
+          </section>
+          <section className="more" aria-labelledby="more-heading">
+            <h2 id="more-heading">Everything else</h2>
+            <details id="email" className="drawer"><summary><span>Email priorities</span><small>Messages you labeled FocusOS in Gmail</small></summary><div className="drawer-body"><TriagePanel /></div></details>
+            <details id="knowledge" className="drawer"><summary><span>Knowledge graph</span><small>How your notes connect to each other</small></summary><div className="drawer-body"><GraphPanel /></div></details>
+            <details id="usage" className="drawer"><summary><span>AI usage</span><small>The last seven days</small></summary><div className="drawer-body"><UsagePanel /></div></details>
+            <Preferences profile={me.data.profile} saved={params.saved} error={params.error} />
+          </section>
+        </>}
+        <footer className="footer"><span>FocusOS keeps your work, notes and focus time in one place.</span><a href="/#composer">Back to the top</a></footer>
+      </div>
+    </> : <section className="welcome" aria-labelledby="welcome-heading">
+      <Sunrise />
+      <div className="welcome-text">
+        <h1 id="welcome-heading">Say what is on your mind. FocusOS finds the time for it.</h1>
+        <p>Write tasks, questions and plans the way you would say them. FocusOS saves the work, answers from your own notes, and books focus time on your Google Calendar.</p>
+        <form action={signInWithGoogle}><button type="submit" className="button">Continue with Google</button></form>
       </div>
     </section>}
   </main>;
