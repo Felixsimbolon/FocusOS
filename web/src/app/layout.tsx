@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Newsreader } from "next/font/google";
 import "./globals.css";
+import { THEME_SCRIPT } from "./theme";
 
 // Self-hosted at build time; the browser never requests Google Fonts.
 const ui = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-ui", axes: ["wdth", "opsz"] });
@@ -19,7 +20,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${ui.variable} ${prose.variable}`} data-phase="day">
+    <html lang="en" className={`${ui.variable} ${prose.variable}`} data-phase="day" suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} /></head>
       <body>{children}</body>
     </html>
   );

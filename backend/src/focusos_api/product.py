@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from fastapi.responses import JSONResponse
 from focusos_api.job_routes import access
@@ -188,6 +188,14 @@ def graph_backfill(token: str=Depends(access)): return protected(knowledge_graph
 def triage_list(token: str=Depends(access)): return protected(email_triage.recent,token)
 @router.post("/triage/{source_id}")
 def triage_correct(source_id: UUID,triage: TriageInput,token: str=Depends(access)): return protected(correct_triage,token,source_id,triage)
+def calendar_month(token: str,month: str) -> dict:
+ from focusos_api.calendar_month import MonthOutOfRange,month_events
+ try: return month_events(token,month)
+ except MonthOutOfRange as exc: raise ItemNotFound() from exc
+
+
+@router.get("/calendar/{month}")
+def calendar_month_route(month: str=Path(pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),token: str=Depends(access)): return protected(calendar_month,token,month)
 @router.get("/conflicts")
 def conflicts(token: str=Depends(access)): return protected(find_conflicts,token)
 @router.get("/check-ins")

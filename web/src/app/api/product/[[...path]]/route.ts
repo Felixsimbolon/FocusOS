@@ -40,9 +40,10 @@ async function proxy(
     );
   const path = (await context.params).path || [];
   const review = path.length === 2 && path[0] === "review" && ["current", "previous"].includes(path[1]);
+  const month = path.length === 2 && path[0] === "calendar" && /^\d{4}-(0[1-9]|1[0-2])$/.test(path[1]);
   const valid =
     method === "GET"
-      ? review || path.length === 1 &&
+      ? review || month || path.length === 1 &&
         ["diagnostics", "history", "export", "focus-blocks", "usage", "estimates", "check-ins", "conflicts", "triage", "graph"].includes(path[0])
       : review || (path.length === 3 &&
           path[0] === "focus-blocks" &&
@@ -96,7 +97,7 @@ async function proxy(
             r.status === 401
               ? "Sign in again."
               : r.status === 409
-                ? path[0] === "conflicts"
+                ? ["conflicts", "calendar"].includes(path[0])
                   ? "Reconnect Google Calendar to check for conflicts."
                   : path[2] === "check-in"
                   ? "This block is not open for check-in."

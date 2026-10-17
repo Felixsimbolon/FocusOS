@@ -9,6 +9,8 @@ import { UsagePanel } from "./usage/usage-panel";
 import { FocusHud } from "./hud/focus-hud";
 import { CheckInPanel } from "./check-ins/check-in-panel";
 import { Conflicts } from "./schedule/conflicts";
+import { MonthCalendar } from "./schedule/month-calendar";
+import { ThemeToggle } from "./theme-toggle";
 import { TriagePanel } from "./activity/triage-panel";
 import { GraphPanel } from "./knowledge/graph-panel";
 import { ReviewPanel } from "./review/review-panel";
@@ -34,8 +36,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
   return <main className="home">
     <header className="topbar">
       <Brand />
+      {!user && <div className="topbar-actions"><ThemeToggle /></div>}
       {user && <nav aria-label="Main navigation"><a href="/#composer">Write</a><a href="/#tasks">Today</a><a href="/#schedule">Calendar</a><a href="/#review">Review</a></nav>}
-      {user && <div className="topbar-actions"><GmailSyncPanel /><form action={signOut}><button className="quiet" type="submit">Sign out</button></form></div>}
+      {user && <div className="topbar-actions"><ThemeToggle /><GmailSyncPanel /><form action={signOut}><button className="quiet" type="submit">Sign out</button></form></div>}
     </header>
     {authError && <p role="alert" className="page-alert">{authError}</p>}
     {user ? <>
@@ -53,18 +56,22 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
         <WorkComposer />
         {me.kind === "ok" && <>
           <div id="tasks"><TaskBoard /></div>
-          <div className="calendar-area">
-            <section id="schedule" className="schedule" aria-labelledby="schedule-heading">
-              <h2 id="schedule-heading">Calendar</h2>
-              <p className="section-lede">Focus blocks FocusOS booked for you. Other Google Calendar events are checked whenever it plans.</p>
-              <Conflicts />
-              <ScheduleBoard />
-            </section>
-            <section id="check-ins" className="check-in-area" aria-labelledby="check-ins-heading">
-              <h2 id="check-ins-heading">How did it go?</h2>
-              <CheckInPanel />
-            </section>
-          </div>
+          <section id="schedule" className="schedule" aria-labelledby="schedule-heading">
+            <h2 id="schedule-heading">Calendar</h2>
+            <p className="section-lede">Your whole Google Calendar, month by month. Focus blocks FocusOS booked are marked in marigold.</p>
+            <Conflicts />
+            <MonthCalendar timezone={me.data.profile?.timezone} />
+            <div className="calendar-area">
+              <div className="booked" aria-labelledby="booked-heading">
+                <h3 id="booked-heading">Booked by FocusOS</h3>
+                <ScheduleBoard />
+              </div>
+              <div id="check-ins" className="check-in-area" aria-labelledby="check-ins-heading">
+                <h3 id="check-ins-heading">How did it go?</h3>
+                <CheckInPanel />
+              </div>
+            </div>
+          </section>
           <section id="review" className="review-band" aria-labelledby="review-heading">
             <h2 id="review-heading">Your week</h2>
             <ReviewPanel />

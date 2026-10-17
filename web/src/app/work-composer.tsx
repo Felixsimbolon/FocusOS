@@ -76,21 +76,6 @@ export function workMessage(job: Job): string {
   return result.intent === "schedule" || result.intent === "both" ? "Finding a free slot and adding it to Calendar..."
     : result.intent === "question" ? "Looking through your tasks and memories..." : "Understanding and organizing your request...";
 }
-const SUGGESTIONS = [
-  { label: "Add tasks", icon: "list", text: "Buat task berikut:\n1. " },
-  { label: "Find focus time", icon: "sun", text: "Cari waktu besok jam 09-12 untuk " },
-  { label: "Ask my notes", icon: "ask", text: "Kapan deadline " },
-  { label: "All at once", icon: "all", text: "Buat task siapkan slide demo, estimasi 30 menit. Cari waktu besok jam 13-16 untuk mengerjakannya. Kapan deadline review desain?" },
-] as const;
-function SuggestionIcon({ kind }: { kind: "list" | "sun" | "ask" | "all" }) {
-  const paths = {
-    list: <><path d="M4 6h10M4 10h10M4 14h6" /></>,
-    sun: <><path d="M2 15h16" /><path d="M5 15a5 5 0 0 1 10 0" /><path d="M10 4v2M4.5 7.5l1.4 1.4M15.5 7.5l-1.4 1.4" /></>,
-    ask: <><path d="M7.5 7.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.4V12" /><circle cx="10" cy="15" r=".6" /></>,
-    all: <><path d="M3 15h14" /><path d="M6 15a4 4 0 0 1 8 0" /><path d="M4 6h6M4 9h4" /></>,
-  };
-  return <svg className="suggestion-icon" viewBox="0 0 20 20" aria-hidden="true">{paths[kind]}</svg>;
-}
 export function WorkComposer() {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -172,11 +157,6 @@ export function WorkComposer() {
       <textarea id="work-request" value={text} onChange={event => setText(event.target.value)} rows={thread ? 2 : 6} maxLength={1000} required disabled={busy} aria-describedby="composer-help"
         placeholder={thread ? "yang web" : "Buat task berikut:\n1. Siapkan outline presentasi, deadline 13 Oktober, estimasi 30 menit.\n2. Buat halaman web, deadline 18 Oktober, estimasi 2 jam.\n\nCari waktu besok jam 13-16 untuk belajar selama 30 menit. Kapan deadline review desain?"} />
       <div className="composer-bar">
-        {!thread && <div className="composer-suggestions" role="group" aria-label="Start from an example">
-          {SUGGESTIONS.map(item => <button key={item.label} type="button" className="suggestion" disabled={busy}
-            onClick={() => { setText(current => current.trim() ? `${current.trimEnd()}\n${item.text}` : item.text); document.getElementById("work-request")?.focus(); }}>
-            <SuggestionIcon kind={item.icon} />{item.label}</button>)}
-        </div>}
         <span className="composer-count" aria-label={`${text.length} of 1000 characters`}>{text.length.toLocaleString()} / 1,000</span>
         <button type="submit" className="button composer-send" disabled={busy || !text.trim()}>{busy ? <><span className="composer-progress" aria-hidden="true" />Working...</> : thread ? "Send reply" : "Send request"}</button>
       </div>

@@ -40,8 +40,8 @@
 :root[data-phase="dusk"] { --sky-top: #5b5899; --sky-bottom: #ee9f80; --ridge-far: #8d7f9f; --ridge-mid: #4a5370; --sky-ink: #fdf6ef; --sky-ink-2: #f3e3d8; --arc: rgba(253, 246, 239, 0.4); }
 :root[data-phase="night"] { --sky-top: #0e1432; --sky-bottom: #2a3366; --ridge-far: #2b3558; --ridge-mid: #1d2644; --sky-ink: #eef1ff; --sky-ink-2: #c6cdee; --arc: rgba(238, 241, 255, 0.3); }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+/* Dark mode: chosen with the switch (data-theme), or following the system when nothing is chosen. */
+:root[data-theme="dark"] {
     --paper: #141b23;
     --paper-deep: #1a232c;
     --ink: #e5ebee;
@@ -57,9 +57,29 @@
     --low: #7b878d;
     color-scheme: dark;
   }
-  :root[data-phase="day"] { --sky-top: #3d6f93; --sky-bottom: #8fb3c8; --ridge-far: #5d7c8a; --ridge-mid: #2f4d55; }
-  :root[data-phase="dawn"] { --sky-top: #3f4f7c; --sky-bottom: #b9877a; --ridge-far: #6b6480; --ridge-mid: #353c55; }
-  :root[data-phase="day"], :root[data-phase="dawn"] { --sky-ink: #f2f6f8; --sky-ink-2: #dbe5ea; --arc: rgba(242, 246, 248, 0.35); }
+:root[data-theme="dark"][data-phase="day"] { --sky-top: #3d6f93; --sky-bottom: #8fb3c8; --ridge-far: #5d7c8a; --ridge-mid: #2f4d55; }
+:root[data-theme="dark"][data-phase="dawn"] { --sky-top: #3f4f7c; --sky-bottom: #b9877a; --ridge-far: #6b6480; --ridge-mid: #353c55; }
+:root[data-theme="dark"][data-phase="day"], :root[data-theme="dark"][data-phase="dawn"] { --sky-ink: #f2f6f8; --sky-ink-2: #dbe5ea; --arc: rgba(242, 246, 248, 0.35); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #141b23;
+    --paper-deep: #1a232c;
+    --ink: #e5ebee;
+    --ink-2: #b4c0c6;
+    --ink-3: #8796a0;
+    --rule: rgba(229, 235, 238, 0.12);
+    --rule-strong: rgba(229, 235, 238, 0.26);
+    --sun: #f2a640;
+    --lagoon: #67b6d0;
+    --lagoon-soft: rgba(103, 182, 208, 0.12);
+    --rose: #e27a92;
+    --rose-soft: rgba(226, 122, 146, 0.12);
+    --low: #7b878d;
+    color-scheme: dark;
+  }
+  :root:not([data-theme="light"])[data-phase="day"] { --sky-top: #3d6f93; --sky-bottom: #8fb3c8; --ridge-far: #5d7c8a; --ridge-mid: #2f4d55; }
+  :root:not([data-theme="light"])[data-phase="dawn"] { --sky-top: #3f4f7c; --sky-bottom: #b9877a; --ridge-far: #6b6480; --ridge-mid: #353c55; }
+  :root:not([data-theme="light"])[data-phase="day"], :root:not([data-theme="light"])[data-phase="dawn"] { --sky-ink: #f2f6f8; --sky-ink-2: #dbe5ea; --arc: rgba(242, 246, 248, 0.35); }
 }
 
 /* ---------- Base ---------- */
@@ -117,7 +137,8 @@ input:not([type="checkbox"]), select {
   border: 1px solid var(--rule-strong); border-radius: 10px;
   background: color-mix(in srgb, var(--paper) 60%, #fff);
 }
-@media (prefers-color-scheme: dark) { input:not([type="checkbox"]), select { background: color-mix(in srgb, var(--paper) 80%, #000); } }
+:root[data-theme="dark"] :is(input:not([type="checkbox"]), select) { background: color-mix(in srgb, var(--paper) 80%, #000); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) :is(input:not([type="checkbox"]), select) { background: color-mix(in srgb, var(--paper) 80%, #000); } }
 input:focus-visible, select:focus-visible { outline-offset: 1px; }
 label { color: var(--ink-2); font-size: 0.9rem; }
 
@@ -257,7 +278,7 @@ label { color: var(--ink-2); font-size: 0.9rem; }
 .suggestion { min-height: 2rem; padding: 0.2rem 0; background: transparent; color: var(--ink-2); font-weight: 500; border-radius: 4px; }
 .suggestion:hover:not(:disabled) { background: transparent; color: var(--ink); }
 .suggestion-icon { width: 1.15rem; height: 1.15rem; fill: none; stroke: var(--sun); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.composer-count { color: var(--ink-3); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.composer-count { margin-left: auto; color: var(--ink-3); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
 .composer-send { min-width: 9rem; }
 .composer-help { margin-top: 0.7rem; color: var(--ink-3); font-size: 0.85rem; max-width: var(--measure); }
 .composer-progress { display: inline-block; position: relative; width: 1.1rem; height: 0.6rem; overflow: hidden; }
@@ -353,6 +374,60 @@ label { color: var(--ink-2); font-size: 0.9rem; }
 .list-pagination button { min-height: 2rem; padding: 0.25rem 0.75rem; font-size: 0.85rem; }
 
 /* ---------- Calendar and check-ins ---------- */
+
+/* Month view: the whole Google Calendar. Thin rules between days, no boxed cells. */
+.month { margin-top: 1.5rem; }
+.month-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.month-head h3 { font-size: clamp(1.4rem, 1.2rem + 0.8vw, 1.8rem); font-stretch: 90%; }
+.month-nav { display: flex; align-items: center; gap: 0.35rem; }
+.month-arrow { width: 2.5rem; height: 2.5rem; padding: 0; }
+.month-arrow svg { width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.month-legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1.25rem; margin-top: 0.5rem; color: var(--ink-3); font-size: 0.85rem; }
+.month-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.legend-focus::before, .legend-other::before { content: ""; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--sun); }
+.legend-other::before { background: var(--lagoon); }
+.month-loading { margin-left: auto; }
+.month-swipe { margin-top: 1rem; overflow: hidden; touch-action: pan-y; }
+.month-grid.from-right { animation: slide-from-right 380ms var(--ease-out); }
+.month-grid.from-left { animation: slide-from-left 380ms var(--ease-out); }
+@keyframes slide-from-right { from { opacity: 0; translate: 40px 0; } to { opacity: 1; translate: 0 0; } }
+@keyframes slide-from-left { from { opacity: 0; translate: -40px 0; } to { opacity: 1; translate: 0 0; } }
+.month-weekdays, .month-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.month-weekdays span { padding: 0 0.5rem 0.5rem; color: var(--ink-3); font-size: 0.8rem; }
+.month-days { border-top: 1px solid var(--rule); }
+.month-day {
+  display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 0.2rem;
+  min-height: 7.2rem; min-width: 0; padding: 0.4rem 0.35rem 0.5rem; border-radius: 0;
+  border-bottom: 1px solid var(--rule); background: transparent; color: var(--ink); text-align: left;
+  font: inherit; font-size: 0.9rem; transition: background-color 140ms ease;
+}
+.month-day:not(:nth-child(7n)) { border-right: 1px solid var(--rule); }
+.month-day:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.month-day:active:not(:disabled) { transform: none; }
+.month-day.is-outside { color: var(--ink-3); }
+.month-day.is-outside .month-events { opacity: 0.55; }
+.month-day.is-selected { background: color-mix(in srgb, var(--sun) 10%, transparent); }
+.month-date { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 50%; font-weight: 600; font-variant-numeric: tabular-nums; }
+.month-day.is-today .month-date { background: var(--ink); color: var(--paper); }
+.month-events { display: grid; gap: 0.15rem; min-width: 0; }
+.month-event { display: flex; gap: 0.3rem; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 0.78rem; line-height: 1.35; color: var(--ink-2); }
+.month-event::before { content: ""; flex: none; width: 0.4rem; height: 0.4rem; margin-top: 0.38em; border-radius: 50%; background: var(--lagoon); }
+.month-event time { flex: none; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.month-event.is-all-day { padding: 0.05rem 0.4rem; border-radius: 4px; background: var(--lagoon-soft); color: var(--ink); }
+.month-event.is-all-day::before { display: none; }
+.month-event.is-focus::before { background: var(--sun); }
+.month-event.is-focus.is-all-day { background: var(--sun-soft); }
+.month-more { color: var(--ink-3); font-size: 0.75rem; padding-left: 0.7rem; }
+.month-agenda { margin-top: 1.25rem; animation: rise 240ms var(--ease-out); }
+.month-agenda ul { display: grid; gap: 0.45rem; margin-top: 0.6rem; }
+.month-agenda li { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: 0.9rem; padding-left: 0.85rem; border-left: 3px solid var(--lagoon); }
+.month-agenda li.is-focus { border-left-color: var(--sun); }
+.agenda-time { display: grid; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.agenda-time span { color: var(--ink-3); font-weight: 400; font-size: 0.85rem; }
+.calendar-area { margin-top: clamp(2.5rem, 5vw, 3.5rem); }
+.calendar-area h3 { font-size: 1.35rem; font-stretch: 92%; }
+.theme-toggle { width: 2.5rem; height: 2.5rem; padding: 0; }
+.theme-toggle svg { width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 .calendar-area { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: clamp(2rem, 5vw, 4.5rem); align-items: start; }
 .schedule-tools { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; margin-top: 1rem; color: var(--ink-2); }
@@ -527,6 +602,15 @@ label { color: var(--ink-2); font-size: 0.9rem; }
   .composer-send { width: 100%; }
 }
 @media (max-width: 520px) {
+  .month-day { min-height: 4.2rem; padding: 0.3rem 0.15rem; }
+  .month-events { display: flex; flex-wrap: wrap; gap: 3px; padding-left: 0.3rem; }
+  .month-event { width: 0.45rem; height: 0.45rem; padding: 0; border-radius: 50%; background: var(--lagoon); font-size: 0; }
+  .month-event::before, .month-event time { display: none; }
+  .month-event.is-focus, .month-event.is-focus.is-all-day { background: var(--sun); }
+  .month-event.is-all-day { background: var(--lagoon); }
+  .month-more { display: none; }
+  .month-weekdays span { padding-inline: 0.2rem; text-align: center; }
+  .month-date { width: 1.5rem; height: 1.5rem; font-size: 0.82rem; }
   :root { --page: calc(100% - 2rem); }
   .horizon-text { padding-top: 8.5rem; }
   .horizon-art { height: 14rem; }
