@@ -73,9 +73,10 @@ export default async function ConnectionsSettings({
             {connection.granted_scopes.includes("https://www.googleapis.com/auth/gmail.readonly") ? <li>Gmail read access</li> : null}
             {connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned.readonly") ? <li>Read events on calendars you own</li> : null}
             {connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned") ? <li>Calendar event write access (Planning submissions can create events automatically; you can cancel FocusOS blocks from Home)</li> : null}
+            {connection.granted_scopes.includes("https://www.googleapis.com/auth/gmail.send") ? <li>Send email to yourself (morning brief and block reminders)</li> : null}
           </ul>
-          {!connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned") ? (
-            <p><a className="control-button" href="/api/integrations/google/calendar-write/start">Enable Calendar event writes</a></p>
+          {!connection.granted_scopes.includes("https://www.googleapis.com/auth/calendar.events.owned") || !connection.granted_scopes.includes("https://www.googleapis.com/auth/gmail.send") ? (
+            <p><a className="control-button" href="/api/integrations/google/calendar-write/start">Allow Calendar events and email to yourself</a></p>
           ) : null}
           <GmailMessageProbe />
           <CalendarPageProbe />

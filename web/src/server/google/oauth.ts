@@ -13,11 +13,14 @@ export const GOOGLE_READ_SCOPES = [
 ] as const;
 export const GOOGLE_CALENDAR_WRITE_SCOPE =
   "https://www.googleapis.com/auth/calendar.events.owned";
+export const GOOGLE_GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
+// The second consent covers everything FocusOS writes: Calendar events, and email to yourself.
 export const GOOGLE_CALENDAR_UPGRADE_SCOPES = [
   "openid",
   "email",
   "profile",
   GOOGLE_CALENDAR_WRITE_SCOPE,
+  GOOGLE_GMAIL_SEND_SCOPE,
 ] as const;
 export type GoogleOAuthFlow = "connect" | "calendar_write";
 

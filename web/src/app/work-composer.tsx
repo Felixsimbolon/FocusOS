@@ -52,6 +52,8 @@ export function workMessage(job: Job): string {
       ? `${Number(result.blocks_scheduled)} Calendar block(s) created.${saved ? ` ${saved} task(s) also saved.` : ""}`
       : saved || memories ? `Saved ${saved} task(s) and ${memories} memory item(s).` : ""];
     if (questions) parts.push(`Checked ${questions} question(s) against your saved work.`);
+    const routines = Array.isArray(result.routines) ? result.routines.filter((item): item is string => typeof item === "string") : [];
+    if (routines.length) parts.push(`Saved ${routines.length} routine(s): ${routines.join("; ")}.`);
     return parts.filter(Boolean).join(" ") || "No tasks or facts found in this description.";
   }
   if (["failed", "expired", "cancelled"].includes(job.status)) {
@@ -76,6 +78,15 @@ export function workMessage(job: Job): string {
   return result.intent === "schedule" || result.intent === "both" ? "Finding a free slot and adding it to Calendar..."
     : result.intent === "question" ? "Looking through your tasks and memories..." : "Understanding and organizing your request...";
 }
+const ATTACH_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
+type Attachment = { name: string; state: "reading" | "done" | "error"; message: string };
+/** What a finished document capture saved, in the same words as a typed request. */
+export function documentMessage(job: Job, name: string): string {
+  const result = job.result || {};
+  if (job.status !== "succeeded") return typeof result.message === "string" ? result.message : `Could not finish organizing ${name}. Any saved tasks are kept.`;
+  const tasks = Number(result.tasks_saved || 0), memories = Number(result.memories_saved || 0);
+  return tasks || memories ? `Saved ${tasks} task(s) and ${memories} memory item(s) from ${name}.` : `Read ${name}, but found no tasks or facts to save.`;
+}
 export function WorkComposer() {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -88,6 +99,7 @@ export function WorkComposer() {
   const [issues, setIssues] = useState<string[]>([]);
   const [thread, setThread] = useState<Thread | null>(null);
   const [adjustments, setAdjustments] = useState<string[]>([]);
+  const [attachment, setAttachment] = useState<Attachment | null>(null);
   const controller = useRef<AbortController | null>(null);
   const pending = useRef<{ text: string; key: string; replyTo: string | null } | null>(null);
   const observe = useCallback(async (job: Job, signal: AbortSignal, request = "") => {
@@ -147,6 +159,28 @@ export function WorkComposer() {
       await observe(data.background_job, tracking.signal, thread ? `${thread.request ? `${thread.request}\n` : ""}${description}` : description);
     } catch (cause) { if (!tracking.signal.aborted) { setMessage(""); setError(cause instanceof Error ? cause.message : "Could not submit. Retry the same text."); setBusy(false); } }
   }
+  async function attach(file: File) {
+    if (!ATTACH_TYPES.includes(file.type)) { setAttachment({ name: file.name, state: "error", message: "Attach a PDF, PNG, JPEG or WebP file." }); return; }
+    if (file.size > 3_000_000) { setAttachment({ name: file.name, state: "error", message: "Attach a file of at most 3 MB." }); return; }
+    setAttachment({ name: file.name, state: "reading", message: `Reading ${file.name}…` });
+    const form = new FormData(); form.set("file", file); form.set("request_key", crypto.randomUUID());
+    try {
+      const response = await fetch("/api/documents", { method: "POST", body: form });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not read this document.");
+      setAttachment({ name: file.name, state: "reading", message: `Organizing ${file.name}…` });
+      const finished = await followOrganization(data.background_job as Job, () => undefined, new AbortController().signal);
+      setAttachment({ name: file.name, state: finished.status === "succeeded" ? "done" : "error", message: documentMessage(finished, file.name) });
+      window.dispatchEvent(new Event("focusos:tasks-changed"));
+    } catch (cause) { setAttachment({ name: file.name, state: "error", message: cause instanceof Error ? cause.message : "Could not read this document." }); }
+  }
+  function pickFile() {
+    // Created on demand so the composer stays a single text field until a file is wanted.
+    const input = document.createElement("input");
+    input.type = "file"; input.accept = ".pdf,image/png,image/jpeg,image/webp";
+    input.onchange = () => { const file = input.files?.[0]; if (file) void attach(file); };
+    input.click();
+  }
   const responding = message || error || warning || blocks.length > 0 || answers.length > 0 || issues.length > 0 || adjustments.length > 0;
   return <section id="composer" className={`composer${busy ? " is-processing" : ""}${thread ? " is-replying" : ""}`} aria-labelledby="composer-heading" aria-busy={busy}>
     <h2 id="composer-heading">{thread ? "FocusOS has a question" : "What is on your mind?"}</h2>
@@ -157,9 +191,13 @@ export function WorkComposer() {
       <textarea id="work-request" value={text} onChange={event => setText(event.target.value)} rows={thread ? 2 : 6} maxLength={1000} required disabled={busy} aria-describedby="composer-help"
         placeholder={thread ? "yang web" : "Buat task berikut:\n1. Siapkan outline presentasi, deadline 13 Oktober, estimasi 30 menit.\n2. Buat halaman web, deadline 18 Oktober, estimasi 2 jam.\n\nCari waktu besok jam 13-16 untuk belajar selama 30 menit. Kapan deadline review desain?"} />
       <div className="composer-bar">
+        {!thread && <button type="button" className="quiet attach" onClick={pickFile} disabled={busy || attachment?.state === "reading"}>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M13.5 6.5 7.8 12.2a1.6 1.6 0 0 0 2.3 2.3l6-6a3.2 3.2 0 0 0-4.5-4.5l-6.2 6.2a4.8 4.8 0 0 0 6.8 6.8l4.3-4.3" /></svg>
+          Attach a PDF or photo</button>}
         <span className="composer-count" aria-label={`${text.length} of 1000 characters`}>{text.length.toLocaleString()} / 1,000</span>
         <button type="submit" className="button composer-send" disabled={busy || !text.trim()}>{busy ? <><span className="composer-progress" aria-hidden="true" />Working...</> : thread ? "Send reply" : "Send request"}</button>
       </div>
+      {attachment && <p role={attachment.state === "error" ? "alert" : "status"} className={`attachment attachment-${attachment.state}`}>{attachment.message}</p>}
       <p id="composer-help" className="composer-help">Indonesian or English. Up to 10 tasks per list. Calendar requests create events automatically. Add a duration, or we use your task estimate or 30 minutes.</p>
     </form>
     {responding && <div className="composer-response">

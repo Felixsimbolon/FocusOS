@@ -30,11 +30,14 @@ from focusos_api.memory_answers import MAX_QUESTIONS, AnswersUnavailable, answer
 from focusos_api.follow_ups import FollowUpError, follow_up
 from focusos_api import estimates
 from focusos_api.calendar_cancel import cancel_focus_block
+from focusos_api import routines as routine_rules
+from focusos_api.routines import RoutineIntent
 from focusos_api.jobs import Step, RetryStep, JobInput, enqueue_job
 from focusos_api.job_routes import access, call
 
 router = APIRouter()
-MAX_SCHEDULES = 3
+MAX_SCHEDULES = 3       # parts the model may ask for
+MAX_PLANNED_PARTS = 12  # plus routine occurrences the server adds
 EMBEDDINGS_PER_STEP = 4
 # Keys a finished plan writes into the job result; they belong to one schedule.
 SCHEDULE_KEYS = ("message", "warning", "requested_sessions", "planned_sessions", "session_minutes", "shortfall_minutes")
@@ -59,19 +62,22 @@ class ScheduleIntent(BaseModel):
     title_quote: str | None = Field(max_length=200)
     request_quote: str = Field(min_length=1, max_length=1000)
     selection: PlanningSelection
+    occurrence: str | None = None  # set by the server for a routine occurrence; never by the model
 
 
 class WorkIntent(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     capture: bool
     questions: list[Annotated[str, Field(min_length=1, max_length=300)]] = Field(max_length=MAX_QUESTIONS)
-    schedules: list[ScheduleIntent] = Field(max_length=MAX_SCHEDULES)
+    schedules: list[ScheduleIntent] = Field(max_length=MAX_PLANNED_PARTS)
     clarification: str | None = Field(max_length=300)
     explanation: str = Field(min_length=1, max_length=300)
+    routines: list[RoutineIntent] = Field(default_factory=list, max_length=2)
 
     @property
     def action(self) -> str:
         """Short label for progress text and logs."""
+        if self.routines and not (self.capture or self.schedules or self.questions): return "routine"
         if self.capture and self.schedules: return "both"
         if self.schedules: return "schedule"
         if self.capture: return "capture"
@@ -116,7 +122,7 @@ def constraint_text(intent: WorkIntent, schedule: ScheduleIntent, text: str, fol
     (task estimates, other sessions), so only this schedule's quoted part applies.
     A reply's text also holds the earlier request, whose finished parts must not bind it.
     """
-    if follow_up and schedule.request_quote != "-": return schedule.request_quote.strip()
+    if schedule.occurrence or (follow_up and schedule.request_quote != "-"): return schedule.request_quote.strip()
     return text if sole_schedule(intent) or schedule.request_quote == "-" else schedule.request_quote.strip()
 
 
@@ -157,7 +163,13 @@ def infer_work(text: str, tasks: list[dict], reference: str, zone: str, conversa
         "resolve an explicit date/weekday from reference_time. start_time/end_time are explicit local HH:MM bounds. "
         "duration_minutes only if explicitly stated; otherwise null. Dates and clock limits must never be silently dropped. "
         "evidence_refs is empty. For selected schedules questions is empty. "
-        "Unsupported scheduling (unbounded recurrence, guests, other timezone, exact-time-only) is needs_clarification for that schedule. "
+        "routines: recurring activities with weekdays and a clock time, such as belajar Python setiap Selasa dan Kamis jam 7-8 "
+        "or gym every weekday at 18:00 for 1 hour. weekdays use 1=Monday to 7=Sunday (setiap hari or every day is 1-7; hari kerja or "
+        "weekdays is 1-5). start_time is HH:MM; duration_minutes comes from the stated length or end time (15-240). title_quote is "
+        "the exact words naming the activity and request_quote the exact span describing the routine. ends_on is an ISO date only "
+        "when the text says until when, else null. A routine is never also a schedule. If a recurring request lacks its days, "
+        "start time or length, do not make a routine; ask for the missing part in clarification. "
+        "Unsupported scheduling (guests, other timezone, exact-time-only) is needs_clarification for that schedule. "
         "A needs_clarification question names the candidate saved tasks so the user can answer briefly. "
         "clarification: a helpful question ONLY when the request has no capture, question or schedule part you can act on; otherwise null. "
         "When conversation is present, text is the user's reply to conversation.open_questions about conversation.previous_request. "
@@ -170,6 +182,8 @@ def infer_work(text: str, tasks: list[dict], reference: str, zone: str, conversa
         "The server computes slots and creates events; never return timestamps, IDs or invented facts."
     )
     schema = WorkIntent.model_json_schema()
+    # Routine occurrences are added by the server, never proposed by the model.
+    schema["$defs"]["ScheduleIntent"]["properties"].pop("occurrence", None)
     def clean(node):
         if isinstance(node, dict):
             for key in ("title", "default", "format", "minLength", "maxLength", "minimum", "maximum", "minItems", "maxItems"): node.pop(key, None)
@@ -197,6 +211,18 @@ def infer_work(text: str, tasks: list[dict], reference: str, zone: str, conversa
     except (httpx.HTTPError, GeminiResponseError, ValueError, ValidationError) as exc:
         raise RetryStep("intent_unavailable", 60) from exc
     known = {f"task-{i+1}" for i in range(len(tasks))}
+    if len(intent.schedules) > MAX_SCHEDULES or any(schedule.occurrence for schedule in intent.schedules):
+        raise RetryStep("intent_invalid", 60)
+    for routine in intent.routines:
+        title = routine.title_quote.strip().lower()
+        if (_squash(routine.request_quote) not in _squash(grounding) or not title or title not in routine.request_quote.lower()
+                or len(set(routine.weekdays)) != len(routine.weekdays)
+                or routine_rules.minutes(routine.start_time) + routine.duration_minutes > 1440):
+            raise RetryStep("intent_invalid", 60)
+        if routine.ends_on is not None:
+            try: ends = date.fromisoformat(routine.ends_on)
+            except ValueError as exc: raise RetryStep("intent_invalid", 60) from exc
+            if ends < datetime.fromisoformat(reference).date(): raise RetryStep("intent_invalid", 60)
     schedules = []
     for schedule in intent.schedules:
         selection, refs = schedule.selection, schedule.selection.task_refs
@@ -220,7 +246,7 @@ def infer_work(text: str, tasks: list[dict], reference: str, zone: str, conversa
                 "sessions": grounded, "day": "any", "date": None, "duration_minutes": grounded.minutes})})
         schedules.append(schedule)
     intent = intent.model_copy(update={"schedules": schedules})
-    if not (intent.capture or intent.questions or intent.schedules) and not (intent.clarification or "").strip():
+    if not (intent.capture or intent.questions or intent.schedules or intent.routines) and not (intent.clarification or "").strip():
         raise RetryStep("intent_invalid", 60)
     return intent
 
@@ -323,8 +349,11 @@ def _finalize(token: str, run, intent: WorkIntent, cp: dict, result: dict) -> St
             result["replaced"] = "unknown"
         if result["replaced"] != "cancelled":
             result["warning"] = "The new block was created, but the old one could not be removed. Delete it in Google Calendar."
+    if run.checkpoint.get("routine_occurrences") and not result.get("routine_dates_recorded"):
+        routine_rules.finish_occurrences(token, run.id, run.checkpoint["routine_occurrences"], schedules)
+        result["routine_dates_recorded"] = True
     failures = [item for item in schedules if item["status"] != "scheduled"] + list(cp.get("failures", []))
-    succeeded = (result.get("tasks_saved", 0) or result.get("memories_saved", 0) or result["blocks_scheduled"]
+    succeeded = (result.get("tasks_saved", 0) or result.get("memories_saved", 0) or result["blocks_scheduled"] or result.get("routines_saved", 0)
                  or any(answer["status"] in ("answered", "no_reference") for answer in result.get("answers", [])))
     result = _fit(result)
     if failures and not succeeded:
@@ -488,17 +517,27 @@ def advance_work(token: str, job: dict, run):
         else:
             intent = infer_work(own_text(run), tasks, run.checkpoint["window_start"], profile.timezone if profile else "Asia/Jakarta",
                                 run.checkpoint.get("conversation"))
-        if not (intent.capture or intent.questions or intent.schedules):
+        if not (intent.capture or intent.questions or intent.schedules or intent.routines):
             message = intent.clarification or intent.explanation
             if not _checkpoint(token, run.id, run.version, "clarify", "done", run.checkpoint,
                                {"summary": message}, 1, 0, "request_ambiguous"):
                 raise DatabaseUnavailable("Command checkpoint changed")
             return Step("failed", result={"run_id": str(run.id), "message": message}, error="request_ambiguous")
-        checkpoint = {**run.checkpoint, "work_plan": intent.model_dump(), "intent_tasks": tasks, "task_override": tasks}
+        routine_note = {}
+        if intent.routines and "routine_occurrences" not in run.checkpoint:
+            # Save each routine (idempotent per request), then book its coming week as extra schedule parts.
+            zone = ZoneInfo(profile.timezone if profile else "Asia/Jakarta")
+            saved = [routine_rules.save_routine(token, uuid5(run.id, f"routine-{index}"), routine) for index, routine in enumerate(intent.routines)]
+            occurrences, mapping = routine_rules.plan_occurrences(token, run.id, saved, zone, datetime.now(timezone.utc), len(intent.schedules))
+            intent = intent.model_copy(update={"schedules": [*intent.schedules, *occurrences]})
+            routine_note = {"routine_occurrences": mapping, "routines_saved": [routine_rules.describe(row) for row in saved]}
+        checkpoint = {**run.checkpoint, "work_plan": intent.model_dump(), "intent_tasks": tasks, "task_override": tasks, **routine_note}
         if not _checkpoint(token, run.id, run.version, "waiting", "start", checkpoint, None, 1, 0): raise DatabaseUnavailable("Command checkpoint changed")
         notes = [intent.clarification] if intent.clarification else []
+        routines_saved = checkpoint.get("routines_saved") or []
         return Step(checkpoint={"phase": "command_capture" if intent.capture else "command_answer"},
-                    result={"intent": intent.action, "run_id": str(run.id), **({"notes": notes} if notes else {})})
+                    result={"intent": intent.action, "run_id": str(run.id), **({"notes": notes} if notes else {}),
+                            **({"routines_saved": len(routines_saved), "routines": routines_saved} if routines_saved else {})})
     intent = _intent(run)
     if phase == "command_capture":
         # A reply captures only what the reply adds; the earlier request was captured by its own run.

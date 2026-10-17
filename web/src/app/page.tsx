@@ -11,6 +11,8 @@ import { CheckInPanel } from "./check-ins/check-in-panel";
 import { Conflicts } from "./schedule/conflicts";
 import { MonthCalendar } from "./schedule/month-calendar";
 import { ThemeToggle } from "./theme-toggle";
+import { RoutinesPanel } from "./routines/routines-panel";
+import { NotificationsPanel } from "./notifications/notifications-panel";
 import { TriagePanel } from "./activity/triage-panel";
 import { GraphPanel } from "./knowledge/graph-panel";
 import { ReviewPanel } from "./review/review-panel";
@@ -78,6 +80,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
           </section>
           <section className="more" aria-labelledby="more-heading">
             <h2 id="more-heading">Everything else</h2>
+            <details id="routines" className="drawer"><summary><span>Routines</span><small>Recurring activities booked a week ahead</small></summary><div className="drawer-body"><RoutinesPanel /></div></details>
+            <details id="notifications" className="drawer"><summary><span>Email notifications</span><small>Morning brief and reminders, from you to you</small></summary><div className="drawer-body"><NotificationsPanel /></div></details>
             <details id="email" className="drawer"><summary><span>Email priorities</span><small>Messages you labeled FocusOS in Gmail</small></summary><div className="drawer-body"><TriagePanel /></div></details>
             <details id="knowledge" className="drawer"><summary><span>Knowledge graph</span><small>How your notes connect to each other</small></summary><div className="drawer-body"><GraphPanel /></div></details>
             <details id="usage" className="drawer"><summary><span>AI usage</span><small>The last seven days</small></summary><div className="drawer-body"><UsagePanel /></div></details>

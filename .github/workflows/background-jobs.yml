@@ -29,3 +29,7 @@ jobs:
         if: env.FOCUSOS_WORKER_SECRET != '' && env.FOCUSOS_API_URL != ''
       - run: python scripts/work_jobs.py --max-steps 20
         if: env.FOCUSOS_WORKER_SECRET != '' && env.FOCUSOS_API_URL != ''
+      - name: Send due email notifications
+        if: env.FOCUSOS_WORKER_SECRET != '' && env.FOCUSOS_API_URL != ''
+        run: |
+          curl -fsS -X POST -H "Authorization: Bearer $FOCUSOS_WORKER_SECRET" "${FOCUSOS_API_URL%/}/internal/notifications/tick" -o /dev/null -w "notifications %{http_code}\n"

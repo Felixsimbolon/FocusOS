@@ -569,6 +569,30 @@ label { color: var(--ink-2); font-size: 0.9rem; }
 
 .footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; margin-top: 5rem; padding-top: 1.25rem; border-top: 1px solid var(--rule); color: var(--ink-3); font-size: 0.88rem; }
 
+/* Attachments, routines, email notifications: same flat language as the rest. */
+.attach { display: inline-flex; align-items: center; gap: 0.35rem; }
+.attach svg { width: 1.1rem; height: 1.1rem; fill: none; stroke: var(--sun); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.attachment { margin-top: 0.8rem; padding-left: 0.85rem; border-left: 3px solid var(--sun); color: var(--ink-2); font: 400 1rem/1.45 var(--font-prose); animation: rise 240ms var(--ease-out); }
+.attachment-reading { border-left-color: var(--lagoon); }
+.attachment-reading::after { content: ""; display: inline-block; width: 0.5rem; height: 0.5rem; margin-left: 0.5rem; border-radius: 50%; background: var(--lagoon); animation: pulse 1s ease-in-out infinite alternate; }
+.attachment-error { border-left-color: var(--rose); color: var(--ink); }
+@keyframes pulse { from { opacity: 0.25; } to { opacity: 1; } }
+.routines { display: grid; gap: 0.8rem; }
+.routine-list { display: grid; gap: 0.2rem; }
+.routine-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; padding: 0.7rem 0 0.7rem 0.9rem; border-left: 3px solid var(--sun); }
+.routine-list li.is-paused { border-left-color: var(--rule-strong); }
+.routine-list li.is-paused .routine-summary { color: var(--ink-3); }
+.routine-summary { font: 400 1.1rem/1.4 var(--font-prose); }
+.routine-list .quiet-line { margin-top: 0.15rem; }
+.notifications { display: grid; gap: 0.9rem; max-width: 44rem; }
+.notification-form { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center; gap: 0.75rem 1rem; }
+.notification-form .inline-actions { grid-column: 1 / -1; margin-top: 0.4rem; }
+.sent-list { display: grid; gap: 0.3rem; color: var(--ink-2); font-size: 0.88rem; }
+.sent-list li { padding-left: 0.8rem; border-left: 2px solid var(--rule-strong); }
+.sent-list .sent-sent { border-left-color: var(--sun); }
+.sent-list .sent-failed { border-left-color: var(--rose); }
+@media (max-width: 520px) { .notification-form { grid-template-columns: minmax(0, 1fr); } }
+
 /* ---------- Welcome (signed out) ---------- */
 
 .welcome {
