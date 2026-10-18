@@ -1,9 +1,9 @@
 "use client";
 import { LOCALE } from "../locale";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { AssignmentFlow, type Assignment } from "./assignment-flow";
 
-export type ProjectSummary = { id: string; name: string; open_tasks: number; done_tasks: number; notes: number; assignments: number;
+export type ProjectSummary = { id: string; name: string; open_tasks: number; done_tasks: number; notes: number; assignments: number; files?: number;
   next_deadline: string | null; next_block: { title: string; start: string; timezone: string } | null };
 
 const when = (value: string, zone: string) => new Intl.DateTimeFormat(LOCALE, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: zone }).format(new Date(value));
@@ -13,24 +13,27 @@ export function projectLine(project: ProjectSummary): string {
   if (project.next_deadline) parts.push(`next deadline ${project.next_deadline}`);
   if (project.notes) parts.push(`${project.notes} ${project.notes === 1 ? "note" : "notes"}`);
   if (project.assignments) parts.push(`${project.assignments} ${project.assignments === 1 ? "assignment" : "assignments"}`);
+  if (project.files) parts.push(`${project.files} ${project.files === 1 ? "file" : "files"}`);
   return parts.join(", ");
 }
 
 export const STATUS_LABEL: Record<string, string> = { transcribed: "Belum dianalisis", questions: "Menunggu jawabanmu", planned: "Sudah direncanakan" };
 
-export function ProjectsPanel() {
-  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+/** The project list with its actions; on the Projects page it starts from server data and reports changes upward. */
+export function ProjectsPanel({ initial, onProjects }: { initial?: ProjectSummary[] | null; onProjects?: (projects: ProjectSummary[]) => void } = {}) {
+  const [projects, setProjects] = useState<ProjectSummary[]>(initial ?? []);
+  const skipFirst = useRef(!!initial);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [flow, setFlow] = useState<{ assignment: Assignment | null } | null>(null);
   const load = useCallback(() => {
     fetch("/api/projects/overview", { cache: "no-store" })
       .then(response => response.ok ? response.json() : Promise.reject(new Error()))
-      .then(result => { setProjects(Array.isArray(result) ? result : []); setError(""); })
+      .then(result => { const list = Array.isArray(result) ? result : []; setProjects(list); onProjects?.(list); setError(""); })
       .catch(() => setError("Projects are unavailable right now."));
-  }, []);
+  }, [onProjects]);
   useEffect(() => {
-    load();
+    if (skipFirst.current) skipFirst.current = false; else load();
     window.addEventListener("focusos:tasks-changed", load);
     return () => window.removeEventListener("focusos:tasks-changed", load);
   }, [load]);

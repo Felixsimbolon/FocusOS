@@ -14,7 +14,7 @@ export function Topbar({ signedIn }: { signedIn: boolean }) {
   return <header className="topbar">
     <Brand />
     {!signedIn && <div className="topbar-actions"><ThemeToggle /></div>}
-    {signedIn && <nav aria-label="Main navigation"><a href="/#composer">Write</a><a href="/#tasks">Today</a><a href="/#schedule">Calendar</a><a href="/#projects">Projects</a><a href="/#notes">Notes</a><a href="/#review">Review</a></nav>}
+    {signedIn && <nav aria-label="Main navigation"><a href="/#composer">Write</a><a href="/#tasks">Today</a><a href="/#schedule">Calendar</a><a href="/projects">Projects</a><a href="/#notes">Notes</a><a href="/#review">Review</a></nav>}
     {signedIn && <div className="topbar-actions"><ThemeToggle /><GmailSyncPanel /><form action={signOut}><button className="quiet" type="submit">Sign out</button></form></div>}
   </header>;
 }

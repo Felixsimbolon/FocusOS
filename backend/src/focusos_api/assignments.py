@@ -190,7 +190,7 @@ def _update(token: str, row: dict, fields: dict) -> dict:
 
 def upload(token: str, document: DocumentInput) -> dict:
     try:
-        decode(document)
+        raw = decode(document)
         text = transcribe(document)
     except DocumentRejected as exc:
         raise HTTPException(422, exc.message) from exc
@@ -202,6 +202,8 @@ def upload(token: str, document: DocumentInput) -> dict:
         row = client.rpc("focusos_create_assignment", {"p_request_key": str(document.request_key), "p_source_id": str(source.id),
                                                         "p_title": document.filename.rsplit(".", 1)[0] or "Assignment"}).execute().data
     if not isinstance(row, dict): raise DatabaseUnavailable("Assignment was not saved")
+    from focusos_api.project_files import keep_brief  # The brief stays openable from the project page.
+    row["file_kept"] = keep_brief(token, document, raw, UUID(str(row["id"])))
     return row
 
 

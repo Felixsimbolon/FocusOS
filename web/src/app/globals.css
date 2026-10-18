@@ -688,19 +688,92 @@ input.note-title:focus-visible { outline: none; border-bottom-color: var(--sun);
 .trail-block { fill: var(--sun); stroke: var(--paper); stroke-width: 3; opacity: 0; animation: glow-in 500ms var(--ease-out) forwards; }
 .trail-ends circle { fill: var(--paper); }
 .trail-ends .summit { stroke: var(--rose); stroke-width: 4; }
-.project-ground { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: clamp(2rem, 5vw, 4rem); align-items: start; }
-.project-ground > * { margin-top: 1.5rem; }
 .project-side { display: grid; gap: 2.5rem; }
 .project-side h2 { font-size: 1.4rem; }
-.project-main .notes { grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); }
 .project-ask form { display: grid; gap: 0.6rem; margin-top: 0.8rem; }
 .project-ask textarea { width: 100%; padding: 0.3rem 0 0.6rem; border: 0; border-bottom: 2px solid var(--rule-strong); background: transparent; color: var(--ink); font: 400 1.1rem/1.45 var(--font-prose); resize: vertical; outline: none; }
 .project-ask textarea:focus { border-bottom-color: var(--sun); }
 .project-ask .button { justify-self: start; }
 .project-answer { display: grid; gap: 0.35rem; margin-top: 1rem; padding-left: 1rem; border-left: 3px solid var(--lagoon); animation: rise 300ms var(--ease-out); }
 .project-side .task-list { margin-top: 0.6rem; }
-@media (max-width: 960px) { .project-ground, .project-main .notes { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 520px) { .trail-text { padding-top: 8.5rem; } .trail-art { height: 12rem; } }
+
+/* Project page sections: tabs under the trail, so a long project never becomes one long scroll. */
+.project-tabs-bar { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--paper) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--rule); }
+.project-tabs { display: flex; gap: clamp(1.25rem, 4vw, 2.75rem); width: var(--page); margin: 0 auto; overflow-x: auto; scrollbar-width: none; }
+.project-tabs [role="tab"] { position: relative; flex: none; gap: 0.4rem; min-height: 3.25rem; padding: 0; border-radius: 0; background: transparent; color: var(--ink-3); font-size: 1.02rem; font-weight: 600; }
+.project-tabs [role="tab"]:hover:not(:disabled) { background: transparent; color: var(--ink); }
+.project-tabs [role="tab"]:active:not(:disabled) { transform: none; }
+.project-tabs [role="tab"][aria-selected="true"] { color: var(--ink); }
+.project-tabs [role="tab"][aria-selected="true"]::after { content: ""; position: absolute; inset: auto 0 -1px; height: 3px; border-radius: 3px 3px 0 0; background: var(--sun); transform-origin: left; animation: grow 320ms var(--ease-out); }
+.project-tabs [role="tab"] small { color: var(--ink-3); font-size: 0.8rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.project-tabs [role="tab"]:focus-visible { outline: 2px solid var(--lagoon); outline-offset: -2px; }
+.ground > .project-panel { margin-top: clamp(2rem, 4vw, 3rem); animation: rise 260ms var(--ease-out); }
+.project-overview { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: clamp(2rem, 5vw, 4rem); align-items: start; }
+.project-overview h2 { font-size: 1.4rem; }
+.project-overview .project-next { margin-top: 1rem; }
+
+/* Schedule: one row per day, the day on the left like a margin note. */
+.agenda { display: grid; border-top: 1px solid var(--rule); }
+.agenda-day { display: grid; grid-template-columns: minmax(7rem, 11rem) minmax(0, 1fr); gap: 0.5rem 2rem; padding: 1.1rem 0; border-bottom: 1px solid var(--rule); }
+.agenda-day h3 { display: grid; align-content: start; font-size: 1.15rem; font-weight: 650; }
+.agenda-day h3 small { color: var(--ink-3); font: italic 400 1rem var(--font-prose); }
+.agenda-day ul { display: grid; gap: 0.6rem; }
+.agenda-item { display: grid; grid-template-columns: 1rem 7.5rem minmax(0, 1fr); align-items: baseline; gap: 0.5rem; }
+.agenda-item::before { content: ""; width: 0.65rem; height: 0.65rem; align-self: center; border-radius: 50%; background: var(--sun); }
+.agenda-item.is-deadline::before { width: 0.7rem; height: 0.55rem; border-radius: 0; background: var(--lagoon); clip-path: polygon(0 0, 100% 45%, 0 100%); }
+.agenda-time { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.agenda-item.is-deadline .agenda-time { color: var(--lagoon); font-weight: 600; }
+.agenda-title { overflow-wrap: anywhere; }
+.project-schedule .drawer { margin-top: 2rem; }
+
+/* Files: sheets of paper in a flat list; the whole tab takes a dropped file. */
+.project-files { display: grid; gap: 1rem; padding-bottom: 1rem; border-radius: 1rem; transition: background-color 160ms; }
+.project-files.is-over { background: color-mix(in srgb, var(--sun) 10%, transparent); box-shadow: 0 0 0 0.75rem color-mix(in srgb, var(--sun) 10%, transparent); }
+.files-add { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.25rem; }
+.files-add .quiet-line { margin: 0; max-width: 34rem; }
+.file-list { display: grid; border-top: 1px solid var(--rule); }
+.file-list:empty { display: none; }
+.file-row { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr) auto; align-items: center; gap: 1rem; padding: 0.8rem 0; border-bottom: 1px solid var(--rule); animation: rise 260ms var(--ease-out); }
+.file-row > div { display: grid; justify-items: start; gap: 0.1rem; min-width: 0; }
+.file-row small { color: var(--ink-3); }
+.file-name { min-height: 0; padding: 0; border-radius: 0; background: transparent; color: var(--ink); font-size: 1.05rem; font-weight: 650; text-align: left; overflow-wrap: anywhere; }
+button.file-name:hover:not(:disabled) { background: transparent; text-decoration: underline; text-decoration-color: var(--sun); text-underline-offset: 0.2em; }
+.file-row.is-uploading { opacity: 0.75; }
+.file-row.is-uploading .file-glyph { animation: pulse 900ms ease-in-out infinite alternate; }
+.file-glyph { width: 2.1rem; height: auto; overflow: visible; }
+.file-sheet { fill: var(--paper-deep); stroke: var(--ink-3); stroke-width: 1.5; }
+.file-fold { fill: none; stroke: var(--ink-3); stroke-width: 1.5; stroke-linejoin: round; }
+.file-line { fill: none; stroke: var(--rose); stroke-width: 2.2; stroke-linecap: round; }
+.file-sun { fill: var(--sun); }
+.file-hill { fill: var(--lagoon); }
+
+/* The Projects page: each project a peak, the route up it lit by the share of tasks done. */
+.range-hero { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; background: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom) 80%); color: var(--sky-ink); }
+.range-text { position: relative; z-index: 1; width: var(--page); margin: 0 auto; padding: 6rem 0 0; }
+.range-hero h1 { font-size: clamp(2.8rem, 1.6rem + 5vw, 5.4rem); font-weight: 700; line-height: 0.95; letter-spacing: -0.035em; animation: widen 1.3s var(--ease-out) both; }
+.range { position: relative; height: clamp(15rem, 30vw, 31rem); margin-top: -0.5rem; }
+.range-art { display: block; width: 100%; height: 100%; }
+.range-mountains { transform-origin: 50% 100%; animation: range-rise 1.1s var(--ease-out) both; }
+@keyframes range-rise { from { transform: scaleY(0.55); opacity: 0.4; } to { transform: scaleY(1); opacity: 1; } }
+.range-climb { opacity: 0; animation: glow-in 500ms var(--ease-out) forwards; }
+.range-route { fill: none; stroke: color-mix(in srgb, var(--paper) 55%, transparent); stroke-width: 2; stroke-dasharray: 3 7; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.range-done { fill: none; stroke: var(--sun); stroke-width: 4; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.range-peak { position: absolute; display: grid; justify-items: center; transform: translate(-50%, calc(-100% - 0.7rem)); max-width: 11rem; color: var(--sky-ink); text-align: center; text-decoration: none; opacity: 0; animation: rise 450ms var(--ease-out) forwards; }
+.range-peak::after { content: ""; width: 0.55rem; height: 0.55rem; margin-top: 0.3rem; border-radius: 50%; background: var(--paper); box-shadow: 0 0 0 2px var(--sun); }
+.range-name { font-size: clamp(0.95rem, 0.85rem + 0.4vw, 1.2rem); font-weight: 700; line-height: 1.1; overflow-wrap: anywhere; }
+.range-peak small { color: var(--sky-ink-2); font-size: 0.8rem; }
+.range-peak:hover .range-name, .range-peak:focus-visible .range-name { text-decoration: underline; text-decoration-color: var(--sun); text-underline-offset: 0.2em; }
+.range-peak:focus-visible { outline: 2px solid var(--sun); outline-offset: 4px; border-radius: 0.4rem; }
+
+@media (max-width: 960px) { .project-overview { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+  .agenda-day { grid-template-columns: minmax(0, 1fr); }
+  .agenda-item { grid-template-columns: 1rem 6.5rem minmax(0, 1fr); }
+  .range-peak small { display: none; }
+  .range-name { font-size: 0.8rem; }
+  .range-text { padding-top: 8.5rem; }
+}
 
 /* ---------- Welcome (signed out) ---------- */
 

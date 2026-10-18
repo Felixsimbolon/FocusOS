@@ -12,7 +12,7 @@ vi.mock("../src/server/env", () => ({ requireServerEnv: () => "https://api.examp
 const id = "123e4567-e89b-42d3-a456-426614174000";
 const task = (changes: Partial<ProjectDetail["tasks"][number]> = {}) => ({ id: "t", title: "[Statistika] Tulis laporan", status: "open", priority: "normal",
   due_kind: "date", due_date: "2026-10-24", due_at: null, estimate_minutes: 60, version: 1, ...changes }) as ProjectDetail["tasks"][number];
-const detail: ProjectDetail = { id, name: "Statistika", deadline: "2026-10-24", tasks: [task()], notes: [], assignments: [], upcoming: [] } as unknown as ProjectDetail;
+const detail: ProjectDetail = { id, name: "Statistika", deadline: "2026-10-24", tasks: [task()], notes: [], assignments: [], upcoming: [], past: [], files: [] } as unknown as ProjectDetail;
 beforeEach(() => { vi.clearAllMocks(); vi.stubGlobal("React", React); });
 
 describe("project trail", () => {
@@ -36,12 +36,15 @@ describe("project trail", () => {
     expect(dueOf(task({ due_kind: "datetime", due_date: null, due_at: "2026-10-22T16:59:00Z" }))).toBe("2026-10-22");
     expect(dueOf(task({ due_kind: "none", due_date: null }))).toBeNull();
   });
-  it("renders the project page with its notes, ask box and tasks", () => {
+  it("renders the project page with its tabs, ask box and tasks", () => {
     const html = renderToStaticMarkup(React.createElement(ProjectView, { id, initial: detail, timezone: "Asia/Jakarta" }));
     expect(html).toContain("<h1");
     expect(html).toContain("Statistika");
     expect(html).toContain("Tulis laporan");
-    expect(html).toContain("No notes for this project yet");
+    expect(html).toContain("Ask about Statistika");
+    for (const tab of ["Overview", "Schedule", "Notes", "Files"]) expect(html).toContain(tab);
+    expect(html).toContain(`role="tab"`);
+    expect(html).toContain('href="/projects"');
   });
 });
 

@@ -130,7 +130,9 @@ app.include_router(notes_router)
 from focusos_api.assignments import router as assignments_router
 app.include_router(assignments_router)
 from focusos_api.project_view import router as project_view_router
+from focusos_api.project_files import router as project_files_router
 app.include_router(project_view_router)
+app.include_router(project_files_router)
 bearer = HTTPBearer(auto_error=False)
 
 
