@@ -274,6 +274,7 @@ def run_answers(corpus: dict, cases: list[dict], live: bool, config: dict, vecto
             "embed_text": embed,
             "hybrid_matches": search,
             "_graph_memories": lambda *_: [],  # The synthetic corpus has no graph; this measures search alone.
+            "_notes": lambda *_: [],  # Nor notes.
         }.items():
             stack.enter_context(patch.object(memory_answers, target, side_effect=value))
         stack.enter_context(patch.object(memory_answers.knowledge_graph, "graph_matches", return_value=[]))

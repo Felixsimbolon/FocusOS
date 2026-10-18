@@ -12,6 +12,8 @@ import { Conflicts } from "./schedule/conflicts";
 import { MonthCalendar } from "./schedule/month-calendar";
 import { ThemeToggle } from "./theme-toggle";
 import { RoutinesPanel } from "./routines/routines-panel";
+import { ProjectsPanel } from "./projects/projects-panel";
+import { NotesPanel } from "./notes/notes-panel";
 import { NotificationsPanel } from "./notifications/notifications-panel";
 import { TriagePanel } from "./activity/triage-panel";
 import { GraphPanel } from "./knowledge/graph-panel";
@@ -39,7 +41,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
     <header className="topbar">
       <Brand />
       {!user && <div className="topbar-actions"><ThemeToggle /></div>}
-      {user && <nav aria-label="Main navigation"><a href="/#composer">Write</a><a href="/#tasks">Today</a><a href="/#schedule">Calendar</a><a href="/#review">Review</a></nav>}
+      {user && <nav aria-label="Main navigation"><a href="/#composer">Write</a><a href="/#tasks">Today</a><a href="/#schedule">Calendar</a><a href="/#projects">Projects</a><a href="/#notes">Notes</a><a href="/#review">Review</a></nav>}
       {user && <div className="topbar-actions"><ThemeToggle /><GmailSyncPanel /><form action={signOut}><button className="quiet" type="submit">Sign out</button></form></div>}
     </header>
     {authError && <p role="alert" className="page-alert">{authError}</p>}
@@ -73,6 +75,15 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
                 <CheckInPanel />
               </div>
             </div>
+          </section>
+          <section id="projects" className="projects-section" aria-labelledby="projects-heading">
+            <h2 id="projects-heading">Projects</h2>
+            <p className="section-lede">Everything that belongs together: tasks, assignments, notes and the focus time booked for them.</p>
+            <ProjectsPanel />
+          </section>
+          <section id="notes" className="notes-section" aria-labelledby="notes-heading">
+            <h2 id="notes-heading">Notes</h2>
+            <NotesPanel />
           </section>
           <section id="review" className="review-band" aria-labelledby="review-heading">
             <h2 id="review-heading">Your week</h2>

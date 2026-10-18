@@ -31,7 +31,7 @@ describe("simplified navigation and input", () => {
     expect(html).not.toContain('href="/agent"');
     // Help copy may mention adding a task; only standalone creation controls are forbidden.
     expect(html).not.toMatch(/<button[^>]*>Add a task<\/button>/);
-    for (const name of ["New project", "Task workspace", "Jobs, diagnostics"]) expect(html).not.toContain(name);
+    for (const name of ["Task workspace", "Jobs, diagnostics"]) expect(html).not.toContain(name);
     expect(html).not.toContain('id="sources"');
     for (const path of ["/tasks", "/schedule", "/system", "/memories", "/settings"]) expect(html).not.toContain(`href="${path}"`);
   });

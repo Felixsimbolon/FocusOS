@@ -125,6 +125,12 @@ from focusos_api.routines import router as routines_router
 app.include_router(routines_router)
 from focusos_api.notifications import router as notifications_router
 app.include_router(notifications_router)
+from focusos_api.notes import router as notes_router
+app.include_router(notes_router)
+from focusos_api.assignments import router as assignments_router
+app.include_router(assignments_router)
+from focusos_api.project_view import router as project_view_router
+app.include_router(project_view_router)
 bearer = HTTPBearer(auto_error=False)
 
 

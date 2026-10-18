@@ -5,7 +5,7 @@ import { type Job } from "./jobs/client";
 import { activeOrganization, followOrganization } from "./organization";
 
 type CalendarBlock = { title: string; start: string; end: string; timezone: string; link: string | null };
-type Reference = { kind: "task" | "memory" | "event"; title: string; detail?: string };
+type Reference = { kind: "task" | "memory" | "event" | "note"; title: string; detail?: string };
 export type Answer = { question: string; status: "answered" | "no_reference" | "unavailable"; answer: string | null; references: Reference[] };
 type ScheduleOutcome = { title: string; status: "scheduled" | "failed" | "clarify"; message?: string };
 type EstimateAdjustment = { title: string; estimate_minutes: number; booked_minutes: number; factor: number; sessions: number };
@@ -15,7 +15,7 @@ export function adjustmentNotes(result: Record<string, unknown>): string[] {
   return items.map(item => `Booked ${item.booked_minutes} min for ${item.title} instead of the ${item.estimate_minutes}-min estimate: your check-ins usually run about ${item.factor.toFixed(1)}× the plan (${item.sessions} check-ins). Write a duration to override this.`);
 }
 export const NO_REFERENCE_NOTE = "No reference found in your saved tasks, memories, or scheduled work.";
-const REFERENCE_LABEL = { task: "Task", memory: "Memory", event: "Calendar" } as const;
+const REFERENCE_LABEL = { task: "Task", memory: "Memory", event: "Calendar", note: "Note" } as const;
 
 /** Problems with single parts of a request that otherwise completed. */
 export function partIssues(result: Record<string, unknown>): string[] {

@@ -593,6 +593,77 @@ label { color: var(--ink-2); font-size: 0.9rem; }
 .sent-list .sent-failed { border-left-color: var(--rose); }
 @media (max-width: 520px) { .notification-form { grid-template-columns: minmax(0, 1fr); } }
 
+/* Projects, assignments and notes. */
+.projects { display: grid; gap: 1.25rem; margin-top: 1.25rem; }
+.projects-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; }
+.add-project { display: flex; flex-wrap: wrap; gap: 0.5rem; flex: 1 1 18rem; }
+.add-project input { flex: 1 1 12rem; }
+.project-list { display: grid; border-top: 1px solid var(--rule); }
+.project-list > li { border-bottom: 1px solid var(--rule); }
+.project-row { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: start; gap: 0.15rem; width: 100%; min-height: 0; padding: 0.95rem 0; border-radius: 0; background: transparent; text-align: left; }
+.project-row:hover:not(:disabled) { background: transparent; }
+.project-row:hover .project-name { text-decoration: underline; text-decoration-color: var(--sun); text-underline-offset: 0.2em; }
+.project-name { font-size: 1.2rem; font-weight: 650; }
+.project-meta { color: var(--ink-2); font: 400 1rem/1.4 var(--font-prose); }
+.project-next { color: var(--ink-3); font-size: 0.85rem; }
+.project-next::before { content: ""; display: inline-block; width: 0.5rem; height: 0.5rem; margin-right: 0.45rem; border-radius: 50%; background: var(--sun); vertical-align: 0.05em; }
+.project-detail { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1.25rem 2rem; padding: 0.25rem 0 1.4rem; animation: rise 240ms var(--ease-out); }
+.project-detail h4 { margin: 0 0 0.4rem; font-size: 0.95rem; color: var(--ink-2); }
+.plain-list { display: grid; gap: 0.35rem; }
+.plain-list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.1rem 0.75rem; overflow-wrap: anywhere; }
+.plain-list small { color: var(--ink-3); }
+.plain-list .quiet { min-height: 0; padding: 0; }
+
+.assignment { display: grid; gap: 1.1rem; padding: 1.25rem 0 1.5rem; border-top: 3px solid var(--sun); border-bottom: 1px solid var(--rule); animation: rise 280ms var(--ease-out); }
+.assignment-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.steps { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; counter-reset: step; }
+.steps li { counter-increment: step; display: inline-flex; align-items: center; gap: 0.45rem; color: var(--ink-3); font-size: 0.9rem; }
+.steps li::before { content: counter(step); display: inline-grid; place-items: center; width: 1.5rem; height: 1.5rem; border-radius: 50%; border: 1px solid var(--rule-strong); font-size: 0.78rem; font-weight: 600; }
+.steps li.is-current { color: var(--ink); font-weight: 600; }
+.steps li.is-current::before { background: var(--sun); border-color: var(--sun); color: var(--sun-ink); }
+.steps li.is-done::before { content: "\2713"; background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.assignment-pick { display: grid; gap: 1rem; justify-items: start; max-width: 40rem; }
+.assignment-working { color: var(--ink-2); font: italic 400 1.1rem var(--font-prose); }
+.assignment-working::after { content: ""; display: inline-block; width: 0.5rem; height: 0.5rem; margin-left: 0.55rem; border-radius: 50%; background: var(--sun); animation: pulse 0.9s ease-in-out infinite alternate; }
+.assignment-brief { display: grid; gap: 0.4rem; max-width: 46rem; }
+.assignment-brief h3 { font-size: 1.4rem; }
+.deliverables { display: grid; gap: 0.25rem; padding-left: 1.1rem; list-style: disc; color: var(--ink-2); }
+.deliverables li::marker { color: var(--sun); }
+.concepts { display: grid; gap: 0.8rem; max-width: 46rem; }
+.concepts-lead { font: 400 1.2rem/1.4 var(--font-prose); }
+.concepts ol { display: grid; gap: 1rem; }
+.concepts li { display: grid; gap: 0.2rem; padding-left: 0.9rem; border-left: 3px solid var(--rule-strong); transition: border-color 200ms ease; }
+.concepts li.level-understood { border-left-color: var(--lagoon); }
+.concepts li.level-partly { border-left-color: var(--sun); }
+.concepts li.level-not { border-left-color: var(--rose); }
+.concept-name { font-weight: 600; font-size: 1.05rem; }
+.choices button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.plan-preview { display: grid; gap: 0.8rem; max-width: 46rem; }
+.preview-list { display: grid; gap: 0.3rem; }
+.preview-list li { display: flex; justify-content: space-between; gap: 1rem; padding-left: 0.8rem; border-left: 3px solid var(--sun); }
+.preview-list li.preview-work { border-left-color: var(--lagoon); }
+.preview-list small { color: var(--ink-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.plan-preview .button { justify-self: start; }
+
+.notes { display: grid; grid-template-columns: minmax(0, 18rem) minmax(0, 1fr); gap: 2rem; margin-top: 1.25rem; align-items: start; }
+.notes-tools { display: grid; gap: 0.5rem; }
+.notes-tools input, .notes-tools select { width: 100%; }
+.notes-tools button { justify-self: start; }
+.note-items { display: grid; margin-top: 0.9rem; border-top: 1px solid var(--rule); }
+.note-items li { border-bottom: 1px solid var(--rule); }
+.note-items button { display: grid; justify-items: start; gap: 0.1rem; width: 100%; min-height: 0; padding: 0.7rem 0 0.7rem 0.6rem; border-radius: 0; background: transparent; text-align: left; border-left: 3px solid transparent; }
+.note-items button:hover:not(:disabled) { background: transparent; border-left-color: var(--rule-strong); }
+.note-items li.is-active button { border-left-color: var(--sun); }
+.note-items strong { overflow-wrap: anywhere; }
+.note-items small { color: var(--ink-3); }
+.note-items span { color: var(--ink-2); font: 400 0.92rem/1.4 var(--font-prose); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.note-editor form { display: grid; gap: 0.8rem; }
+input.note-title { border: 0; border-bottom: 1px solid var(--rule); border-radius: 0; padding: 0.3rem 0; background: transparent; font: 650 1.6rem/1.2 var(--font-ui); }
+input.note-title:focus-visible { outline: none; border-bottom-color: var(--sun); }
+.note-project { display: flex; align-items: center; gap: 0.6rem; }
+.note-body { width: 100%; min-height: 22rem; padding: 0.4rem 0; border: 0; background: transparent; color: var(--ink); font: 400 1.12rem/1.65 var(--font-prose); resize: vertical; outline: none; }
+@media (max-width: 860px) { .notes { grid-template-columns: minmax(0, 1fr); } }
+
 /* ---------- Welcome (signed out) ---------- */
 
 .welcome {
