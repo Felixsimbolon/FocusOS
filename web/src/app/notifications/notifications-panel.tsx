@@ -1,4 +1,5 @@
 "use client";
+import { LOCALE } from "../locale";
 import { useEffect, useState } from "react";
 
 export type Settings = { morning_brief: boolean; brief_minute: number; block_reminders: boolean; reminder_minutes: 5 | 10 | 15 | 30;
@@ -15,7 +16,7 @@ const parse = (value: string) => { const [h, m] = value.split(":").map(Number); 
 
 export function sentLine(item: Settings["recent"][number]): string {
   const what = item.kind === "block_reminder" ? "Reminder" : "Morning brief";
-  const when = new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(item.sent_at ?? item.created_at));
+  const when = new Intl.DateTimeFormat(LOCALE, { weekday: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(item.sent_at ?? item.created_at));
   if (item.status === "sent") return `${what}, sent ${when}`;
   if (item.status === "failed") return `${what} not sent, ${when}: ${reason(item.safe_error)}`;
   return `${what}, waiting to send (${when})`;

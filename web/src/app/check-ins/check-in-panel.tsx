@@ -1,4 +1,5 @@
 "use client";
+import { LOCALE } from "../locale";
 import { useCallback, useEffect, useState } from "react";
 
 export type PendingBlock = { id: string; title: string; start: string; end: string; timezone: string; planned_minutes: number };
@@ -27,7 +28,7 @@ function CheckInRow({ block, onSaved }: { block: PendingBlock; onSaved: () => vo
   const [minutes, setMinutes] = useState(block.planned_minutes);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const when = `${new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit", timeZone: block.timezone }).format(new Date(block.start))}–${new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", timeZone: block.timezone }).format(new Date(block.end))}`;
+  const when = `${new Intl.DateTimeFormat(LOCALE, { weekday: "short", hour: "2-digit", minute: "2-digit", timeZone: block.timezone }).format(new Date(block.start))}–${new Intl.DateTimeFormat(LOCALE, { hour: "2-digit", minute: "2-digit", timeZone: block.timezone }).format(new Date(block.end))}`;
   async function save(chosen: Outcome) {
     setSaving(true); setError("");
     try {

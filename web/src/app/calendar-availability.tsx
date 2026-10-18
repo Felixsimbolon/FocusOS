@@ -1,3 +1,4 @@
+import { LOCALE } from "./locale";
 ﻿"use client";
 
 import { FormEvent, useState } from "react";
@@ -13,7 +14,7 @@ type Preview = {
 };
 
 function local(value: string, zone: string) {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: zone })
+  return new Intl.DateTimeFormat(LOCALE, { dateStyle: "medium", timeStyle: "short", timeZone: zone })
     .format(new Date(value));
 }
 

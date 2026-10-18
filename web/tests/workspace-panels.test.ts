@@ -1,3 +1,4 @@
+import { LOCALE } from "../src/app/locale";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -59,8 +60,8 @@ describe("What do you need to get done? rendering", () => {
     expect(html).toContain("Already saved: 1");
     expect(html).toContain("Study mathematics");
     // Respect the runtime locale (e.g. 13.00 in Indonesian, 1:00 PM in English).
-    const start = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date("2026-10-15T13:00:00+07:00"));
-    const end = new Intl.DateTimeFormat(undefined, { timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date("2026-10-15T13:30:00+07:00"));
+    const start = new Intl.DateTimeFormat(LOCALE, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date("2026-10-15T13:00:00+07:00"));
+    const end = new Intl.DateTimeFormat(LOCALE, { timeStyle: "short", timeZone: "Asia/Jakarta" }).format(new Date("2026-10-15T13:30:00+07:00"));
     expect(html).toContain(`${start} - ${end} (Asia/Jakarta)`);
     expect(html).toContain("Asia/Jakarta");
     expect(html).toContain("https://calendar.google.com/calendar/event?eid=synthetic");

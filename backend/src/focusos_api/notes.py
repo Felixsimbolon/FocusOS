@@ -6,6 +6,7 @@ version gets an embedding (best effort), so questions in the composer can cite n
 same way they cite memories. Saves use an optimistic version check: an edit made in
 another tab is never silently overwritten.
 """
+import re
 from uuid import UUID, uuid5
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -97,6 +98,33 @@ def capture_note(token: str, note_id: UUID, request: CaptureInput) -> dict:
     source = create_manual_source(token, request.request_key, ManualSourceInput(title=f"Note: {note['title']}"[:200], text=note["body"][:25000])).source
     job = enqueue_job(token, JobInput(request_key=uuid5(request.request_key, "capture"), kind="source", subject_id=source.id))
     return {"source_id": str(source.id), "background_job": job.model_dump(mode="json")}
+
+
+PROJECT_NOTES = 5
+PROJECT_EXCERPT = 1500
+
+
+def _normal(text: str) -> str:
+    return " " + " ".join(re.findall(r"[a-z0-9]+", text.casefold())) + " "
+
+
+def mentioned_projects(projects: list[dict], question: str) -> list[dict]:
+    """Projects whose whole name appears in the question ("progress Skripsi?" names Skripsi)."""
+    asked = _normal(question)
+    return [project for project in projects if len(_normal(project["name"]).strip()) >= 3 and _normal(project["name"]) in asked]
+
+
+def project_notes(token: str, questions: list[str]) -> list[dict]:
+    """A project's own notes, whole excerpts, when a question names that project: they are part of the project."""
+    with scoped_client(token) as (owner, client):
+        projects = client.table("projects").select("id,name").eq("user_id", owner).limit(100).execute().data
+        named = {project["id"]: project for question in questions
+                 for project in mentioned_projects(projects if isinstance(projects, list) else [], question)}
+        if not named: return []
+        rows = (client.table("notes").select("id,title,body,project_id").eq("user_id", owner).in_("project_id", list(named))
+                .order("updated_at", desc=True).limit(PROJECT_NOTES).execute().data)
+    return [{"id": row["id"], "title": row["title"], "excerpt": str(row.get("body") or "")[:PROJECT_EXCERPT],
+             "project": named[row["project_id"]]["name"]} for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
 
 
 def note_matches(token: str, question: str, vector: list[float] | None) -> list[dict]:

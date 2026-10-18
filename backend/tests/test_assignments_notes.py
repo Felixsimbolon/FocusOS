@@ -147,11 +147,52 @@ class NoteTests(unittest.TestCase):
         with patch.object(memory_answers, "api_key", return_value="k"), patch.object(memory_answers, "refresh_stale_embeddings", return_value=0), \
              patch.object(memory_answers, "list_tasks", return_value=SimpleNamespace(tasks=[])), patch.object(memory_answers, "_scheduled_work", return_value=[]), \
              patch.object(memory_answers, "_memories", return_value=[]), patch.object(memory_answers, "_graph_memories", return_value=[]), \
-             patch("focusos_api.notes.note_matches", return_value=[{"id": "n", "title": "Kuliah 3", "excerpt": "Regresi adalah hubungan linear."}]), \
+             patch("focusos_api.notes.project_notes", return_value=[]), patch("focusos_api.notes.note_matches", return_value=[{"id": "n", "title": "Kuliah 3", "excerpt": "Regresi adalah hubungan linear."}]), \
              patch.object(memory_answers, "gemini_request", side_effect=model):
             [answer] = memory_answers.answer_questions("session", ["Apa itu regresi?"], "2026-10-18T09:00:00+07:00", "Asia/Jakarta")
         self.assertEqual(answer["references"], [{"kind": "note", "title": "Kuliah 3", "detail": "Regresi adalah hubungan linear."}])
 
+
+    def test_a_project_is_named_only_by_its_whole_name(self):
+        projects = [{"id": "a", "name": "Skripsi"}, {"id": "b", "name": "Web"}, {"id": "c", "name": "AI"}]
+        self.assertEqual([p["id"] for p in notes.mentioned_projects(projects, "Gimana progress skripsi aku?")], ["a"])
+        self.assertEqual(notes.mentioned_projects(projects, "website baru"), [])
+        self.assertEqual(notes.mentioned_projects(projects, "tugas AI"), [], "names shorter than three letters are ignored")
+
+    def test_project_notes_come_whole_with_the_project_name(self):
+        pid = str(uuid4()); client = MagicMock()
+        def table(name):
+            query = MagicMock(); query.select.return_value = query; query.eq.return_value = query; query.in_.return_value = query
+            query.order.return_value = query; query.limit.return_value = query
+            query.execute.return_value.data = ([{"id": pid, "name": "Statistika"}] if name == "projects"
+                                               else [{"id": "n", "title": "Kuliah 6", "body": "x" * 2000, "project_id": pid}])
+            return query
+        client.table.side_effect = table
+        with patch.object(notes, "scoped_client") as scoped:
+            scoped.return_value.__enter__.return_value = ("owner", client)
+            [row] = notes.project_notes("session", ["Apa yang harus aku kerjakan di Statistika?"])
+        self.assertEqual((row["project"], len(row["excerpt"])), ("Statistika", notes.PROJECT_EXCERPT))
+
+    def test_no_named_project_reads_no_notes(self):
+        client = MagicMock(); client.table.return_value.select.return_value.eq.return_value.limit.return_value.execute.return_value.data = [{"id": "p", "name": "Skripsi"}]
+        with patch.object(notes, "scoped_client") as scoped:
+            scoped.return_value.__enter__.return_value = ("owner", client)
+            self.assertEqual(notes.project_notes("session", ["Apa itu regresi?"]), [])
+        self.assertEqual(client.table.call_count, 1)
+
+    def test_project_notes_lead_and_search_adds_a_few_more(self):
+        from focusos_api import memory_answers
+        own = [{"id": f"p{i}", "title": f"Proyek {i}", "excerpt": "isi", "project": "Statistika"} for i in range(2)]
+        searched = [{"id": "p0", "title": "Proyek 0", "excerpt": "isi"}] + [{"id": f"s{i}", "title": f"Cari {i}", "excerpt": "isi"} for i in range(5)]
+        with patch("focusos_api.notes.project_notes", return_value=own), patch("focusos_api.notes.note_matches", return_value=searched):
+            rows = memory_answers._notes("session", ["Statistika?"], {})
+        self.assertEqual([row["id"] for row in rows], ["p0", "p1", "s0", "s1", "s2"])
+
+    def test_project_notes_survive_a_failed_search(self):
+        from focusos_api import memory_answers
+        own = [{"id": "p", "title": "Kuliah", "excerpt": "isi", "project": "Statistika"}]
+        with patch("focusos_api.notes.project_notes", return_value=own), patch("focusos_api.notes.note_matches", side_effect=RuntimeError("down")):
+            self.assertEqual(memory_answers._notes("session", ["Statistika?"], {}), own)
 
 class ProjectViewTests(unittest.TestCase):
     def test_overview_counts_and_next_items(self):
@@ -168,6 +209,19 @@ class ProjectViewTests(unittest.TestCase):
         self.assertEqual((row["open_tasks"], row["done_tasks"], row["notes"], row["assignments"], row["next_deadline"]), (1, 1, 1, 1, "2026-10-24"))
         self.assertEqual(row["next_block"]["title"], "[Statistika] Tulis laporan")
 
+
+    def test_detail_summit_is_the_last_open_deadline(self):
+        pid = str(uuid4())
+        data = {"projects": [{"id": pid, "name": "Statistika", "created_at": "x"}, {"id": str(uuid4()), "name": "Lain", "created_at": "x"}],
+                "tasks": [{"id": "a", "title": "A", "status": "open", "due_kind": "date", "due_date": "2026-10-21", "project_id": pid},
+                          {"id": "b", "title": "B", "status": "open", "due_kind": "date", "due_date": "2026-10-24", "project_id": pid},
+                          {"id": "c", "title": "C", "status": "done", "due_kind": "date", "due_date": "2026-11-30", "project_id": pid}],
+                "notes": [], "assignments": [], "blocks": []}
+        with patch.object(project_view, "_gather", return_value=data):
+            found = project_view.detail("session", pid, datetime(2026, 10, 18, tzinfo=timezone.utc))
+            self.assertEqual((found["deadline"], [task["id"] for task in found["tasks"]]), ("2026-10-24", ["a", "b", "c"]))
+            with self.assertRaises(HTTPException) as missing: project_view.detail("session", uuid4())
+        self.assertEqual(missing.exception.status_code, 404)
 
 if __name__ == "__main__":
     unittest.main()

@@ -52,6 +52,22 @@ describe("getServerUser", () => {
 
     await expect(getServerUser()).resolves.toBeNull();
   });
+
+  it("retries once after a network hiccup, so a refresh does not look signed out", async () => {
+    mockGetUser
+      .mockResolvedValueOnce({ data: { user: null }, error: { name: "AuthRetryableFetchError", status: 0 } })
+      .mockResolvedValueOnce({ data: { user: { id: "user-123", email: null, user_metadata: {} } }, error: null });
+
+    await expect(getServerUser()).resolves.toStrictEqual({ id: "user-123", email: null });
+    expect(mockGetUser).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a session Supabase rejected", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: { name: "AuthApiError", status: 401 } });
+
+    await expect(getServerUser()).resolves.toBeNull();
+    expect(mockGetUser).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("getServerAccessToken", () => {

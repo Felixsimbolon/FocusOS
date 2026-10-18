@@ -1,4 +1,5 @@
 "use client";
+import { LOCALE } from "../locale";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type Job } from "../jobs/client";
 import { followOrganization } from "../organization";
@@ -15,7 +16,8 @@ export function filterNotes(notes: NoteSummary[], query: string, project: string
 
 export const saveLabel = (dirty: boolean, saving: boolean) => saving ? "Saving..." : dirty ? "Save note" : "Saved";
 
-export function NotesPanel() {
+/** All notes on Home; on a project page, only that project's notes, and new ones belong to it. */
+export function NotesPanel({ projectId }: { projectId?: string }) {
   const [notes, setNotes] = useState<NoteSummary[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [query, setQuery] = useState("");
@@ -28,9 +30,9 @@ export function NotesPanel() {
   const dirty = !!note && (draft.title !== note.title || draft.body !== note.body || draft.project_id !== note.project_id);
 
   const load = useCallback(() => {
-    fetch("/api/notes", { cache: "no-store" }).then(response => response.ok ? response.json() : []).then(result => setNotes(Array.isArray(result) ? result : [])).catch(() => setNotes([]));
+    fetch(projectId ? `/api/notes?project_id=${projectId}` : "/api/notes", { cache: "no-store" }).then(response => response.ok ? response.json() : []).then(result => setNotes(Array.isArray(result) ? result : [])).catch(() => setNotes([]));
     fetch("/api/projects", { cache: "no-store" }).then(response => response.ok ? response.json() : null).then(result => setProjects(Array.isArray(result?.projects) ? result.projects : [])).catch(() => undefined);
-  }, []);
+  }, [projectId]);
   const open = useCallback(async (id: string) => {
     const response = await fetch(`/api/notes/${id}`, { cache: "no-store" });
     if (!response.ok) { setNotice("This note is unavailable."); return; }
@@ -46,7 +48,7 @@ export function NotesPanel() {
   }, [load, open]);
 
   function create() {
-    const fresh: Note = { id: crypto.randomUUID(), project_id: projectFilter !== "all" && projectFilter !== "none" ? projectFilter : null, title: "", body: "", version: 0 };
+    const fresh: Note = { id: crypto.randomUUID(), project_id: projectId ?? (projectFilter !== "all" && projectFilter !== "none" ? projectFilter : null), title: "", body: "", version: 0 };
     setNote(fresh); setDraft({ title: "", body: "", project_id: fresh.project_id }); setNotice("");
   }
   async function save() {
@@ -88,26 +90,26 @@ export function NotesPanel() {
       <div className="notes-tools">
         <label className="sr-only" htmlFor="note-search">Search notes</label>
         <input id="note-search" type="search" placeholder="Search notes" value={query} onChange={event => setQuery(event.target.value)} />
-        <label className="sr-only" htmlFor="note-project">Filter by project</label>
+        {!projectId && <><label className="sr-only" htmlFor="note-project">Filter by project</label>
         <select id="note-project" value={projectFilter} onChange={event => setProjectFilter(event.target.value)}>
           <option value="all">All projects</option><option value="none">No project</option>
           {projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
-        </select>
+        </select></>}
         <button type="button" onClick={create}>New note</button>
       </div>
       {visible.length ? <ul className="note-items">{visible.map(item => <li key={item.id} className={note?.id === item.id ? "is-active" : ""}>
         <button type="button" onClick={() => void open(item.id)}><strong>{item.title}</strong>
-          <small>{[projectName(item.project_id), new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" }).format(new Date(item.updated_at))].filter(Boolean).join(", ")}</small>
+          <small>{[projectName(item.project_id), new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "short" }).format(new Date(item.updated_at))].filter(Boolean).join(", ")}</small>
           {item.excerpt && <span>{item.excerpt}</span>}</button></li>)}</ul>
-        : <p className="quiet-line">{notes.length ? "No note matches." : "No notes yet. Write lecture notes, meeting notes or ideas; ask about them later in the composer."}</p>}
+        : <p className="quiet-line">{notes.length ? "No note matches." : projectId ? "No notes for this project yet. What you write here becomes part of the project: questions about it use these notes." : "No notes yet. Write lecture notes, meeting notes or ideas; ask about them later in the composer."}</p>}
     </div>
     <div className="note-editor" ref={editor}>
       {note ? <form onSubmit={event => { event.preventDefault(); void save(); }}
         onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === "s") { event.preventDefault(); void save(); } }}>
         <label className="sr-only" htmlFor="note-title">Note title</label>
         <input id="note-title" className="note-title" value={draft.title} maxLength={200} placeholder="Title" onChange={event => setDraft({ ...draft, title: event.target.value })} />
-        <label className="note-project">Project<select value={draft.project_id ?? ""} onChange={event => setDraft({ ...draft, project_id: event.target.value || null })}>
-          <option value="">No project</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
+        {!projectId && <label className="note-project">Project<select value={draft.project_id ?? ""} onChange={event => setDraft({ ...draft, project_id: event.target.value || null })}>
+          <option value="">No project</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>}
         <label className="sr-only" htmlFor="note-body">Note text</label>
         <textarea id="note-body" className="note-body" value={draft.body} maxLength={50000} placeholder="Write here…" onChange={event => setDraft({ ...draft, body: event.target.value })} />
         <div className="inline-actions">

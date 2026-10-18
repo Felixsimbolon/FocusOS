@@ -69,7 +69,9 @@ def detail(token: str, project_id: UUID, now: datetime | None = None) -> dict:
     if project is None: raise HTTPException(404, "Project not found")
     tasks = [task for task in data["tasks"] if task.get("project_id") == project["id"]]
     tasks.sort(key=lambda task: (task["status"] != "open", _due(task) or "9999", task["title"]))
-    return {**project, "tasks": tasks[:100],
+    dues = sorted(due for task in tasks if task["status"] == "open" and (due := _due(task)))
+    # The summit of the project's trail: its last open deadline.
+    return {**project, "deadline": dues[-1] if dues else None, "tasks": tasks[:100],
             "notes": sorted((note for note in data["notes"] if note.get("project_id") == project["id"]), key=lambda note: note["updated_at"], reverse=True),
             "assignments": [item for item in data["assignments"] if item.get("project_id") == project["id"]],
             "upcoming": _upcoming(data["blocks"], {task["id"] for task in tasks}, current)[:10]}

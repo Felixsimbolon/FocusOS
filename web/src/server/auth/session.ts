@@ -7,11 +7,17 @@ export type ServerUser = {
   name?: string;
 };
 
+/** A network or server hiccup, as opposed to a missing or invalid session. */
+function isTransient(error: { name?: string; status?: number }): boolean {
+  return error.name === "AuthRetryableFetchError" || (typeof error.status === "number" && error.status >= 500);
+}
+
 /** Return only identity fields after Supabase verifies the current session. */
 export async function getServerUser(): Promise<ServerUser | null> {
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase.auth.getUser();
+    let { data, error } = await supabase.auth.getUser();
+    if (!data.user && error && isTransient(error)) ({ data, error } = await supabase.auth.getUser());
 
     if (error || !data.user) {
       return null;

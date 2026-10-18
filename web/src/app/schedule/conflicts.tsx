@@ -1,4 +1,5 @@
 "use client";
+import { LOCALE } from "../locale";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Job } from "../jobs/client";
 import { followOrganization } from "../organization";
@@ -6,9 +7,9 @@ import { followOrganization } from "../organization";
 export type Conflict = { id: string; title: string; start: string; end: string; timezone: string; conflicts: { start: string; end: string }[] };
 
 export function conflictLine(item: Conflict): string {
-  const time = (value: string) => new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit", timeZone: item.timezone }).format(new Date(value));
+  const time = (value: string) => new Intl.DateTimeFormat(LOCALE, { weekday: "short", hour: "2-digit", minute: "2-digit", timeZone: item.timezone }).format(new Date(value));
   const clash = item.conflicts[0];
-  return `${item.title}, ${time(item.start)}, now overlaps another event (${time(clash.start)}–${new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", timeZone: item.timezone }).format(new Date(clash.end))}).`;
+  return `${item.title}, ${time(item.start)}, now overlaps another event (${time(clash.start)}–${new Intl.DateTimeFormat(LOCALE, { hour: "2-digit", minute: "2-digit", timeZone: item.timezone }).format(new Date(clash.end))}).`;
 }
 
 export function moveResult(job: Job): string {

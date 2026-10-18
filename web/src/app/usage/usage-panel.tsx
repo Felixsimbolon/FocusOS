@@ -1,4 +1,5 @@
 "use client";
+import { LOCALE } from "../locale";
 import { useEffect, useState } from "react";
 
 type Day = { day: string; calls: number; tokens: number; cost_usd: number | null; errors: number };
@@ -40,7 +41,7 @@ export function UsageSummary({ usage }: { usage: Usage }) {
   const peakIndex = days.findIndex(day => day.tokens === peak);
   const tokens = usage.totals.prompt_tokens + usage.totals.output_tokens;
   const errorRate = usage.totals.calls ? Math.round((usage.totals.errors / usage.totals.calls) * 100) : 0;
-  const label = (day: Day) => new Intl.DateTimeFormat(undefined, { weekday: "short", timeZone: "UTC" }).format(new Date(`${day.day}T12:00:00Z`));
+  const label = (day: Day) => new Intl.DateTimeFormat(LOCALE, { weekday: "short", timeZone: "UTC" }).format(new Date(`${day.day}T12:00:00Z`));
   return <div className="usage-summary">
     <dl className="facts">
       <div><dt>Tokens, 7 days</dt><dd>{number.format(tokens)}</dd></div>

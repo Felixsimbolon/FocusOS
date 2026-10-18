@@ -1,4 +1,5 @@
 "use client";
+import { LOCALE } from "../locale";
 import { useEffect, useRef, useState } from "react";
 import { Ridges, Stars } from "../art/ridges";
 
@@ -19,7 +20,7 @@ export function localNow(now: Date, timezone: string): LocalNow {
     weekday: "short", hourCycle: "h23",
   }).formatToParts(now).map(part => [part.type, part.value]));
   const weekday = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(parts.weekday) + 1;
-  const label = new Intl.DateTimeFormat(undefined, { weekday: "long", day: "numeric", month: "long", timeZone: timezone }).format(now);
+  const label = new Intl.DateTimeFormat(LOCALE, { weekday: "long", day: "numeric", month: "long", timeZone: timezone }).format(now);
   return { date: `${parts.year}-${parts.month}-${parts.day}`, minutes: Number(parts.hour) * 60 + Number(parts.minute), weekday, label };
 }
 
@@ -119,10 +120,12 @@ function useEased(target: number, enabled: boolean): number {
   return value;
 }
 
-export function FocusHud({ timezone, hours, name }: { timezone: string; hours: WorkingHours; name?: string }) {
+export function FocusHud({ timezone, hours, name, initialDue, initialBlocks }: { timezone: string; hours: WorkingHours; name?: string;
+  initialDue?: number | null; initialBlocks?: Block[] | null }) {
   const [now, setNow] = useState<Date | null>(null);
-  const [dueToday, setDueToday] = useState<number | null>(null);
-  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [dueToday, setDueToday] = useState<number | null>(initialDue ?? null);
+  const [blocks, setBlocks] = useState<Block[]>(initialBlocks ?? []);
+  const skipFirst = useRef(initialDue != null && !!initialBlocks);
   useEffect(() => {
     setNow(new Date());
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
@@ -140,7 +143,8 @@ export function FocusHud({ timezone, hours, name }: { timezone: string; hours: W
         .then(result => { if (Array.isArray(result)) setBlocks(result); })
         .catch(() => { /* Scheduled work shows its own errors. */ });
     };
-    load();
+    if (!skipFirst.current) load();
+    skipFirst.current = false;
     window.addEventListener("focusos:tasks-changed", load);
     window.addEventListener("focusos:schedule-changed", load);
     return () => { controller.abort(); window.removeEventListener("focusos:tasks-changed", load); window.removeEventListener("focusos:schedule-changed", load); };

@@ -1,4 +1,5 @@
 "use client";
+import { LOCALE } from "./locale";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { PaginatedItems } from "./paginated-items";
 import { type Job } from "./jobs/client";
@@ -216,7 +217,7 @@ export function WorkComposer() {
       {defaultDuration && blocks.length > 0 && <p className="composer-note">Duration used: 30 minutes.</p>}
       {blocks.length > 0 && adjustments.map((note, index) => <p key={index} className="composer-note">{note}</p>)}
       {blocks.length > 0 && <PaginatedItems as="ul" className="composer-results" label="created Calendar blocks" pageSize={3} items={blocks.map((block, index) => <li key={`${block.start}-${index}`}><strong>{block.title}</strong>
-        <span>{new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: block.timezone }).format(new Date(block.start))} - {new Intl.DateTimeFormat(undefined, { timeStyle: "short", timeZone: block.timezone }).format(new Date(block.end))} ({block.timezone})</span>
+        <span>{new Intl.DateTimeFormat(LOCALE, { dateStyle: "medium", timeStyle: "short", timeZone: block.timezone }).format(new Date(block.start))} - {new Intl.DateTimeFormat(LOCALE, { timeStyle: "short", timeZone: block.timezone }).format(new Date(block.end))} ({block.timezone})</span>
         {block.link && <a href={block.link} target="_blank" rel="noopener noreferrer">Open in Google Calendar</a>}</li>)} />}
     </div>}
   </section>;

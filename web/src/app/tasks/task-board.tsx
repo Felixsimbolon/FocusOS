@@ -1,6 +1,7 @@
 "use client";
+import { LOCALE } from "../locale";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { PaginatedItems } from "../paginated-items";
 import { DeadlineCalendar, deadlineDay } from "./deadline-calendar";
 import { KiteField } from "../art/spots";
@@ -32,7 +33,7 @@ type TaskList = {
 function readableDue(task: Task, timezone: string): string | null {
   if (task.due_kind === "date" && task.due_date) return task.due_date;
   if (task.due_kind === "datetime" && task.due_at) {
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat(LOCALE, {
       dateStyle: "medium",
       timeStyle: "short",
       timeZone: timezone || task.due_timezone || undefined,
@@ -41,20 +42,29 @@ function readableDue(task: Task, timezone: string): string | null {
   return null;
 }
 
-export function TaskBoard() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
+export type InitialTasks = { today: TaskList; open: TaskList; projects: Project[] };
+
+function upcoming(result: TaskList, openResult: TaskList) {
+  const zone = result.timezone ?? "Asia/Jakarta";
+  const day = result.today ?? new Date().toISOString().slice(0, 10);
+  return openResult.tasks.filter((task) => { const due = deadlineDay(task, zone); return due !== null && due > day; });
+}
+const contextLine = (result: TaskList) => result.today && result.timezone ? "Showing tasks due on or before " + result.today + " in " + result.timezone + "." : "";
+
+export function TaskBoard({ initial }: { initial?: InitialTasks | null }) {
+  const [tasks, setTasks] = useState<Task[]>(initial?.today.tasks ?? []);
+  const [upcomingTasks, setUpcomingTasks] = useState<Task[]>(() => initial ? upcoming(initial.today, initial.open) : []);
+  const [loading, setLoading] = useState(!initial);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [todayContext, setTodayContext] = useState("");
-  const [today, setToday] = useState(() => new Date().toISOString().slice(0, 10));
-  const [timezone, setTimezone] = useState("Asia/Jakarta");
-  const [taskListTruncated, setTaskListTruncated] = useState(false);
+  const [todayContext, setTodayContext] = useState(initial ? contextLine(initial.today) : "");
+  const [today, setToday] = useState(() => initial?.today.today ?? new Date().toISOString().slice(0, 10));
+  const [timezone, setTimezone] = useState(initial?.today.timezone ?? "Asia/Jakarta");
+  const [taskListTruncated, setTaskListTruncated] = useState(initial?.open.truncated ?? false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Project[]>(initial?.projects ?? []);
   const refresh = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -72,20 +82,11 @@ export function TaskBoard() {
         return;
       }
       setTasks(result.tasks);
-      const taskTimezone = result.timezone ?? "Asia/Jakarta";
-      const currentDay = result.today ?? new Date().toISOString().slice(0, 10);
-      setUpcomingTasks(openResult.tasks.filter((task) => {
-        const due = deadlineDay(task, taskTimezone);
-        return due !== null && due > currentDay;
-      }));
-      setToday(currentDay);
-      setTimezone(taskTimezone);
+      setUpcomingTasks(upcoming(result, openResult));
+      setToday(result.today ?? new Date().toISOString().slice(0, 10));
+      setTimezone(result.timezone ?? "Asia/Jakarta");
       setTaskListTruncated(openResult.truncated);
-      setTodayContext(
-        result.today && result.timezone
-          ? "Showing tasks due on or before " + result.today + " in " + result.timezone + "."
-          : "",
-      );
+      setTodayContext(contextLine(result));
       setMessage(result.truncated || openResult.truncated ? "Showing the first 100 matching tasks. Older tasks may not appear." : "");
     } catch {
       setError("Tasks could not be loaded. Please try again.");
@@ -107,9 +108,11 @@ export function TaskBoard() {
     }
   }, []);
 
+  // With server-rendered lists the first fetch is skipped; changes still refresh.
+  const hydrated = useRef(!!initial);
   useEffect(() => {
-    void refresh();
-    void loadProjects();
+    if (!hydrated.current) { void refresh(); void loadProjects(); }
+    hydrated.current = false;
     const listener = () => { void refresh(); };
     window.addEventListener("focusos:tasks-changed", listener);
     return () => window.removeEventListener("focusos:tasks-changed", listener);

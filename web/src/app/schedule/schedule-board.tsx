@@ -1,5 +1,6 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { LOCALE } from "../locale";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PaginatedItems } from "../paginated-items";
 import { StillWater } from "../art/spots";
 type Block = {
@@ -12,8 +13,8 @@ type Block = {
   cancellation_status: string;
   cancellation_error: string | null;
 };
-export function ScheduleBoard() {
-  const [blocks, setBlocks] = useState<Block[]>([]),
+export function ScheduleBoard({ initial }: { initial?: Block[] | null }) {
+  const [blocks, setBlocks] = useState<Block[]>(initial ?? []),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [selected, setSelected] = useState<Block | null>(null),
@@ -31,8 +32,10 @@ export function ScheduleBoard() {
       setBusy(false);
     }
   }, []);
+  const skipFirst = useRef(!!initial);
   useEffect(() => {
-    void load();
+    if (!skipFirst.current) void load();
+    skipFirst.current = false;
     const refresh = () => { void load(); };
     window.addEventListener("focusos:schedule-changed", refresh);
     return () => window.removeEventListener("focusos:schedule-changed", refresh);
@@ -63,8 +66,8 @@ export function ScheduleBoard() {
   const visible = blocks
     .filter((b) => showPast || new Date(b.payload.end).getTime() > Date.now())
     .sort((a, b) => Date.parse(a.payload.start) - Date.parse(b.payload.start));
-  const dayOf = (b: Block) => new Intl.DateTimeFormat(undefined, { weekday: "long", day: "numeric", month: "long", timeZone: b.payload.timezone }).format(new Date(b.payload.start));
-  const time = (value: string, zone: string) => new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: zone }).format(new Date(value));
+  const dayOf = (b: Block) => new Intl.DateTimeFormat(LOCALE, { weekday: "long", day: "numeric", month: "long", timeZone: b.payload.timezone }).format(new Date(b.payload.start));
+  const time = (value: string, zone: string) => new Intl.DateTimeFormat(LOCALE, { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: zone }).format(new Date(value));
   const items = visible.map((b, index) => {
     const zone = b.payload.timezone;
     const cancelled = b.cancellation_status === "cancelled";

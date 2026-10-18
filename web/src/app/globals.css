@@ -664,6 +664,44 @@ input.note-title:focus-visible { outline: none; border-bottom-color: var(--sun);
 .note-body { width: 100%; min-height: 22rem; padding: 0.4rem 0; border: 0; background: transparent; color: var(--ink); font: 400 1.12rem/1.65 var(--font-prose); resize: vertical; outline: none; }
 @media (max-width: 860px) { .notes { grid-template-columns: minmax(0, 1fr); } }
 
+/* A project's own page: a trail from today up to its last deadline, then its notes and work. */
+.project-row { text-decoration: none; color: inherit; }
+.trail-hero {
+  position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column;
+  background: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom) 80%);
+  color: var(--sky-ink);
+}
+.trail-text { order: 1; position: relative; z-index: 1; width: var(--page); margin: 0 auto; padding: 6rem 0 0; }
+.trail-back { color: var(--sky-ink-2); font-size: 0.95rem; text-decoration-color: color-mix(in srgb, var(--sky-ink) 35%, transparent); }
+.trail-hero h1 { max-width: 18ch; margin-top: 0.6rem; font-size: clamp(2.6rem, 1.5rem + 4.6vw, 5rem); font-weight: 700; line-height: 0.98; letter-spacing: -0.035em; animation: widen 1.3s var(--ease-out) both; overflow-wrap: anywhere; }
+.trail-legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1.25rem; margin-top: 0.9rem; color: var(--sky-ink-2); font-size: 0.85rem; }
+.trail-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.legend-block::before { content: ""; width: 0.65rem; height: 0.65rem; border-radius: 50%; background: var(--sun); }
+.legend-flag::before { content: ""; width: 0.7rem; height: 0.55rem; background: var(--lagoon); clip-path: polygon(0 0, 100% 45%, 0 100%); }
+.legend-summit::before { content: ""; width: 0.65rem; height: 0.65rem; border-radius: 50%; background: var(--paper); box-shadow: 0 0 0 2px var(--rose); }
+.trail-art { order: 2; display: block; width: 100%; height: clamp(14rem, 27vw, 30rem); margin-top: -1rem; }
+.trail { fill: none; stroke: var(--paper); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0.9; animation: draw 1.8s var(--ease-out) 0.2s forwards; }
+.trail-flag { opacity: 0; animation: glow-in 500ms var(--ease-out) forwards; }
+.trail-flag .flag-pole { stroke: var(--paper); stroke-width: 2; }
+.trail-flag .flag-cloth { fill: var(--lagoon); }
+.trail-flag.is-high .flag-cloth { fill: var(--rose); }
+.trail-block { fill: var(--sun); stroke: var(--paper); stroke-width: 3; opacity: 0; animation: glow-in 500ms var(--ease-out) forwards; }
+.trail-ends circle { fill: var(--paper); }
+.trail-ends .summit { stroke: var(--rose); stroke-width: 4; }
+.project-ground { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: clamp(2rem, 5vw, 4rem); align-items: start; }
+.project-ground > * { margin-top: 1.5rem; }
+.project-side { display: grid; gap: 2.5rem; }
+.project-side h2 { font-size: 1.4rem; }
+.project-main .notes { grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); }
+.project-ask form { display: grid; gap: 0.6rem; margin-top: 0.8rem; }
+.project-ask textarea { width: 100%; padding: 0.3rem 0 0.6rem; border: 0; border-bottom: 2px solid var(--rule-strong); background: transparent; color: var(--ink); font: 400 1.1rem/1.45 var(--font-prose); resize: vertical; outline: none; }
+.project-ask textarea:focus { border-bottom-color: var(--sun); }
+.project-ask .button { justify-self: start; }
+.project-answer { display: grid; gap: 0.35rem; margin-top: 1rem; padding-left: 1rem; border-left: 3px solid var(--lagoon); animation: rise 300ms var(--ease-out); }
+.project-side .task-list { margin-top: 0.6rem; }
+@media (max-width: 960px) { .project-ground, .project-main .notes { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 520px) { .trail-text { padding-top: 8.5rem; } .trail-art { height: 12rem; } }
+
 /* ---------- Welcome (signed out) ---------- */
 
 .welcome {

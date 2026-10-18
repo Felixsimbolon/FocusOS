@@ -1,8 +1,10 @@
-import { signInWithGoogle, signOut } from "./auth/actions";
+import { signInWithGoogle } from "./auth/actions";
+import { Topbar } from "./topbar";
 import { getMe } from "@/server/api/me";
+import { loadHome } from "@/server/api/home";
+import type { InitialTasks } from "./tasks/task-board";
 import { TaskBoard } from "./tasks/task-board";
 import { WorkComposer } from "./work-composer";
-import { GmailSyncPanel } from "./activity/gmail-sync-panel";
 import { Preferences } from "./settings/preferences";
 import { ScheduleBoard } from "./schedule/schedule-board";
 import { UsagePanel } from "./usage/usage-panel";
@@ -10,7 +12,6 @@ import { FocusHud } from "./hud/focus-hud";
 import { CheckInPanel } from "./check-ins/check-in-panel";
 import { Conflicts } from "./schedule/conflicts";
 import { MonthCalendar } from "./schedule/month-calendar";
-import { ThemeToggle } from "./theme-toggle";
 import { RoutinesPanel } from "./routines/routines-panel";
 import { ProjectsPanel } from "./projects/projects-panel";
 import { NotesPanel } from "./notes/notes-panel";
@@ -23,30 +24,22 @@ import { Sunrise } from "./art/spots";
 
 export const dynamic = "force-dynamic";
 
-function Brand() {
-  return <a className="brand" href="/" aria-label="FocusOS home">
-    <svg viewBox="0 0 32 20" aria-hidden="true"><path d="M2 18 H30" /><path d="M7 18 A9 9 0 0 1 25 18" /><circle cx="16" cy="11" r="3.2" /></svg>
-    FocusOS
-  </a>;
-}
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ authError?: string; saved?: string; error?: string; source?: string }> }) {
-  const [me, params] = await Promise.all([getMe(), searchParams]);
+  // Identity, profile and the first data are read together, so Home arrives already filled in.
+  const [me, params, home] = await Promise.all([getMe(), searchParams, loadHome()]);
+  const initialTasks = home.today && home.open && home.projects ? { today: home.today, open: home.open, projects: home.projects } as InitialTasks : null;
   const user = me.kind === "ok" ? me.data.user : me.kind === "unavailable" ? me.user : null;
   const profile = me.kind === "ok" ? me.data.profile : null;
   const name = me.kind === "ok" ? me.displayName : me.kind === "unavailable" ? me.user.name : undefined;
   const authError = params.authError === "callback" ? "Google sign-in did not complete. Try again."
     : params.authError === "start" ? "Could not start Google sign-in. Try again." : params.authError === "logout" ? "Could not sign out. Try again." : null;
   return <main className="home">
-    <header className="topbar">
-      <Brand />
-      {!user && <div className="topbar-actions"><ThemeToggle /></div>}
-      {user && <nav aria-label="Main navigation"><a href="/#composer">Write</a><a href="/#tasks">Today</a><a href="/#schedule">Calendar</a><a href="/#projects">Projects</a><a href="/#notes">Notes</a><a href="/#review">Review</a></nav>}
-      {user && <div className="topbar-actions"><ThemeToggle /><GmailSyncPanel /><form action={signOut}><button className="quiet" type="submit">Sign out</button></form></div>}
-    </header>
+    <Topbar signedIn={!!user} />
     {authError && <p role="alert" className="page-alert">{authError}</p>}
     {user ? <>
-      {profile ? <FocusHud timezone={profile.timezone} hours={profile.working_hours} name={name} />
+      {profile ? <FocusHud timezone={profile.timezone} hours={profile.working_hours} name={name}
+          initialDue={home.today ? home.today.tasks.length : null} initialBlocks={home.blocks as never} />
         : <section className="horizon horizon-setup" aria-label="Get started">
           <svg className="horizon-art" viewBox="0 0 1440 420" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><Ridges /></svg>
           <div className="horizon-text">
@@ -59,7 +52,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
         {me.kind === "unavailable" && <p role="alert" className="page-alert">Your profile is temporarily unavailable. Refresh to try again.</p>}
         <WorkComposer />
         {me.kind === "ok" && <>
-          <div id="tasks"><TaskBoard /></div>
+          <div id="tasks"><TaskBoard initial={initialTasks} /></div>
           <section id="schedule" className="schedule" aria-labelledby="schedule-heading">
             <h2 id="schedule-heading">Calendar</h2>
             <p className="section-lede">Your whole Google Calendar, month by month. Focus blocks FocusOS booked are marked in marigold.</p>
@@ -68,7 +61,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
             <div className="calendar-area">
               <div className="booked" aria-labelledby="booked-heading">
                 <h3 id="booked-heading">Booked by FocusOS</h3>
-                <ScheduleBoard />
+                <ScheduleBoard initial={home.blocks as never} />
               </div>
               <div id="check-ins" className="check-in-area" aria-labelledby="check-ins-heading">
                 <h3 id="check-ins-heading">How did it go?</h3>
