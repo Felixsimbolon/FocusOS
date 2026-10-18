@@ -1009,7 +1009,7 @@ Verification: backend 544/544, web 188/188 (the old rule banning the words "New 
 
 Verification: backend 550/550, web 197/197, evals and safety gate, `tsc`, `next build`. Visual check of the project page in light and dark on a temporary synthetic preview, since deleted. Release: `ecb6cfc`, no migration. API and web are Production Ready. Smoke results: the API health check returns 200; `/projects/{id}/detail` returns 401 without a session; a project page without a session redirects; a malformed ID returns 404. Not verified: answer quality with real project notes (it needs the live model).
 
-## 2026-10-19 — Projects page, project tabs, project files
+## 2026-10-18 — Projects page, project tabs, project files
 
 - **Projects page (`/projects`).** Lists every project, and the top bar now links here instead of the Home section. The hero draws each project as a peak (up to 7). A peak's height grows with the project's amount of work, and the route up its face lights up by the share of tasks done. Each peak links to its project. The list below has the same actions as on Home (add a project, analyse a brief) and now counts files. The server reads `/projects/overview` first, so the page arrives filled.
 - **Project page tabs.** Below the trail are four tabs: Overview (open tasks, the ask box, assignments), Schedule, Notes and Files. They are keyboard navigable, the address hash keeps the open tab, and the bar is sticky. Schedule lists the coming focus blocks and open deadlines by local day, blocks first, with up to 10 earlier blocks in a disclosure. The detail now returns `past` and `files`.
