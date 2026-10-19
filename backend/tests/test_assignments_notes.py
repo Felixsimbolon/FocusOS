@@ -117,14 +117,20 @@ class NoteTests(unittest.TestCase):
     def test_conflicting_save_explains_itself(self):
         error = DatabaseUnavailable("x"); error.__cause__ = type("E", (Exception,), {"code": "40001"})()
         with patch.object(notes, "scoped_client", side_effect=error), self.assertRaises(HTTPException) as raised:
-            notes.save_note("session", uuid4(), notes.NoteInput(title="Kuliah 3", body="isi", expected_version=2))
+            notes.save_note("session", uuid4(), notes.NoteInput(project_id=uuid4(), title="Kuliah 3", body="isi", expected_version=2))
         self.assertEqual(raised.exception.status_code, 409)
+
+    def test_a_note_needs_a_project(self):
+        with patch.object(notes, "scoped_client") as scoped, self.assertRaises(HTTPException) as raised:
+            notes.save_note("session", uuid4(), notes.NoteInput(title="Catatan umum", body="isi", expected_version=0))
+        self.assertEqual((raised.exception.status_code, raised.exception.detail), (422, "Choose a project for this note."))
+        scoped.assert_not_called()
 
     def test_saved_note_is_indexed_for_questions(self):
         client = MagicMock(); client.rpc.return_value.execute.return_value.data = {"id": str(uuid4()), "title": "Kuliah 3", "body": "Regresi.", "version": 1}
         with patch.object(notes, "scoped_client") as scoped, patch.object(notes, "embed_note", return_value=True) as embed:
             scoped.return_value.__enter__.return_value = ("owner", client)
-            saved = notes.save_note("session", uuid4(), notes.NoteInput(title="Kuliah 3", body="Regresi.", expected_version=0))
+            saved = notes.save_note("session", uuid4(), notes.NoteInput(project_id=uuid4(), title="Kuliah 3", body="Regresi.", expected_version=0))
         self.assertTrue(saved["indexed"]); embed.assert_called_once()
 
     def test_note_search_sends_terms_and_vector(self):

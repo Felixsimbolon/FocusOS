@@ -16,7 +16,15 @@ export function filterNotes(notes: NoteSummary[], query: string, project: string
 
 export const saveLabel = (dirty: boolean, saving: boolean) => saving ? "Saving..." : dirty ? "Save note" : "Saved";
 
-/** All notes on Home; on a project page, only that project's notes, and new ones belong to it. */
+export const NEW_PROJECT = "__new";
+/** The project a new note starts in: the page's project, the filtered one, or the only one there is. */
+export function startingProject(projectId: string | undefined, filter: string, projects: { id: string }[]): string | null {
+  if (projectId) return projectId;
+  if (filter !== "all" && filter !== "none") return filter;
+  return projects.length === 1 ? projects[0].id : null;
+}
+
+/** All notes on Home; on a project page, only that project's notes. Every note belongs to a project. */
 export function NotesPanel({ projectId }: { projectId?: string }) {
   const [notes, setNotes] = useState<NoteSummary[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -26,6 +34,7 @@ export function NotesPanel({ projectId }: { projectId?: string }) {
   const [draft, setDraft] = useState<{ title: string; body: string; project_id: string | null }>({ title: "", body: "", project_id: null });
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
+  const [projectName, setProjectName] = useState<string | null>(null);  // set while naming a new project
   const editor = useRef<HTMLDivElement | null>(null);
   const dirty = !!note && (draft.title !== note.title || draft.body !== note.body || draft.project_id !== note.project_id);
 
@@ -48,11 +57,24 @@ export function NotesPanel({ projectId }: { projectId?: string }) {
   }, [load, open]);
 
   function create() {
-    const fresh: Note = { id: crypto.randomUUID(), project_id: projectId ?? (projectFilter !== "all" && projectFilter !== "none" ? projectFilter : null), title: "", body: "", version: 0 };
+    const fresh: Note = { id: crypto.randomUUID(), project_id: startingProject(projectId, projectFilter, projects), title: "", body: "", version: 0 };
     setNote(fresh); setDraft({ title: "", body: "", project_id: fresh.project_id }); setNotice("");
+    setProjectName(projects.length ? null : "");
+  }
+  async function addProject() {
+    const name = (projectName ?? "").trim();
+    if (!name) { setNotice("Name the project first."); return; }
+    try {
+      const response = await fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+      const result = await response.json();
+      if (!response.ok || !result?.project?.id) throw new Error(result?.error || "Could not add this project.");
+      setProjects(current => current.some(item => item.id === result.project.id) ? current : [...current, { id: result.project.id, name: result.project.name }]);
+      setDraft(current => ({ ...current, project_id: result.project.id })); setProjectName(null); setNotice("");
+    } catch (cause) { setNotice(cause instanceof Error ? cause.message : "Could not add this project."); }
   }
   async function save() {
     if (!note || !draft.title.trim()) { setNotice("Give the note a title first."); return; }
+    if (!draft.project_id) { setNotice("Choose a project for this note."); return; }
     setSaving(true); setNotice("");
     try {
       const response = await fetch(`/api/notes/${note.id}`, { method: "POST", headers: { "Content-Type": "application/json" },
@@ -84,7 +106,8 @@ export function NotesPanel({ projectId }: { projectId?: string }) {
   }
 
   const visible = useMemo(() => filterNotes(notes, query, projectFilter), [notes, query, projectFilter]);
-  const projectName = (id: string | null) => projects.find(project => project.id === id)?.name;
+  const nameOf = (id: string | null) => projects.find(project => project.id === id)?.name;
+  const unfiled = notes.some(item => !item.project_id);
   return <div className="notes">
     <div className="notes-list">
       <div className="notes-tools">
@@ -92,28 +115,40 @@ export function NotesPanel({ projectId }: { projectId?: string }) {
         <input id="note-search" type="search" placeholder="Search notes" value={query} onChange={event => setQuery(event.target.value)} />
         {!projectId && <><label className="sr-only" htmlFor="note-project">Filter by project</label>
         <select id="note-project" value={projectFilter} onChange={event => setProjectFilter(event.target.value)}>
-          <option value="all">All projects</option><option value="none">No project</option>
+          <option value="all">All projects</option>{unfiled && <option value="none">Needs a project</option>}
           {projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
         </select></>}
         <button type="button" onClick={create}>New note</button>
       </div>
       {visible.length ? <ul className="note-items">{visible.map(item => <li key={item.id} className={note?.id === item.id ? "is-active" : ""}>
         <button type="button" onClick={() => void open(item.id)}><strong>{item.title}</strong>
-          <small>{[projectName(item.project_id), new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "short" }).format(new Date(item.updated_at))].filter(Boolean).join(", ")}</small>
+          <small>{[nameOf(item.project_id) ?? "Needs a project", new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "short" }).format(new Date(item.updated_at))].filter(Boolean).join(", ")}</small>
           {item.excerpt && <span>{item.excerpt}</span>}</button></li>)}</ul>
-        : <p className="quiet-line">{notes.length ? "No note matches." : projectId ? "No notes for this project yet. What you write here becomes part of the project: questions about it use these notes." : "No notes yet. Write lecture notes, meeting notes or ideas; ask about them later in the composer."}</p>}
+        : <p className="quiet-line">{notes.length ? "No note matches." : projectId ? "No notes for this project yet. What you write here becomes part of the project: questions about it use these notes." : "No notes yet. Each note lives in a project: lecture notes, meeting notes or ideas. Ask about them later in the composer."}</p>}
     </div>
     <div className="note-editor" ref={editor}>
       {note ? <form onSubmit={event => { event.preventDefault(); void save(); }}
         onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === "s") { event.preventDefault(); void save(); } }}>
         <label className="sr-only" htmlFor="note-title">Note title</label>
         <input id="note-title" className="note-title" value={draft.title} maxLength={200} placeholder="Title" onChange={event => setDraft({ ...draft, title: event.target.value })} />
-        {!projectId && <label className="note-project">Project<select value={draft.project_id ?? ""} onChange={event => setDraft({ ...draft, project_id: event.target.value || null })}>
-          <option value="">No project</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>}
+        {!projectId && <div className="note-project">
+          {projectName === null
+            ? <label>Project<select required value={draft.project_id ?? ""} onChange={event => event.target.value === NEW_PROJECT
+                ? setProjectName("") : setDraft({ ...draft, project_id: event.target.value || null })}>
+                <option value="" disabled>Choose a project</option>
+                {projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
+                <option value={NEW_PROJECT}>New project…</option></select></label>
+            : <><label htmlFor="note-new-project">New project</label>
+              <input id="note-new-project" value={projectName} maxLength={100} placeholder="Nama proyek, misalnya Skripsi" autoFocus
+                onChange={event => setProjectName(event.target.value)}
+                onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void addProject(); } }} />
+              <button type="button" onClick={() => void addProject()} disabled={!projectName.trim()}>Add project</button>
+              {projects.length > 0 && <button type="button" className="quiet" onClick={() => setProjectName(null)}>Cancel</button>}</>}
+        </div>}
         <label className="sr-only" htmlFor="note-body">Note text</label>
         <textarea id="note-body" className="note-body" value={draft.body} maxLength={50000} placeholder="Write here…" onChange={event => setDraft({ ...draft, body: event.target.value })} />
         <div className="inline-actions">
-          <button type="submit" disabled={saving || (!dirty && note.version > 0)}>{saveLabel(dirty || note.version === 0, saving)}</button>
+          <button type="submit" disabled={saving || !draft.project_id || (!dirty && note.version > 0)}>{saveLabel(dirty || note.version === 0, saving)}</button>
           <button type="button" className="quiet" onClick={() => void capture()} disabled={note.version === 0}>Turn into tasks</button>
           <button type="button" className="quiet" onClick={() => void remove()}>Delete</button>
           <span className="quiet-line">{draft.body.length.toLocaleString()} / 50,000</span>

@@ -736,7 +736,9 @@ label { color: var(--ink-2); font-size: 0.9rem; }
 .note-editor form { display: grid; gap: 0.8rem; }
 input.note-title { border: 0; border-bottom: 1px solid var(--rule); border-radius: 0; padding: 0.3rem 0; background: transparent; font: 650 1.6rem/1.2 var(--font-ui); }
 input.note-title:focus-visible { outline: none; border-bottom-color: var(--sun); }
-.note-project { display: flex; align-items: center; gap: 0.6rem; }
+.note-project { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.note-project label { display: inline-flex; align-items: center; gap: 0.6rem; }
+.note-project input { flex: 1 1 14rem; }
 .note-body { width: 100%; min-height: 22rem; padding: 0.4rem 0; border: 0; background: transparent; color: var(--ink); font: 400 1.12rem/1.65 var(--font-prose); resize: vertical; outline: none; }
 @media (max-width: 860px) { .notes { grid-template-columns: minmax(0, 1fr); } }
 

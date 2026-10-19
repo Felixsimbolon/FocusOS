@@ -1,4 +1,4 @@
-"""Notes: free-form writing, optionally tied to a project.
+"""Notes: free-form writing, each kept in a project.
 
 A note is plain text the user owns and edits; nothing is extracted from it unless the user
 asks ("Turn into tasks"), so editing a note never creates duplicate tasks. Each saved
@@ -69,6 +69,7 @@ def embed_note(token: str, note: dict) -> bool:
 
 
 def save_note(token: str, note_id: UUID, note: NoteInput) -> dict:
+    if note.project_id is None: raise HTTPException(422, "Choose a project for this note.")
     try:
         with scoped_client(token) as (_, client):
             saved = client.rpc("focusos_save_note", {"p_id": str(note_id), "p_project_id": str(note.project_id) if note.project_id else None,
@@ -77,6 +78,7 @@ def save_note(token: str, note_id: UUID, note: NoteInput) -> dict:
         code = _code(exc)
         if code == "40001": raise HTTPException(409, "This note changed in another window. Reload it before saving again.") from exc
         if code == "P0002": raise HTTPException(404, "Note or project not found") from exc
+        if code == "23502": raise HTTPException(422, "Choose a project for this note.") from exc
         if code == "54000": raise HTTPException(429, "You have reached 2,000 notes.") from exc
         raise
     if not isinstance(saved, dict): raise DatabaseUnavailable("Note was not saved")

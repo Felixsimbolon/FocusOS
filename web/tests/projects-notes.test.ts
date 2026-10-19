@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest, after } from "next/server";
 import { Steps, hours, previewTasks, stageOf, type Analysis, type Assignment } from "../src/app/projects/assignment-flow";
 import { projectLine, type ProjectSummary } from "../src/app/projects/projects-panel";
-import { filterNotes, saveLabel, type NoteSummary } from "../src/app/notes/notes-panel";
+import { filterNotes, saveLabel, startingProject, type NoteSummary } from "../src/app/notes/notes-panel";
 import { POST as ASSIGNMENT_POST } from "../src/app/api/assignments/[[...path]]/route";
 import { GET as NOTES_GET, POST as NOTES_POST } from "../src/app/api/notes/[[...path]]/route";
 import { GET as PROJECT_GET } from "../src/app/api/projects/[projectId]/route";
@@ -74,9 +74,23 @@ describe("projects and notes", () => {
     expect(saveLabel(true, false)).toBe("Save note");
     expect(saveLabel(false, false)).toBe("Saved");
   });
+  it("starts a new note in the page's, the filtered or the only project", () => {
+    const other = "22222222-2222-4222-8222-222222222222";
+    expect(startingProject(id, "all", [])).toBe(id);
+    expect(startingProject(undefined, other, [{ id }, { id: other }])).toBe(other);
+    expect(startingProject(undefined, "all", [{ id }])).toBe(id);
+    expect(startingProject(undefined, "all", [{ id }, { id: other }])).toBeNull();
+    expect(startingProject(undefined, "none", [])).toBeNull();
+  });
   it("validates note saves and proxies reads", async () => {
     const save = (body: unknown) => NOTES_POST(new NextRequest("http://localhost", { method: "POST", body: JSON.stringify(body) }), { params: Promise.resolve({ path: [id] }) });
-    expect((await save({ title: "Kuliah 3", body: "isi", expected_version: 0, project_id: null })).status).toBe(200);
+    expect((await save({ title: "Kuliah 3", body: "isi", expected_version: 0, project_id: id })).status).toBe(200);
+    // Every note belongs to a project.
+    for (const project_id of [null, undefined, "not-a-uuid"]) {
+      const refused = await save({ title: "Kuliah 3", body: "isi", expected_version: 0, project_id });
+      expect(refused.status).toBe(400);
+      expect((await refused.json()).error).toBe("Choose a project for this note.");
+    }
     expect((await save({ title: "", body: "isi", expected_version: 0 })).status).toBe(400);
     expect((await save({ title: "x", body: "isi", expected_version: 0, owner: "someone" })).status).toBe(400);
     expect((await NOTES_GET(new NextRequest(`http://localhost/api/notes?project_id=${id}`), { params: Promise.resolve({}) })).status).toBe(200);

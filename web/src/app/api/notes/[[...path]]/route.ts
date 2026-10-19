@@ -30,10 +30,11 @@ export async function POST(request: NextRequest, context: Context) {
   if (!path[1]) {
     const value = await jsonBody(request, ["project_id", "title", "body", "expected_version"]);
     if (!value || typeof value.title !== "string" || !value.title.trim() || value.title.length > 200 || typeof value.body !== "string"
-      || value.body.length > 50_000 || !Number.isInteger(value.expected_version) || (value.project_id !== null && value.project_id !== undefined
-        && (typeof value.project_id !== "string" || !UUID_PATTERN.test(value.project_id))))
+      || value.body.length > 50_000 || !Number.isInteger(value.expected_version))
       return NextResponse.json({ error: "A note needs a title, and at most 50,000 characters." }, { status: 400 });
-    body = JSON.stringify({ project_id: value.project_id ?? null, title: value.title, body: value.body, expected_version: value.expected_version });
+    if (typeof value.project_id !== "string" || !UUID_PATTERN.test(value.project_id))
+      return NextResponse.json({ error: "Choose a project for this note." }, { status: 400 });
+    body = JSON.stringify({ project_id: value.project_id, title: value.title, body: value.body, expected_version: value.expected_version });
   } else if (path[1] === "capture") {
     const value = await jsonBody(request, ["request_key"]);
     if (!value || typeof value.request_key !== "string" || !UUID_PATTERN.test(value.request_key)) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
