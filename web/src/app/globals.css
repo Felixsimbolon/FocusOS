@@ -2,7 +2,18 @@
    The sky at the top follows the local time; the nearest hill is the ground the work sits on.
    Everything below the horizon stays flat: lists on the ground, thin rules, no boxes in boxes. */
 
+/* Sky colours are registered so they can be transitioned: dragging the sun fades the whole sky between phases. */
+@property --sky-top { syntax: "<color>"; inherits: true; initial-value: #8ec1e3; }
+@property --sky-bottom { syntax: "<color>"; inherits: true; initial-value: #dcebf2; }
+@property --sky-glow { syntax: "<color>"; inherits: true; initial-value: #f6e7c3; }
+@property --ridge-far { syntax: "<color>"; inherits: true; initial-value: #a4bcc4; }
+@property --ridge-mid { syntax: "<color>"; inherits: true; initial-value: #5e8482; }
+@property --sky-ink { syntax: "<color>"; inherits: true; initial-value: #1e2b35; }
+@property --sky-ink-2 { syntax: "<color>"; inherits: true; initial-value: #2f444c; }
+
 :root {
+  transition: --sky-top 900ms ease, --sky-bottom 900ms ease, --sky-glow 900ms ease, --ridge-far 900ms ease, --ridge-mid 900ms ease,
+    --sky-ink 600ms ease, --sky-ink-2 600ms ease;
   --paper: #eef2ef;
   --paper-deep: #e2e9e4;
   --ink: #1e2b35;
@@ -248,7 +259,6 @@ label { color: var(--ink-2); font-size: 0.9rem; }
 .welcome-text { position: relative; z-index: 2; }
 
 /* Ridge fills come from the gradients in layout.tsx: each ridge fades into haze toward its foot. */
-.ridge-stop { transition: stop-color 1.2s ease; }
 .ridge-far-top { stop-color: color-mix(in srgb, var(--ridge-far) 88%, #fff); }
 .ridge-far-foot { stop-color: color-mix(in srgb, var(--ridge-far) 55%, var(--sky-glow)); }
 .ridge-mid-top { stop-color: var(--ridge-mid); }
@@ -269,7 +279,28 @@ label { color: var(--ink-2); font-size: 0.9rem; }
 .ridge-near { fill: var(--paper); }
 .plume { fill: none; stroke: color-mix(in srgb, var(--sky-bottom) 60%, #fff); stroke-width: 10; stroke-linecap: round; opacity: 0.28; filter: blur(3px); transform-origin: 980px 160px; animation: plume 8s ease-in-out infinite alternate; }
 @keyframes plume { from { transform: skewX(-6deg) scaleY(0.92); opacity: 0.2; } to { transform: skewX(8deg) scaleY(1.05); opacity: 0.34; } }
-.stars circle { fill: #dfe5ff; opacity: 0.8; }
+/* Stars and dew are always drawn and faded in by the hour, so dragging the sun brings them in gently. */
+.stars { opacity: 0; transition: opacity 900ms ease; }
+.is-night .stars { opacity: 1; }
+.stars circle { fill: #dfe5ff; opacity: 0.8; animation: twinkle 3s ease-in-out infinite alternate; }
+@keyframes twinkle { from { opacity: 0.35; } to { opacity: 0.95; } }
+.mist, .dew { opacity: 0; transition: opacity 900ms ease; }
+.is-dewy .mist, .is-dewy .dew { opacity: 1; }
+.mist-stop { stop-color: color-mix(in srgb, #fff 70%, var(--sky-glow)); }
+.dew-drop { fill: color-mix(in srgb, var(--lagoon) 22%, var(--paper)); stroke: color-mix(in srgb, var(--lagoon) 55%, transparent); stroke-width: 0.8; }
+.dew-shine { fill: #fff; }
+.dew-glint { fill: color-mix(in srgb, #fff 60%, var(--sky-glow)); opacity: 0; transform-box: fill-box; transform-origin: center; animation: glint 2.4s ease-in-out infinite; }
+@keyframes glint { 0%, 70%, 100% { opacity: 0; scale: 0.4; } 82% { opacity: 0.95; scale: 1; } }
+
+/* The sun can be dragged along its path, or moved with the arrow keys once focused. */
+.horizon-art { touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
+.horizon-art.is-held:active { cursor: grabbing; }
+.sun { outline: none; cursor: grab; }
+.is-night:not(.is-held) .sun:not(:focus-visible) { opacity: 0; }
+.sun:focus-visible .sun-disc { stroke: var(--sky-ink); stroke-width: 3; }
+.sun-time { fill: var(--sky-ink); font: 650 22px var(--font-ui); font-variant-numeric: tabular-nums; }
+.horizon-preview { margin-top: 1rem; color: var(--sky-ink-2); }
+.horizon-preview button.quiet { color: var(--sky-ink); text-decoration-color: color-mix(in srgb, var(--sky-ink) 40%, transparent); }
 .arc { fill: none; stroke: var(--arc); stroke-width: 1.5; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.6s var(--ease-out) 0.15s forwards; }
 .arc-block { fill: none; stroke: var(--sun); stroke-width: 9; stroke-linecap: round; opacity: 0; animation: glow-in 700ms var(--ease-out) forwards; }
 .arc-block:hover { stroke-width: 12; }
@@ -878,5 +909,5 @@ button.file-name:hover:not(:disabled) { background: transparent; text-decoration
   .arc { stroke-dashoffset: 0; }
   .arc-block { opacity: 1; }
   .plume { animation: none; }
-  .ridge-stop { transition: none; }
+  .stars circle, .dew-glint { animation: none; }
 }

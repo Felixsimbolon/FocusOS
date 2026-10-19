@@ -1,7 +1,8 @@
 "use client";
 import { LOCALE } from "../locale";
 import { useEffect, useRef, useState } from "react";
-import { Ridges, Stars } from "../art/ridges";
+import type { KeyboardEvent, PointerEvent } from "react";
+import { Dew, Mist, Ridges, Stars } from "../art/ridges";
 
 type WorkingHours = { days: number[]; start_minute: number; end_minute: number };
 type Block = { status: string; cancellation_status: string; payload: { title: string; start: string; end: string; timezone: string } };
@@ -100,6 +101,48 @@ export function sunTarget(state: Workday | null, minutes: number): { t: number; 
   return { t: Math.min(1, Math.max(0, (minutes - 360) / 720)), sink: 0 };
 }
 
+// Dragging the sun previews the light at another hour. The arc is the day's window; the ground past
+// either end of it holds four more hours, so the sky can be pulled back to dawn or on into night.
+const REACH = 190, EXTRA = 240;
+export type DayWindow = { start: number; end: number };
+
+/** The window the arc stands for: working hours, or 06:00 to 18:00 on a rest day. */
+export function dayWindow(state: Workday | null, hours: WorkingHours): DayWindow {
+  return state?.kind === "rest" ? { start: 360, end: 1080 } : { start: hours.start_minute, end: Math.max(hours.end_minute, hours.start_minute + 1) };
+}
+
+export function previewRange(day: DayWindow): [number, number] {
+  return [Math.max(0, day.start - EXTRA), Math.min(1439, day.end + EXTRA)];
+}
+
+/** The clock time at a horizontal position in the drawing, snapped to five minutes. */
+export function minutesAt(x: number, day: DayWindow): number {
+  const minutes = x < ARC.left ? day.start - Math.min(1, (ARC.left - x) / REACH) * EXTRA
+    : x > ARC.right ? day.end + Math.min(1, (x - ARC.right) / REACH) * EXTRA
+    : day.start + ((x - ARC.left) / (ARC.right - ARC.left)) * (day.end - day.start);
+  const [low, high] = previewRange(day);
+  return Math.min(high, Math.max(low, Math.round(minutes / 5) * 5));
+}
+
+/** The inverse of minutesAt: where a clock time sits across the drawing. */
+export function xAt(minutes: number, day: DayWindow): number {
+  if (minutes < day.start) return ARC.left - Math.min(1, (day.start - minutes) / EXTRA) * REACH;
+  if (minutes > day.end) return ARC.right + Math.min(1, (minutes - day.end) / EXTRA) * REACH;
+  return ARC.left + ((minutes - day.start) / (day.end - day.start)) * (ARC.right - ARC.left);
+}
+
+/** A held sun follows the arc inside the window and sinks toward the ridge outside it, never fully, so it can be grabbed back. */
+export function heldSun(minutes: number, day: DayWindow): { t: number; sink: number } {
+  if (minutes < day.start) return { t: 0, sink: 30 * Math.min(1, (day.start - minutes) / EXTRA) };
+  if (minutes > day.end) return { t: 1, sink: 30 * Math.min(1, (minutes - day.end) / EXTRA) };
+  return { t: (minutes - day.start) / (day.end - day.start), sink: 0 };
+}
+
+/** Dew lies on the grass from first light until mid-morning. */
+export function dewy(minutes: number): boolean {
+  return minutes >= 300 && minutes < 570;
+}
+
 function useEased(target: number, enabled: boolean): number {
   const [value, setValue] = useState(enabled ? 0 : target);
   const from = useRef(enabled ? 0 : target);
@@ -150,13 +193,55 @@ export function FocusHud({ timezone, hours, name, initialDue, initialBlocks }: {
     return () => { controller.abort(); window.removeEventListener("focusos:tasks-changed", load); window.removeEventListener("focusos:schedule-changed", load); };
   }, []);
 
+  const [held, setHeld] = useState<number | null>(null);
+  const drag = useRef<{ clientX: number; from: number; unitsPerPx: number; moved: boolean } | null>(null);
   const local = now ? localNow(now, timezone) : null;
   const state = local ? workday(local, hours) : null;
-  const sky = local ? phase(local.minutes) : "day";
+  const day = dayWindow(state, hours);
+  const shown = held ?? local?.minutes ?? 0;
+  const realSky = local ? phase(local.minutes) : "day";
+  const sky = held === null ? realSky : phase(held);
   useEffect(() => { document.documentElement.dataset.phase = sky; }, [sky]);
+  // A preview belongs to Home: other pages get the real sky back.
+  const realSkyRef = useRef(realSky);
+  realSkyRef.current = realSky;
+  useEffect(() => () => { document.documentElement.dataset.phase = realSkyRef.current; }, []);
   const target = sunTarget(state, local?.minutes ?? 0);
-  const t = useEased(target.t, true);
-  const sink = useEased(target.sink, true);
+  const easedT = useEased(target.t, true);
+  const easedSink = useEased(target.sink, true);
+  const holding = held === null ? null : heldSun(held, day);
+  const t = holding ? holding.t : easedT;
+  const sink = holding ? holding.sink : easedSink;
+
+  function grab(event: PointerEvent<SVGSVGElement>) {
+    if (!local || event.button !== 0) return;
+    const svg = event.currentTarget, ctm = svg.getScreenCTM();
+    if (!ctm) return;
+    // On a narrow screen the drawing is cropped, so a drag covers more of the day per pixel.
+    const unitsPerPx = 1 / ctm.a, visible = svg.getBoundingClientRect().width * unitsPerPx;
+    drag.current = { clientX: event.clientX, from: xAt(shown, day), unitsPerPx: unitsPerPx * Math.max(1, 1440 / visible), moved: false };
+    svg.setPointerCapture(event.pointerId);
+  }
+  function pull(event: PointerEvent<SVGSVGElement>) {
+    const current = drag.current;
+    if (!current) return;
+    const dx = event.clientX - current.clientX;
+    if (!current.moved && Math.abs(dx) < 4) return;
+    current.moved = true;
+    setHeld(minutesAt(current.from + dx * current.unitsPerPx, day));
+  }
+  function release() { drag.current = null; }
+  function nudge(event: KeyboardEvent<SVGGElement>) {
+    const [low, high] = previewRange(day);
+    const step = event.shiftKey ? 60 : 15;
+    const next = event.key === "ArrowLeft" || event.key === "ArrowDown" ? shown - step
+      : event.key === "ArrowRight" || event.key === "ArrowUp" ? shown + step
+      : event.key === "Home" ? low : event.key === "End" ? high : null;
+    if (event.key === "Escape" && held !== null) { event.preventDefault(); setHeld(null); return; }
+    if (next === null || !local) return;
+    event.preventDefault();
+    setHeld(Math.min(high, Math.max(low, next)));
+  }
   const today = local ? todaysBlocks(blocks, local.date, timezone) : [];
   const focusMinutes = today.reduce((total, block) => total + Math.max(0, block.end - block.start), 0);
   const span = Math.max(1, hours.end_minute - hours.start_minute);
@@ -169,23 +254,32 @@ export function FocusHud({ timezone, hours, name, initialDue, initialBlocks }: {
     today.length ? `${today.length} focus ${today.length === 1 ? "block" : "blocks"} booked (${duration(focusMinutes)})` : null,
   ].filter(Boolean).join(", and ");
 
+  const [low, high] = previewRange(day);
   return <section className="horizon" aria-label="Today">
-    <svg className="horizon-art" viewBox="0 0 1440 420" preserveAspectRatio="xMidYMax slice" role="img"
-      aria-label={state ? statusLine(state) : "Today"}>
+    <svg className={`horizon-art${night ? " is-night" : ""}${dewy(shown) ? " is-dewy" : ""}${held === null ? "" : " is-held"}`}
+      viewBox="0 0 1440 420" preserveAspectRatio="xMidYMax slice" role="group" aria-label="Today's sky"
+      onPointerDown={grab} onPointerMove={pull} onPointerUp={release} onPointerCancel={release}>
       <defs>
         <radialGradient id="sun-glow"><stop offset="0%" stopColor="var(--sun)" stopOpacity="0.55" /><stop offset="100%" stopColor="var(--sun)" stopOpacity="0" /></radialGradient>
+        <radialGradient id="mist-bank"><stop offset="0%" className="mist-stop" stopOpacity="0.75" /><stop offset="100%" className="mist-stop" stopOpacity="0" /></radialGradient>
       </defs>
-      {night && <Stars />}
+      <Stars />
       <path className="arc" d={arcPath(0, 1)} pathLength={1} />
       {today.map((block, index) => {
         const from = Math.max(0, along(block.start)), to = Math.min(1, along(block.end));
         return to > from ? <path key={index} className="arc-block" d={arcPath(from, to)} style={{ animationDelay: `${1.2 + index * 0.15}s` }}>
           <title>{`${block.title}, ${clock(block.start)}–${clock(block.end)}`}</title></path> : null;
       })}
-      {night ? <g className="moon" transform="translate(1150 108)"><circle r="22" /><circle className="moon-shadow" r="20" cx="9" cy="-6" /></g>
-        : <g className="sun" transform={`translate(${sunX.toFixed(1)} ${(sunY + sink).toFixed(1)})`}>
-          <circle r="70" fill="url(#sun-glow)" /><circle className="sun-disc" r="24" /></g>}
-      <Ridges />
+      {night && <g className="moon" transform="translate(1150 108)"><circle r="22" /><circle className="moon-shadow" r="20" cx="9" cy="-6" /></g>}
+      <g className="sun" transform={`translate(${sunX.toFixed(1)} ${(sunY + sink).toFixed(1)})`}
+        tabIndex={0} role="slider" aria-label="Preview the light at another time" aria-valuemin={low} aria-valuemax={high}
+        aria-valuenow={shown} aria-valuetext={clock(shown)} onKeyDown={nudge}>
+        <title>Drag the sun to see the light at another time</title>
+        <circle r="70" fill="url(#sun-glow)" /><circle className="sun-disc" r="24" />
+        {held !== null && <text className="sun-time" y="-40" textAnchor="middle">{clock(held)}</text>}
+      </g>
+      <Ridges valley={<Mist />} />
+      <Dew />
     </svg>
     <div className="horizon-text">
       <p className="horizon-date">{local ? local.label : "Today"}</p>
@@ -194,6 +288,8 @@ export function FocusHud({ timezone, hours, name, initialDue, initialBlocks }: {
       {today.length > 0 && <ol className="horizon-blocks" aria-label="Today's focus blocks">
         {today.map((block, index) => <li key={index}><time>{clock(block.start)}</time>{block.title}</li>)}
       </ol>}
+      {held !== null && <p className="horizon-preview" aria-live="polite">Showing the light at {clock(held)}.{" "}
+        <button type="button" className="quiet" onClick={() => setHeld(null)}>Back to now</button></p>}
     </div>
   </section>;
 }
