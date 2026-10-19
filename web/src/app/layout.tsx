@@ -24,7 +24,20 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${ui.variable} ${prose.variable}`} data-phase="day" suppressHydrationWarning>
       <head><script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} /></head>
-      <body>{children}<ServiceWorker /></body>
+      <body>
+        {/* Shared ridge fills, referenced from globals.css so every landscape uses the same haze. */}
+        <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="ridge-far-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" className="ridge-stop ridge-far-top" /><stop offset="1" className="ridge-stop ridge-far-foot" />
+            </linearGradient>
+            <linearGradient id="ridge-mid-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" className="ridge-stop ridge-mid-top" /><stop offset="1" className="ridge-stop ridge-mid-foot" />
+            </linearGradient>
+          </defs>
+        </svg>
+        {children}<ServiceWorker />
+      </body>
     </html>
   );
 }

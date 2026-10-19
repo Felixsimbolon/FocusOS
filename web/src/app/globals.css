@@ -27,6 +27,10 @@
   --sky-ink: #1e2b35;
   --sky-ink-2: #2f444c;
   --arc: rgba(30, 43, 53, 0.28);
+  --sky-glow: #f6e7c3;
+  --dither-strength: 0.16;
+  /* A 4x4 Bayer threshold tile. Overlaid on the sky it turns smooth gradients into ordered dots, like a print. */
+  --dither: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Crect x='0' y='0' width='1' height='1' fill='%23000'/%3E%3Crect x='1' y='0' width='1' height='1' fill='%23888'/%3E%3Crect x='2' y='0' width='1' height='1' fill='%23222'/%3E%3Crect x='3' y='0' width='1' height='1' fill='%23aaa'/%3E%3Crect x='0' y='1' width='1' height='1' fill='%23ccc'/%3E%3Crect x='1' y='1' width='1' height='1' fill='%23444'/%3E%3Crect x='2' y='1' width='1' height='1' fill='%23eee'/%3E%3Crect x='3' y='1' width='1' height='1' fill='%23666'/%3E%3Crect x='0' y='2' width='1' height='1' fill='%23333'/%3E%3Crect x='1' y='2' width='1' height='1' fill='%23bbb'/%3E%3Crect x='2' y='2' width='1' height='1' fill='%23111'/%3E%3Crect x='3' y='2' width='1' height='1' fill='%23999'/%3E%3Crect x='0' y='3' width='1' height='1' fill='%23fff'/%3E%3Crect x='1' y='3' width='1' height='1' fill='%23777'/%3E%3Crect x='2' y='3' width='1' height='1' fill='%23ddd'/%3E%3Crect x='3' y='3' width='1' height='1' fill='%23555'/%3E%3C/svg%3E");
 
   --font-ui: "Bricolage Grotesque", system-ui, sans-serif;
   --font-prose: "Newsreader", Georgia, serif;
@@ -36,9 +40,9 @@
   color-scheme: light;
 }
 
-:root[data-phase="dawn"] { --sky-top: #9fb5da; --sky-bottom: #f5cfb2; --ridge-far: #b5aabd; --ridge-mid: #6d7890; }
-:root[data-phase="dusk"] { --sky-top: #5b5899; --sky-bottom: #ee9f80; --ridge-far: #8d7f9f; --ridge-mid: #4a5370; --sky-ink: #fdf6ef; --sky-ink-2: #f3e3d8; --arc: rgba(253, 246, 239, 0.4); }
-:root[data-phase="night"] { --sky-top: #0e1432; --sky-bottom: #2a3366; --ridge-far: #2b3558; --ridge-mid: #1d2644; --sky-ink: #eef1ff; --sky-ink-2: #c6cdee; --arc: rgba(238, 241, 255, 0.3); }
+:root[data-phase="dawn"] { --sky-top: #9fb5da; --sky-bottom: #f5cfb2; --sky-glow: #fbb98c; --ridge-far: #b5aabd; --ridge-mid: #6d7890; }
+:root[data-phase="dusk"] { --sky-top: #5b5899; --sky-bottom: #ee9f80; --sky-glow: #f7b56a; --dither-strength: 0.2; --ridge-far: #8d7f9f; --ridge-mid: #4a5370; --sky-ink: #fdf6ef; --sky-ink-2: #f3e3d8; --arc: rgba(253, 246, 239, 0.4); }
+:root[data-phase="night"] { --sky-top: #0e1432; --sky-bottom: #2a3366; --sky-glow: #4e4385; --dither-strength: 0.24; --ridge-far: #2b3558; --ridge-mid: #1d2644; --sky-ink: #eef1ff; --sky-ink-2: #c6cdee; --arc: rgba(238, 241, 255, 0.3); }
 
 /* Dark mode: chosen with the switch (data-theme), or following the system when nothing is chosen. */
 :root[data-theme="dark"] {
@@ -57,8 +61,8 @@
     --low: #7b878d;
     color-scheme: dark;
   }
-:root[data-theme="dark"][data-phase="day"] { --sky-top: #3d6f93; --sky-bottom: #8fb3c8; --ridge-far: #5d7c8a; --ridge-mid: #2f4d55; }
-:root[data-theme="dark"][data-phase="dawn"] { --sky-top: #3f4f7c; --sky-bottom: #b9877a; --ridge-far: #6b6480; --ridge-mid: #353c55; }
+:root[data-theme="dark"][data-phase="day"] { --sky-top: #3d6f93; --sky-bottom: #8fb3c8; --sky-glow: #c9c19f; --dither-strength: 0.2; --ridge-far: #5d7c8a; --ridge-mid: #2f4d55; }
+:root[data-theme="dark"][data-phase="dawn"] { --sky-top: #3f4f7c; --sky-bottom: #b9877a; --sky-glow: #d48f6c; --dither-strength: 0.2; --ridge-far: #6b6480; --ridge-mid: #353c55; }
 :root[data-theme="dark"][data-phase="day"], :root[data-theme="dark"][data-phase="dawn"] { --sky-ink: #f2f6f8; --sky-ink-2: #dbe5ea; --arc: rgba(242, 246, 248, 0.35); }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -77,8 +81,8 @@
     --low: #7b878d;
     color-scheme: dark;
   }
-  :root:not([data-theme="light"])[data-phase="day"] { --sky-top: #3d6f93; --sky-bottom: #8fb3c8; --ridge-far: #5d7c8a; --ridge-mid: #2f4d55; }
-  :root:not([data-theme="light"])[data-phase="dawn"] { --sky-top: #3f4f7c; --sky-bottom: #b9877a; --ridge-far: #6b6480; --ridge-mid: #353c55; }
+  :root:not([data-theme="light"])[data-phase="day"] { --sky-top: #3d6f93; --sky-bottom: #8fb3c8; --sky-glow: #c9c19f; --dither-strength: 0.2; --ridge-far: #5d7c8a; --ridge-mid: #2f4d55; }
+  :root:not([data-theme="light"])[data-phase="dawn"] { --sky-top: #3f4f7c; --sky-bottom: #b9877a; --sky-glow: #d48f6c; --dither-strength: 0.2; --ridge-far: #6b6480; --ridge-mid: #353c55; }
   :root:not([data-theme="light"])[data-phase="day"], :root:not([data-theme="light"])[data-phase="dawn"] { --sky-ink: #f2f6f8; --sky-ink-2: #dbe5ea; --arc: rgba(242, 246, 248, 0.35); }
 }
 
@@ -88,7 +92,9 @@
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
-  background: var(--paper);
+  /* The ground deepens slowly below the landscape; the near hill above it stays the flat page colour. */
+  background: linear-gradient(to bottom, var(--paper) 48rem, var(--paper-deep)) var(--paper);
+  min-height: 100vh;
   color: var(--ink);
   font: 400 1rem/1.55 var(--font-ui);
   font-variation-settings: "opsz" 14;
@@ -207,20 +213,59 @@ label { color: var(--ink-2); font-size: 0.9rem; }
 .header-notice.has-error { border-top: 3px solid var(--rose); }
 .header-notice button { justify-self: start; background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
 
+/* ---------- The sky (every hero) ---------- */
+
+/* A deeper sky than two stops: the top colour, a blended middle, the horizon colour, then a glow low on the horizon. */
+.horizon, .trail-hero, .range-hero, .welcome {
+  background:
+    radial-gradient(ellipse 75% 55% at 50% 100%, color-mix(in srgb, var(--sky-glow) 70%, transparent), transparent 70%),
+    linear-gradient(to bottom,
+      var(--sky-top) 0%,
+      color-mix(in srgb, var(--sky-top) 55%, var(--sky-bottom)) 34%,
+      var(--sky-bottom) 64%,
+      color-mix(in srgb, var(--sky-bottom) 45%, var(--sky-glow)) 88%);
+}
+.welcome {
+  background:
+    radial-gradient(ellipse 75% 45% at 50% 85%, color-mix(in srgb, var(--sky-glow) 70%, transparent), transparent 70%),
+    linear-gradient(to bottom,
+      var(--sky-top) 0%,
+      color-mix(in srgb, var(--sky-top) 55%, var(--sky-bottom)) 42%,
+      var(--sky-bottom) 68%,
+      color-mix(in srgb, var(--sky-bottom) 45%, var(--sky-glow)) 84%,
+      var(--paper) 100%);
+}
+/* The dither covers the sky and the far ridges, and fades out before the near hill so the hill still becomes the page. */
+.horizon::after, .trail-hero::after, .range-hero::after, .welcome::after {
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: var(--dither) 0 0 / 8px 8px;
+  image-rendering: pixelated;
+  mix-blend-mode: overlay;
+  opacity: var(--dither-strength);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.45) 0%, #000 55%, #000 76%, transparent 94%);
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.45) 0%, #000 55%, #000 76%, transparent 94%);
+}
+.welcome-text { position: relative; z-index: 2; }
+
+/* Ridge fills come from the gradients in layout.tsx: each ridge fades into haze toward its foot. */
+.ridge-stop { transition: stop-color 1.2s ease; }
+.ridge-far-top { stop-color: color-mix(in srgb, var(--ridge-far) 88%, #fff); }
+.ridge-far-foot { stop-color: color-mix(in srgb, var(--ridge-far) 55%, var(--sky-glow)); }
+.ridge-mid-top { stop-color: var(--ridge-mid); }
+.ridge-mid-foot { stop-color: color-mix(in srgb, var(--ridge-mid) 72%, var(--ridge-far)); }
+
 /* ---------- The horizon ---------- */
 
 .horizon {
   position: relative; isolation: isolate; overflow: hidden;
   display: flex; flex-direction: column;
-  background: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom) 78%);
   color: var(--sky-ink);
-  transition: background 1.2s ease;
 }
 /* The drawing sits below the words, so the sun never crosses the greeting. */
 .horizon-art { order: 2; display: block; width: 100%; height: clamp(15rem, 29vw, 32rem); margin-top: -2rem; }
 .ridge { transition: fill 1.2s ease; }
-.ridge-far { fill: var(--ridge-far); }
-.ridge-mid { fill: var(--ridge-mid); }
+.ridge-far { fill: var(--ridge-far); fill: url(#ridge-far-fill) var(--ridge-far); }
+.ridge-mid { fill: var(--ridge-mid); fill: url(#ridge-mid-fill) var(--ridge-mid); }
 .ridge-near { fill: var(--paper); }
 .plume { fill: none; stroke: color-mix(in srgb, var(--sky-bottom) 60%, #fff); stroke-width: 10; stroke-linecap: round; opacity: 0.28; filter: blur(3px); transform-origin: 980px 160px; animation: plume 8s ease-in-out infinite alternate; }
 @keyframes plume { from { transform: skewX(-6deg) scaleY(0.92); opacity: 0.2; } to { transform: skewX(8deg) scaleY(1.05); opacity: 0.34; } }
@@ -234,7 +279,7 @@ label { color: var(--ink-2); font-size: 0.9rem; }
 @keyframes draw { to { stroke-dashoffset: 0; } }
 @keyframes glow-in { from { opacity: 0; stroke-width: 2; } to { opacity: 1; } }
 
-.horizon-text { order: 1; position: relative; z-index: 1; width: var(--page); margin: 0 auto; padding: 6.5rem 0 0; }
+.horizon-text { order: 1; position: relative; z-index: 2; width: var(--page); margin: 0 auto; padding: 6.5rem 0 0; }
 .horizon-date { color: var(--sky-ink-2); font: italic 400 1.15rem var(--font-prose); }
 .horizon h1 {
   max-width: 14ch; margin-top: 0.35rem;
@@ -668,10 +713,9 @@ input.note-title:focus-visible { outline: none; border-bottom-color: var(--sun);
 .project-row { text-decoration: none; color: inherit; }
 .trail-hero {
   position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column;
-  background: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom) 80%);
   color: var(--sky-ink);
 }
-.trail-text { order: 1; position: relative; z-index: 1; width: var(--page); margin: 0 auto; padding: 6rem 0 0; }
+.trail-text { order: 1; position: relative; z-index: 2; width: var(--page); margin: 0 auto; padding: 6rem 0 0; }
 .trail-back { color: var(--sky-ink-2); font-size: 0.95rem; text-decoration-color: color-mix(in srgb, var(--sky-ink) 35%, transparent); }
 .trail-hero h1 { max-width: 18ch; margin-top: 0.6rem; font-size: clamp(2.6rem, 1.5rem + 4.6vw, 5rem); font-weight: 700; line-height: 0.98; letter-spacing: -0.035em; animation: widen 1.3s var(--ease-out) both; overflow-wrap: anywhere; }
 .trail-legend { display: flex; flex-wrap: wrap; gap: 0.3rem 1.25rem; margin-top: 0.9rem; color: var(--sky-ink-2); font-size: 0.85rem; }
@@ -749,8 +793,8 @@ button.file-name:hover:not(:disabled) { background: transparent; text-decoration
 .file-hill { fill: var(--lagoon); }
 
 /* The Projects page: each project a peak, the route up it lit by the share of tasks done. */
-.range-hero { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; background: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom) 80%); color: var(--sky-ink); }
-.range-text { position: relative; z-index: 1; width: var(--page); margin: 0 auto; padding: 6rem 0 0; }
+.range-hero { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; color: var(--sky-ink); }
+.range-text { position: relative; z-index: 2; width: var(--page); margin: 0 auto; padding: 6rem 0 0; }
 .range-hero h1 { font-size: clamp(2.8rem, 1.6rem + 5vw, 5.4rem); font-weight: 700; line-height: 0.95; letter-spacing: -0.035em; animation: widen 1.3s var(--ease-out) both; }
 .range { position: relative; height: clamp(15rem, 30vw, 31rem); margin-top: -0.5rem; }
 .range-art { display: block; width: 100%; height: 100%; }
@@ -759,7 +803,7 @@ button.file-name:hover:not(:disabled) { background: transparent; text-decoration
 .range-climb { opacity: 0; animation: glow-in 500ms var(--ease-out) forwards; }
 .range-route { fill: none; stroke: color-mix(in srgb, var(--paper) 55%, transparent); stroke-width: 2; stroke-dasharray: 3 7; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .range-done { fill: none; stroke: var(--sun); stroke-width: 4; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-.range-peak { position: absolute; display: grid; justify-items: center; transform: translate(-50%, calc(-100% - 0.7rem)); max-width: 11rem; color: var(--sky-ink); text-align: center; text-decoration: none; opacity: 0; animation: rise 450ms var(--ease-out) forwards; }
+.range-peak { position: absolute; z-index: 2; display: grid; justify-items: center; transform: translate(-50%, calc(-100% - 0.7rem)); max-width: 11rem; color: var(--sky-ink); text-align: center; text-decoration: none; opacity: 0; animation: rise 450ms var(--ease-out) forwards; }
 .range-peak::after { content: ""; width: 0.55rem; height: 0.55rem; margin-top: 0.3rem; border-radius: 50%; background: var(--paper); box-shadow: 0 0 0 2px var(--sun); }
 .range-name { font-size: clamp(0.95rem, 0.85rem + 0.4vw, 1.2rem); font-weight: 700; line-height: 1.1; overflow-wrap: anywhere; }
 .range-peak small { color: var(--sky-ink-2); font-size: 0.8rem; }
@@ -780,7 +824,6 @@ button.file-name:hover:not(:disabled) { background: transparent; text-decoration
 .welcome {
   position: relative; isolation: isolate; overflow: hidden; min-height: 100vh;
   display: grid; align-content: start;
-  background: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom) 70%, var(--paper) 100%);
   color: var(--sky-ink);
 }
 .sunrise { position: absolute; inset: auto 0 0 0; width: 100%; height: 72vh; z-index: -1; }
@@ -835,4 +878,5 @@ button.file-name:hover:not(:disabled) { background: transparent; text-decoration
   .arc { stroke-dashoffset: 0; }
   .arc-block { opacity: 1; }
   .plume { animation: none; }
+  .ridge-stop { transition: none; }
 }
