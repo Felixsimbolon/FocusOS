@@ -31,7 +31,11 @@ export function openQuestions(job: Job): string[] {
   const questions: string[] = [];
   if (job.status === "failed" && job.safe_error === "request_ambiguous" && typeof result.message === "string") questions.push(result.message);
   const schedules = Array.isArray(result.schedules) ? result.schedules as ScheduleOutcome[] : [];
-  for (const item of schedules) if (item.status === "clarify" && item.message) questions.push(`${item.title || "Schedule"}: ${item.message}`);
+  const asking = schedules.filter(item => item.status === "clarify" && item.message);
+  // A failed request repeats its one schedule's question as its message: ask it once. Name the part only
+  // when several parts ask, since a lone question needs no label.
+  for (const item of asking) if (!questions.includes(item.message as string))
+    questions.push(asking.length > 1 ? `${item.title || "Schedule"}: ${item.message}` : item.message as string);
   return questions.slice(0, 3);
 }
 export type Thread = { runId: string; request: string; questions: string[] };

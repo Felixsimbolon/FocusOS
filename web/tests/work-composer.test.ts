@@ -80,7 +80,13 @@ describe("inferred composer feedback",() => {
     const ambiguous = { ...job("failed", { message: "Which task do you mean?" }), safe_error: "request_ambiguous" };
     expect(openQuestions(ambiguous)).toEqual(["Which task do you mean?"]);
     expect(openQuestions(job("succeeded", { schedules: [{ title: "Saved task", status: "clarify", message: "Web or review?" },
-      { title: "Python", status: "scheduled" }] }))).toEqual(["Saved task: Web or review?"]);
+      { title: "Python", status: "scheduled" }] }))).toEqual(["Web or review?"]);
+    // A failed request repeats its schedule's question as its message; it is asked once, without a label.
+    const repeated = { ...job("failed", { message: "Tugas yang mana?", schedules: [{ title: "Saved task", status: "clarify", message: "Tugas yang mana?" }] }),
+      safe_error: "request_ambiguous" };
+    expect(openQuestions(repeated)).toEqual(["Tugas yang mana?"]);
+    expect(openQuestions(job("succeeded", { schedules: [{ title: "Web", status: "clarify", message: "Which day?" },
+      { title: "Review", status: "clarify", message: "How long?" }] }))).toEqual(["Web: Which day?", "Review: How long?"]);
     expect(openQuestions({ ...job("failed", { message: "Reconnect Google." }), safe_error: "calendar_reconnect_required" })).toEqual([]);
     const html = renderToStaticMarkup(React.createElement(ReplyThread, { thread: { runId: "run", request: "Cari waktu besok untuk task itu", questions: ["Saved task: Web or review?"] }, onDismiss: () => undefined }));
     expect(html).toContain("Cari waktu besok untuk task itu");
