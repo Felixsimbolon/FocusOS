@@ -11,6 +11,7 @@ import re
 from typing import Annotated, Literal
 from uuid import UUID, uuid5
 
+import logging
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from fastapi import APIRouter, Depends, HTTPException
@@ -36,6 +37,15 @@ from focusos_api.jobs import Step, RetryStep, JobInput, enqueue_job
 from focusos_api.job_routes import access, call
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+INTENT_ATTEMPTS = 2  # a rejected reading is asked for again at once before the job waits
+
+
+class InvalidIntent(Exception):
+    """The model's reading broke a rule; reason is a fixed code, never user text."""
+    def __init__(self, reason: str):
+        self.reason = reason
+        super().__init__(reason)
 MAX_SCHEDULES = 3       # parts the model may ask for
 MAX_PLANNED_PARTS = 12  # plus routine occurrences the server adds
 EMBEDDINGS_PER_STEP = 4
@@ -205,50 +215,58 @@ def infer_work(text: str, tasks: list[dict], reference: str, zone: str, conversa
         grounding = f"{conversation['previous_request']}\n{text}"
     # Never expose database IDs to the model.
     for task in context["tasks"]: task.pop("id", None); task.pop("source_id", None); task.pop("project_id", None)
-    try:
-        data = request(structured_payload(instruction, json.dumps(context, ensure_ascii=False), schema, 2400), timeout=25, max_bytes=65536, purpose="intent")
-        intent = WorkIntent.model_validate(json.loads(output_text(data)))
-    except (httpx.HTTPError, GeminiResponseError, ValueError, ValidationError) as exc:
-        raise RetryStep("intent_unavailable", 60) from exc
-    known = {f"task-{i+1}" for i in range(len(tasks))}
-    if len(intent.schedules) > MAX_SCHEDULES or any(schedule.occurrence for schedule in intent.schedules):
-        raise RetryStep("intent_invalid", 60)
-    for routine in intent.routines:
-        title = routine.title_quote.strip().lower()
-        if (_squash(routine.request_quote) not in _squash(grounding) or not title or title not in routine.request_quote.lower()
-                or len(set(routine.weekdays)) != len(routine.weekdays)
-                or routine_rules.minutes(routine.start_time) + routine.duration_minutes > 1440):
-            raise RetryStep("intent_invalid", 60)
-        if routine.ends_on is not None:
-            try: ends = date.fromisoformat(routine.ends_on)
-            except ValueError as exc: raise RetryStep("intent_invalid", 60) from exc
-            if ends < datetime.fromisoformat(reference).date(): raise RetryStep("intent_invalid", 60)
-    schedules = []
-    for schedule in intent.schedules:
-        selection, refs = schedule.selection, schedule.selection.task_refs
-        if _squash(schedule.request_quote) not in _squash(grounding): raise RetryStep("intent_invalid", 60)
-        if len(refs) != len(set(refs)) or any(ref not in known for ref in refs): raise RetryStep("intent_invalid", 60)
-        if selection.evidence_refs: raise RetryStep("intent_invalid", 60)
-        if selection.status == "needs_clarification":
-            if refs or not selection.questions: raise RetryStep("intent_invalid", 60)
-            schedules.append(schedule); continue
-        if selection.questions: raise RetryStep("intent_invalid", 60)
-        if schedule.target == "existing" and not refs: raise RetryStep("intent_invalid", 60)
-        if schedule.target != "existing" and refs: raise RetryStep("intent_invalid", 60)
-        if schedule.target == "new" and not intent.capture: raise RetryStep("intent_invalid", 60)
-        title = (schedule.title_quote or "").strip().lower()
-        if schedule.target == "activity" and not title: raise RetryStep("intent_invalid", 60)
-        # The database only accepts a standalone event title found in its run's command.
-        if title and (title not in grounding.lower() or title not in schedule.request_quote.lower()): raise RetryStep("intent_invalid", 60)
-        grounded = grounded_sessions(constraint_text(intent, schedule, grounding, bool(conversation)), reference, zone)
-        if grounded:
-            schedule = schedule.model_copy(update={"selection": selection.model_copy(update={
-                "sessions": grounded, "day": "any", "date": None, "duration_minutes": grounded.minutes})})
-        schedules.append(schedule)
-    intent = intent.model_copy(update={"schedules": schedules})
-    if not (intent.capture or intent.questions or intent.schedules or intent.routines) and not (intent.clarification or "").strip():
-        raise RetryStep("intent_invalid", 60)
-    return intent
+    def read() -> WorkIntent:
+        try:
+            data = request(structured_payload(instruction, json.dumps(context, ensure_ascii=False), schema, 2400), timeout=25, max_bytes=65536, purpose="intent")
+            intent = WorkIntent.model_validate(json.loads(output_text(data)))
+        except (httpx.HTTPError, GeminiResponseError, ValueError, ValidationError) as exc:
+            raise RetryStep("intent_unavailable", 60) from exc
+        known = {f"task-{i+1}" for i in range(len(tasks))}
+        if len(intent.schedules) > MAX_SCHEDULES or any(schedule.occurrence for schedule in intent.schedules):
+            raise InvalidIntent("too_many_schedules")
+        for routine in intent.routines:
+            title = routine.title_quote.strip().lower()
+            if (_squash(routine.request_quote) not in _squash(grounding) or not title or title not in routine.request_quote.lower()
+                    or len(set(routine.weekdays)) != len(routine.weekdays)
+                    or routine_rules.minutes(routine.start_time) + routine.duration_minutes > 1440):
+                raise InvalidIntent("routine_ungrounded")
+            if routine.ends_on is not None:
+                try: ends = date.fromisoformat(routine.ends_on)
+                except ValueError as exc: raise InvalidIntent("routine_end_date") from exc
+                if ends < datetime.fromisoformat(reference).date(): raise InvalidIntent("routine_end_passed")
+        schedules = []
+        for schedule in intent.schedules:
+            selection, refs = schedule.selection, schedule.selection.task_refs
+            if _squash(schedule.request_quote) not in _squash(grounding): raise InvalidIntent("schedule_ungrounded")
+            if len(refs) != len(set(refs)) or any(ref not in known for ref in refs): raise InvalidIntent("unknown_task_ref")
+            if selection.evidence_refs: raise InvalidIntent("evidence_refs")
+            if selection.status == "needs_clarification":
+                if refs or not selection.questions: raise InvalidIntent("clarification_shape")
+                schedules.append(schedule); continue
+            if selection.questions: raise InvalidIntent("questions_on_selected")
+            if schedule.target == "existing" and not refs: raise InvalidIntent("existing_without_refs")
+            if schedule.target != "existing" and refs: raise InvalidIntent("refs_on_new_or_activity")
+            if schedule.target == "new" and not intent.capture: raise InvalidIntent("new_without_capture")
+            title = (schedule.title_quote or "").strip().lower()
+            if schedule.target == "activity" and not title: raise InvalidIntent("activity_without_title")
+            # The database only accepts a standalone event title found in its run's command.
+            if title and (title not in grounding.lower()
+                          or (schedule.target == "activity" and title not in schedule.request_quote.lower())): raise InvalidIntent("title_ungrounded")
+            grounded = grounded_sessions(constraint_text(intent, schedule, grounding, bool(conversation)), reference, zone)
+            if grounded:
+                schedule = schedule.model_copy(update={"selection": selection.model_copy(update={
+                    "sessions": grounded, "day": "any", "date": None, "duration_minutes": grounded.minutes})})
+            schedules.append(schedule)
+        intent = intent.model_copy(update={"schedules": schedules})
+        if not (intent.capture or intent.questions or intent.schedules or intent.routines) and not (intent.clarification or "").strip():
+            raise InvalidIntent("empty_intent")
+        return intent
+
+    for attempt in range(1, INTENT_ATTEMPTS + 1):
+        try: return read()
+        except InvalidIntent as exc:
+            logger.info("intent_invalid reason=%s attempt=%s", exc.reason, attempt)
+    raise RetryStep("intent_invalid", 60)
 
 
 def start_work(token: str, request_input: WorkInput):

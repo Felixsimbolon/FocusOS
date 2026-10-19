@@ -66,6 +66,15 @@ class JobsTests(unittest.TestCase):
     def test_exception_text_is_not_exposed(self):
         _,args,_=self.run_worker(RuntimeError("private session and email"))
         self.assertEqual(args["p_error"],"worker_error"); self.assertNotIn("private",json.dumps(args))
+    def test_google_reconnect_is_reported_instead_of_a_crash(self):
+        from focusos_api.google_calendar import CalendarReconnectRequired
+        from focusos_api.calendar_write import CalendarWriteReconnect
+        from focusos_api.google_tokens import GoogleReconnectRequired
+        for cause in (CalendarReconnectRequired(), CalendarWriteReconnect(), GoogleReconnectRequired()):
+            with self.subTest(cause=type(cause).__name__):
+                _,args,_=self.run_worker(cause)
+                # Retrying cannot help until Google is connected again, so the job stops with a reason the page explains.
+                self.assertEqual((args["p_status"],args["p_error"],args["p_failure"]),("failed","calendar_reconnect_required",False))
     def test_idle_has_no_provider_call(self):
         with patch.object(jobs,"_service_rpc",return_value=None),patch.object(jobs,"_step") as step:
             self.assertEqual(jobs.work_one(),{"state":"idle"}); step.assert_not_called()

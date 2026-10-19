@@ -206,6 +206,26 @@ class IntentContractTests(unittest.TestCase):
                     self.infer(value.model_dump())
                 self.assertEqual(raised.exception.code, "intent_invalid")
 
+    def test_new_task_may_be_named_outside_the_schedule_sentence(self):
+        text = "tambahin task bikin fitur reminder di project FocusOS, deadline selasa depan. pecah aja jadi sesi 2 jam minggu ini, sore-sore."
+        schedule = ScheduleIntent(target="new", title_quote="bikin fitur reminder",
+                                  request_quote="pecah aja jadi sesi 2 jam minggu ini, sore-sore", selection=sel())
+        result = self.infer(plan(capture=True, schedules=[schedule]).model_dump(), text=text)
+        self.assertEqual((result.schedules[0].target, result.schedules[0].title_quote), ("new", "bikin fitur reminder"))
+
+    def test_a_rejected_reading_is_asked_for_again_at_once(self):
+        bad = plan(capture=True, schedules=[activity("siapkan slide", SCHEDULE)]).model_dump()
+        good = plan(capture=True, schedules=[activity("belajar Python", SCHEDULE)]).model_dump()
+        reply = lambda value: {"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": json.dumps(value)}]}}]}
+        for answers, succeeds in (([bad, good], True), ([bad, bad], False)):
+            with self.subTest(succeeds=succeeds), patch("focusos_api.unified_commands.api_key", return_value="synthetic"),                  patch("focusos_api.unified_commands.request", side_effect=[reply(value) for value in answers]) as called:
+                if succeeds:
+                    self.assertEqual(infer_work(COMBINED, [], NOW.isoformat(), PROFILE.timezone).schedules[0].title_quote, "belajar Python")
+                else:
+                    with self.assertRaises(RetryStep) as raised: infer_work(COMBINED, [], NOW.isoformat(), PROFILE.timezone)
+                    self.assertEqual(raised.exception.code, "intent_invalid")
+                self.assertEqual(called.call_count, 2)
+
     def test_combined_request_binds_constraints_to_each_quoted_part(self):
         schedule = activity("belajar Python", SCHEDULE)
         self.assertEqual(constraint_text(plan(schedules=[schedule]), schedule, COMBINED), COMBINED)

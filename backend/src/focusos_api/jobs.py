@@ -12,6 +12,9 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from focusos_api import observability
 from focusos_api.database import DatabaseUnavailable, InvalidSession, scoped_client, service_client
 from focusos_api.token_crypto import TokenCipher, TokenCipherError
+from focusos_api.google_calendar import CalendarReconnectRequired
+from focusos_api.calendar_write import CalendarWriteReconnect
+from focusos_api.google_tokens import GoogleReconnectRequired
 
 logger = logging.getLogger(__name__)
 JOB_SELECT = "id,kind,subject_id,status,result,safe_error,steps,failures,available_at,expires_at,created_at,updated_at"
@@ -311,6 +314,9 @@ def work_one(job_id: UUID | None = None, owner: str | None = None) -> dict:
                     "message": "Today's AI usage limit is reached. Saved results are kept; try again tomorrow."}, "llm_budget_exceeded")
     except InvalidSession:
         step = Step("expired", claimed.get("checkpoint", {}), error="session_expired")
+    except (CalendarReconnectRequired, CalendarWriteReconnect, GoogleReconnectRequired):
+        # Retrying cannot help until Google is connected again; saved tasks and booked blocks stay.
+        step = Step("failed", claimed.get("checkpoint", {}), result=claimed.get("result"), error="calendar_reconnect_required")
     except RetryStep as exc:
         step = Step(checkpoint=claimed.get("checkpoint", {}), result=claimed.get("result"), error=exc.code,
                     delay=min(900, max(exc.delay, 15 * 2 ** min(claimed.get("failures", 0), 5))), failure=True)

@@ -75,7 +75,9 @@ export function workMessage(job: Job): string {
         : "Could not finish this request. Any saved results are kept. Check existing tasks and Calendar before resubmitting.";
     return `${message}${saved || memories ? ` Already saved: ${saved} task(s), ${memories} memories.` : ""}${Number(result.blocks_scheduled) > 0 ? ` Already scheduled: ${Number(result.blocks_scheduled)} block(s). Check Calendar before retrying.` : ""}`;
   }
-  if (job.safe_error) return `Service temporarily unavailable. Retrying after ${new Date(job.available_at).toLocaleTimeString()}...`;
+  const retryAt = new Date(job.available_at).toLocaleTimeString();
+  if (job.safe_error === "intent_invalid") return `Still working out what this request means. Trying again at ${retryAt}...`;
+  if (job.safe_error) return `Service temporarily unavailable. Retrying after ${retryAt}...`;
   return result.intent === "schedule" || result.intent === "both" ? "Finding a free slot and adding it to Calendar..."
     : result.intent === "question" ? "Looking through your tasks and memories..." : "Understanding and organizing your request...";
 }
