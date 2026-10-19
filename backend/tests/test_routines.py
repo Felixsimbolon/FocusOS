@@ -41,6 +41,14 @@ class OccurrenceTests(unittest.TestCase):
         limits = explicit_constraints(constraint_text(plan(), schedule, "ignored"))
         self.assertEqual(limits, {"start_time": "07:00", "end_time": "08:00", "day": "date", "date": "2026-10-20"})
 
+    def test_indonesian_part_of_day_sets_both_ends_of_a_range(self):
+        cases = {"blokir jumat jam 4-6 sore buat futsal": ("16:00", "18:00"), "jam 7-9 pagi": ("07:00", "09:00"),
+                 "jam 1-3 siang": ("13:00", "15:00"), "jam 7-9 malam": ("19:00", "21:00"), "jam 16-18": ("16:00", "18:00")}
+        for text, (start, end) in cases.items():
+            with self.subTest(text=text):
+                limits = explicit_constraints(text)
+                self.assertEqual((limits["start_time"], limits["end_time"]), (start, end))
+
     def test_only_dates_the_database_lets_this_request_claim_are_booked(self):
         run_id = uuid4()
         with patch.object(rules, "claim", return_value=[date(2026, 10, 22)]) as claim:

@@ -7,6 +7,13 @@ NUMBER = r"(?:[0-9]+(?:[.,][0-9]+)?|one|two|three|half|satu|dua|tiga|setengah)"
 UNITS = r"(?:minutes?|mins?|menit|hours?|hrs?|jam)"
 
 
+def _day_part(clock: str, period: str) -> str:
+    hour, minute = int(clock[:2]), clock[3:]
+    if period == "siang" and 1 <= hour <= 6: hour += 12
+    elif period in ("sore", "malam") and 1 <= hour <= 11: hour += 12
+    return f"{hour:02d}:{minute}"
+
+
 def explicit_constraints(command: str) -> dict:
     # A quoted task title may itself contain dates or durations.
     text = re.sub(r'"[^"\n]*"', ' ', command.lower())
@@ -22,7 +29,12 @@ def explicit_constraints(command: str) -> dict:
         def normalize(value):
             parts = value.replace('.', ':').split(':')
             return f"{int(parts[0]):02d}:{int(parts[1]) if len(parts)>1 else 0:02d}"
-        result.update(start_time=normalize(ranges[0][1]), end_time=normalize(ranges[0][2]))
+        start_clock, end_clock = normalize(ranges[0][1]), normalize(ranges[0][2])
+        # "jam 4-6 sore" is 16:00-18:00: an Indonesian part of day after the range sets both ends.
+        period = re.match(r"\s*(pagi|siang|sore|malam)\b", text[ranges[0].end():])
+        if period:
+            start_clock, end_clock = (_day_part(value, period[1]) for value in (start_clock, end_clock))
+        result.update(start_time=start_clock, end_time=end_clock)
         # Remove clock ranges before interpreting durations such as '30 minutes'.
         text = text[:ranges[0].start()] + ' ' + text[ranges[0].end():]
     if re.search(r"[0-9]+\s*(?:-|to|hingga|sampai)\s*[0-9]+\s*" + UNITS, text):

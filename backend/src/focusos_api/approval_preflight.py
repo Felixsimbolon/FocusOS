@@ -78,7 +78,7 @@ def check_approval_preflight(access_token: str, approval: ApprovalRecord,
         run = load_command_run(access_token, approval.run_id)
         block = (run.result or {}).get("blocks", [])
         if (run.status != "succeeded" or (run.result or {}).get("status") != "proposed"
-            or run.checkpoint.get("auto_calendar") is not True or run.checkpoint.get("entrypoint") != "unified"
+            or run.checkpoint.get("auto_calendar") is not True or run.checkpoint.get("entrypoint") not in ("unified", "unified_schedule")
             or run.checkpoint.get("standalone_title") != action.title or action.block_index >= len(block)):
             raise ApprovalStale("standalone_changed")
         saved = block[action.block_index]

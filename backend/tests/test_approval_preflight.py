@@ -1,4 +1,4 @@
-﻿import unittest
+import unittest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 from uuid import uuid4
@@ -56,3 +56,19 @@ class PreflightTests(unittest.TestCase):
         busy={"id":"busy","summary":"Private","status":"confirmed","start":{"dateTime":a.payload.start.isoformat()},
               "end":{"dateTime":a.payload.end.isoformat()}}
         with self.assertRaises(ApprovalStale): self.check(a,t,c,p,CalendarWindow(w.start,w.end,w.fetched_at,"primary","UTC",(busy,)))
+
+class StandalonePreflightTests(PreflightTests):
+    def test_activity_from_a_later_schedule_part_passes(self):
+        from types import SimpleNamespace
+        a,_,c,p,w=fixture()
+        action=a.payload.model_copy(update={"task_id":None,"task_version":None,"title":"futsal"})
+        a=a.model_copy(update={"task_id":None,"payload":action})
+        block={"task_id":None,"title":"futsal","start":action.start.isoformat(),"end":action.end.isoformat()}
+        for entrypoint,passes in (("unified",True),("unified_schedule",True),("agent",False)):
+            run=SimpleNamespace(status="succeeded",result={"status":"proposed","blocks":[block]},
+                checkpoint={"auto_calendar":True,"entrypoint":entrypoint,"standalone_title":"futsal"})
+            with self.subTest(entrypoint=entrypoint), patch("focusos_api.agent_continuation.load_command_run",return_value=run):
+                if passes: self.assertEqual(self.check(a,None,c,p,w).busy_event_count,0)
+                else:
+                    with self.assertRaises(ApprovalStale): self.check(a,None,c,p,w)
+
