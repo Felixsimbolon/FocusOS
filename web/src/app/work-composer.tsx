@@ -1,5 +1,6 @@
 "use client";
 import { LOCALE } from "./locale";
+import { FILE_ACCEPT, FILE_KINDS, fileType } from "@/lib/files";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { PaginatedItems } from "./paginated-items";
 import { type Job } from "./jobs/client";
@@ -85,7 +86,6 @@ export function workMessage(job: Job): string {
   return result.intent === "schedule" || result.intent === "both" ? "Finding a free slot and adding it to Calendar..."
     : result.intent === "question" ? "Looking through your tasks and memories..." : "Understanding and organizing your request...";
 }
-const ATTACH_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
 type Attachment = { name: string; state: "reading" | "done" | "error"; message: string };
 /** What a finished document capture saved, in the same words as a typed request. */
 export function documentMessage(job: Job, name: string): string {
@@ -167,7 +167,7 @@ export function WorkComposer() {
     } catch (cause) { if (!tracking.signal.aborted) { setMessage(""); setError(cause instanceof Error ? cause.message : "Could not submit. Retry the same text."); setBusy(false); } }
   }
   async function attach(file: File) {
-    if (!ATTACH_TYPES.includes(file.type)) { setAttachment({ name: file.name, state: "error", message: "Attach a PDF, PNG, JPEG or WebP file." }); return; }
+    if (!fileType(file)) { setAttachment({ name: file.name, state: "error", message: `Attach a ${FILE_KINDS} file.` }); return; }
     if (file.size > 3_000_000) { setAttachment({ name: file.name, state: "error", message: "Attach a file of at most 3 MB." }); return; }
     setAttachment({ name: file.name, state: "reading", message: `Reading ${file.name}…` });
     const form = new FormData(); form.set("file", file); form.set("request_key", crypto.randomUUID());
@@ -184,7 +184,7 @@ export function WorkComposer() {
   function pickFile() {
     // Created on demand so the composer stays a single text field until a file is wanted.
     const input = document.createElement("input");
-    input.type = "file"; input.accept = ".pdf,image/png,image/jpeg,image/webp";
+    input.type = "file"; input.accept = FILE_ACCEPT;
     input.onchange = () => { const file = input.files?.[0]; if (file) void attach(file); };
     input.click();
   }
@@ -200,7 +200,7 @@ export function WorkComposer() {
       <div className="composer-bar">
         {!thread && <button type="button" className="quiet attach" onClick={pickFile} disabled={busy || attachment?.state === "reading"}>
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M13.5 6.5 7.8 12.2a1.6 1.6 0 0 0 2.3 2.3l6-6a3.2 3.2 0 0 0-4.5-4.5l-6.2 6.2a4.8 4.8 0 0 0 6.8 6.8l4.3-4.3" /></svg>
-          Attach a PDF or photo</button>}
+          Attach a file</button>}
         <span className="composer-count" aria-label={`${text.length} of 1000 characters`}>{text.length.toLocaleString()} / 1,000</span>
         <button type="submit" className="button composer-send" disabled={busy || !text.trim()}>{busy ? <><span className="composer-progress" aria-hidden="true" />Working...</> : thread ? "Send reply" : "Send request"}</button>
       </div>

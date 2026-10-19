@@ -1,7 +1,7 @@
 "use client";
 import { LOCALE } from "../locale";
 import { FormEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
-import { FILE_TYPES, MAX_FILE_BYTES } from "@/lib/files";
+import { DOCX, FILE_ACCEPT, FILE_KINDS, MAX_FILE_BYTES, fileType } from "@/lib/files";
 import { type Job } from "../jobs/client";
 import { followOrganization } from "../organization";
 import { NotesPanel } from "../notes/notes-panel";
@@ -142,7 +142,8 @@ function Schedule({ detail, today }: { detail: ProjectDetail; today: string }) {
 }
 
 function FileGlyph({ mime }: { mime: string }) {
-  const pdf = mime === "application/pdf";
+  // Pages of text for documents (PDF, Word, Markdown); a landscape for photos.
+  const pdf = mime === "application/pdf" || mime === DOCX || mime.startsWith("text/");
   return <svg className={`file-glyph${pdf ? " is-pdf" : " is-image"}`} viewBox="0 0 32 40" aria-hidden="true">
     <path className="file-sheet" d="M3 1h18l8 8v28a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2z" /><path className="file-fold" d="M21 1v8h8" />
     {pdf ? <><path className="file-line" d="M7 18h18M7 23h18M7 28h12" /></>
@@ -156,7 +157,7 @@ function Files({ detail, onChanged }: { detail: ProjectDetail; onChanged: () => 
   const [over, setOver] = useState(false);
   const picker = useRef<HTMLInputElement | null>(null);
   async function upload(file: File) {
-    if (!FILE_TYPES.includes(file.type)) { setNotice("Add a PDF, PNG, JPEG or WebP file."); return; }
+    if (!fileType(file)) { setNotice(`Add a ${FILE_KINDS} file.`); return; }
     if (file.size > MAX_FILE_BYTES) { setNotice("This file is larger than 3 MB. Compress it or split it first."); return; }
     setUploading(file.name); setNotice("");
     const form = new FormData(); form.append("id", crypto.randomUUID()); form.append("file", file);
@@ -188,9 +189,9 @@ function Files({ detail, onChanged }: { detail: ProjectDetail; onChanged: () => 
     onDragOver={event => { event.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
     onDrop={event => { event.preventDefault(); setOver(false); const file = event.dataTransfer.files[0]; if (file) void upload(file); }}>
     <div className="files-add">
-      <button type="button" className="button" onClick={() => picker.current?.click()} disabled={!!uploading}>Add a PDF or photo</button>
-      <input ref={picker} type="file" hidden accept={FILE_TYPES.join(",")} onChange={event => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
-      <p className="quiet-line">PDF, PNG, JPEG or WebP up to 3 MB, or drop a file anywhere here. Briefs you analyse for this project appear here too.</p>
+      <button type="button" className="button" onClick={() => picker.current?.click()} disabled={!!uploading}>Add a file</button>
+      <input ref={picker} type="file" hidden accept={FILE_ACCEPT} onChange={event => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
+      <p className="quiet-line">PDF, Word, Markdown or a photo, up to 3 MB. You can also drop a file anywhere here. Briefs you analyse for this project appear here too.</p>
     </div>
     {notice && <p role="alert" className="notice notice-error">{notice}</p>}
     <ul className="file-list">

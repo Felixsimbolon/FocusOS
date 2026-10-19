@@ -2,10 +2,9 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { getServerAccessToken } from "@/server/auth/session";
 import { runBackgroundJob } from "@/server/jobs";
 import { UUID_PATTERN, forward, jsonBody, relayError } from "@/server/forward";
+import { FILE_KINDS, MAX_FILE_BYTES, fileType } from "@/lib/files";
 export const maxDuration = 120;
 type Context = { params: Promise<{ path?: string[] }> };
-const FILE_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/webp"];
-const MAX_BYTES = 3_000_000;
 const LEVELS = ["understood", "partly", "not"];
 
 export async function GET(request: NextRequest, context: Context) {
@@ -34,10 +33,11 @@ export async function POST(request: NextRequest, context: Context) {
     const file = form.get("file"), key = form.get("request_key");
     if (!(file instanceof File) || typeof key !== "string" || !UUID_PATTERN.test(key) || [...form.keys()].some(name => !["file", "request_key"].includes(name)))
       return NextResponse.json({ error: "Attach one file." }, { status: 400 });
-    if (!FILE_TYPES.includes(file.type)) return NextResponse.json({ error: "Attach a PDF, PNG, JPEG or WebP file." }, { status: 415 });
-    if (file.size > MAX_BYTES) return NextResponse.json({ error: "Attach a file of at most 3 MB." }, { status: 413 });
+    const type = fileType(file);
+    if (!type) return NextResponse.json({ error: `Attach a ${FILE_KINDS} file.` }, { status: 415 });
+    if (file.size > MAX_FILE_BYTES) return NextResponse.json({ error: "Attach a file of at most 3 MB." }, { status: 413 });
     target = "/assignments"; timeout = 90_000;
-    body = JSON.stringify({ request_key: key, filename: file.name.slice(0, 120) || "assignment", mime_type: file.type,
+    body = JSON.stringify({ request_key: key, filename: file.name.slice(0, 120) || "assignment", mime_type: type,
       data: Buffer.from(await file.arrayBuffer()).toString("base64") });
   } else {
     if (path.length !== 2 || !UUID_PATTERN.test(path[0]) || !["analyze", "understanding", "plan"].includes(path[1]))

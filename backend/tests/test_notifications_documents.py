@@ -102,6 +102,16 @@ class SendTests(unittest.TestCase):
 PDF = base64.b64encode(b"%PDF-1.7\n" + b"x" * 64).decode()
 
 
+def docx(body: str, doctype: bool = False) -> bytes:
+    """A minimal Word file: just word/document.xml with the given body."""
+    import io, zipfile
+    xml = ('<?xml version="1.0"?>' + ('<!DOCTYPE w:document [<!ENTITY a "aaaa">]>' if doctype else "")
+           + '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' + body + "</w:body></w:document>")
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive: archive.writestr("word/document.xml", xml)
+    return buffer.getvalue()
+
+
 def document(**changes):
     return DocumentInput.model_validate({"request_key": str(uuid4()), "filename": "silabus.pdf", "mime_type": "application/pdf", "data": PDF, **changes})
 
@@ -134,6 +144,27 @@ class DocumentTests(unittest.TestCase):
         self.assertEqual(create.call_args.args[2].title, "Document: silabus.pdf")
         self.assertEqual((enqueue.call_args.args[1].kind, enqueue.call_args.args[1].subject_id), ("source", source.id))
         self.assertEqual(result["source_id"], str(source.id))
+
+    def test_word_and_markdown_briefs_are_read_without_a_model(self):
+        markdown = document(filename="tugas.md", mime_type="text/markdown",
+                            data=base64.b64encode("﻿# Tugas 2\r\n- Deadline 28 Oktober\r\n".encode()).decode())
+        word = document(filename="tugas.docx", mime_type=documents.DOCX, data=base64.b64encode(docx(
+            '<w:p><w:r><w:t>Tugas 2 Statistika</w:t></w:r></w:p>'
+            '<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/></w:numPr></w:pPr><w:r><w:t>Deadline 28 Oktober</w:t></w:r></w:p>'
+            '<w:tbl><w:tr><w:tc><w:p><w:r><w:t>Bobot</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>30%</w:t></w:r></w:p></w:tc></w:tr></w:tbl>')).decode())
+        with patch.object(documents, "gemini_request") as call:
+            self.assertEqual(documents.transcribe(markdown), "# Tugas 2\n- Deadline 28 Oktober")
+            self.assertEqual(documents.transcribe(word), "Tugas 2 Statistika\n- Deadline 28 Oktober\nBobot | 30%")
+        call.assert_not_called()
+
+    def test_broken_or_unsafe_word_and_text_files_are_refused(self):
+        bad = [document(mime_type=documents.DOCX),  # a PDF named as Word
+               document(mime_type=documents.DOCX, data=base64.b64encode(b"PK\x03\x04 not really a zip").decode()),
+               document(mime_type=documents.DOCX, data=base64.b64encode(docx("", doctype=True)).decode()),
+               document(mime_type="text/plain", data=base64.b64encode(b"\xff\xfe\x00b\x00a\x00d").decode())]
+        for item in bad:
+            with self.subTest(item.mime_type), self.assertRaises(DocumentRejected):
+                documents.transcribe(item)
 
     def test_unreadable_or_empty_documents_get_clear_answers(self):
         with patch.object(documents, "transcribe", return_value=""), self.assertRaises(HTTPException) as empty:

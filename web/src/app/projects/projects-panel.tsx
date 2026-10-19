@@ -45,7 +45,7 @@ export function ProjectsPanel({ initial, onProjects }: { initial?: ProjectSummar
   }
   return <div className="projects">
     <div className="projects-actions">
-      <button type="button" className="button" onClick={() => setFlow({ assignment: null })}>Analisis tugas dari PDF</button>
+      <button type="button" className="button" onClick={() => setFlow({ assignment: null })}>Analisis tugas dari file</button>
       <form className="add-project" onSubmit={event => void add(event)}>
         <label className="sr-only" htmlFor="project-name">Project name</label>
         <input id="project-name" value={name} maxLength={100} placeholder="Nama proyek, misalnya Skripsi" onChange={event => setName(event.target.value)} />

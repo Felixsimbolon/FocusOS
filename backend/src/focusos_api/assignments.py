@@ -1,7 +1,7 @@
 """Assignments: a PDF brief becomes study sessions and subtasks, tagged with a project.
 
 The flow is deliberately a conversation in steps, each saved so it can be resumed:
-1. upload   - the PDF is transcribed (as documents.py) and kept as a source;
+1. upload   - the brief (PDF, photo, Word or Markdown) is read (as documents.py) and kept as a source;
 2. analyse  - the model summarises the brief: deliverables (quoted), the deadline (quoted),
               the concepts it requires, and a breakdown into subtasks;
 3. ask      - the user says, concept by concept, whether they already understand it;

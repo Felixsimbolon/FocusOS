@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { FILE_ACCEPT } from "@/lib/files";
 import { type Job } from "../jobs/client";
 import { followOrganization } from "../organization";
 
@@ -81,7 +82,7 @@ export function AssignmentFlow({ initial, projects, onClose, onChanged }: { init
   }
   function pick() {
     const input = document.createElement("input");
-    input.type = "file"; input.accept = ".pdf,image/png,image/jpeg,image/webp";
+    input.type = "file"; input.accept = FILE_ACCEPT;
     input.onchange = async () => {
       const file = input.files?.[0]; if (!file) return;
       if (file.size > 3_000_000) { setError("Attach a file of at most 3 MB."); return; }
@@ -125,7 +126,7 @@ export function AssignmentFlow({ initial, projects, onClose, onChanged }: { init
   return <section className="assignment" aria-label="Assignment planner">
     <div className="assignment-head"><Steps stage={stage} /><button type="button" className="quiet" onClick={onClose}>Close</button></div>
     {error && <p role="alert" className="notice notice-error">{error}</p>}
-    {stage === "pick" && <div className="assignment-pick"><p className="insight">Upload brief tugas (PDF atau foto). FocusOS akan membaca isinya, menanyakan bagian mana yang sudah kamu pahami, lalu memecahnya menjadi sesi belajar dan subtask yang dijadwalkan.</p>
+    {stage === "pick" && <div className="assignment-pick"><p className="insight">Upload brief tugas: PDF, Word (.docx), Markdown (.md) atau foto. FocusOS akan membaca isinya, menanyakan bagian mana yang sudah kamu pahami, lalu memecahnya menjadi sesi belajar dan subtask yang dijadwalkan.</p>
       <button type="button" className="button" onClick={pick}>Pilih file tugas</button></div>}
     {(stage === "reading" || (stage === "analyzing" && !error)) && <p role="status" className="assignment-working">{stage === "reading" ? "Membaca dokumen…" : "Menganalisis tugas…"}</p>}
     {stage === "analyzing" && error && assignment && <button type="button" onClick={() => void analyze(assignment)}>Coba analisis lagi</button>}

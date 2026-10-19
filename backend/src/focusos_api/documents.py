@@ -1,12 +1,15 @@
-"""Attach a PDF or photo (a syllabus, a project brief, a whiteboard) and capture what it says.
+"""Attach a PDF, photo, Word file or Markdown/text file (a syllabus, a brief, a whiteboard) and capture what it says.
 
-Gemini reads the file and transcribes its text; the text becomes an ordinary source and
+Gemini transcribes a PDF or photo; a Word or text file is read directly, with no model call. The text becomes an ordinary source and
 goes through the same extraction and capture as anything typed in the composer, so tasks
 and memories from a document are grounded in quotes exactly like the rest. The file itself
 is not stored: only the transcription is kept as the source body.
 """
 import base64
 import binascii
+import io
+import zipfile
+from xml.etree import ElementTree
 from typing import Literal
 from uuid import UUID, uuid5
 
@@ -22,8 +25,14 @@ from focusos_api.sources import ManualSourceInput, create_manual_source
 router = APIRouter()
 MAX_BYTES = 3_000_000  # The web route and Vercel's request limit allow about this much.
 MAX_TEXT = 25_000      # A source body's limit.
-MimeType = Literal["application/pdf", "image/png", "image/jpeg", "image/webp"]
-SIGNATURES = {"application/pdf": (b"%PDF",), "image/png": (b"\x89PNG\r\n\x1a\n",), "image/jpeg": (b"\xff\xd8\xff",), "image/webp": (b"RIFF",)}
+DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+TEXT_TYPES = ("text/markdown", "text/plain")
+MimeType = Literal["application/pdf", "image/png", "image/jpeg", "image/webp", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                   "text/markdown", "text/plain"]
+SIGNATURES = {"application/pdf": (b"%PDF",), "image/png": (b"\x89PNG\r\n\x1a\n",), "image/jpeg": (b"\xff\xd8\xff",), "image/webp": (b"RIFF",),
+              DOCX: (b"PK\x03\x04",)}
+DOCX_XML_BYTES = 5_000_000  # word/document.xml unpacked; a 3 MB file never needs more
+WORD = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
 
 class DocumentInput(BaseModel):
@@ -51,12 +60,68 @@ def decode(document: DocumentInput) -> bytes:
         raise DocumentRejected("The file could not be read. Try attaching it again.") from exc
     if len(raw) > MAX_BYTES:
         raise DocumentRejected("Attach a file of at most 3 MB.")
+    if document.mime_type in TEXT_TYPES:
+        _text_of(raw)
+        return raw
     if not raw.startswith(SIGNATURES[document.mime_type]) or (document.mime_type == "image/webp" and raw[8:12] != b"WEBP"):
-        raise DocumentRejected("This file does not look like a PDF, PNG, JPEG or WebP image.")
+        raise DocumentRejected("This file does not look like a PDF, Word file, PNG, JPEG or WebP image.")
     return raw
 
 
+def _text_of(raw: bytes) -> str:
+    try: text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc: raise DocumentRejected("Save this text file as UTF-8 and attach it again.") from exc
+    if "\x00" in text: raise DocumentRejected("This does not look like a text file.")
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
+def docx_text(raw: bytes) -> str:
+    """The text of a Word file: one line per paragraph, list items as "- ", table cells joined with " | "."""
+    unreadable = "This Word file could not be read. Save it again as .docx and attach it."
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            info = archive.getinfo("word/document.xml")
+            if info.file_size > DOCX_XML_BYTES: raise DocumentRejected("This Word file has too much text. Attach a shorter one.")
+            data = archive.read(info)
+    except (zipfile.BadZipFile, KeyError, RuntimeError) as exc:
+        raise DocumentRejected(unreadable) from exc
+    # A Word document never declares a DTD; refusing one rules out entity expansion.
+    if b"<!DOCTYPE" in data[:4096].upper(): raise DocumentRejected(unreadable)
+    try: root = ElementTree.fromstring(data)
+    except ElementTree.ParseError as exc: raise DocumentRejected(unreadable) from exc
+
+    def paragraph(node) -> str:
+        parts = []
+        for item in node.iter():
+            if item.tag == WORD + "t" and item.text: parts.append(item.text)
+            elif item.tag == WORD + "tab": parts.append("\t")
+            elif item.tag in (WORD + "br", WORD + "cr"): parts.append("\n")
+        text = "".join(parts).strip()
+        listed = node.find(f"{WORD}pPr/{WORD}numPr") is not None
+        return f"- {text}" if text and listed else text
+
+    lines = []
+    body = root.find(WORD + "body")
+    for block in (body if body is not None else []):
+        if block.tag == WORD + "p":
+            lines.append(paragraph(block))
+        elif block.tag == WORD + "tbl":
+            for row in block.iter(WORD + "tr"):
+                cells = [" ".join(filter(None, (paragraph(p) for p in cell.iter(WORD + "p")))) for cell in row.iter(WORD + "tc")]
+                lines.append(" | ".join(cells))
+    return "\n".join(lines)
+
+
+def local_text(document: DocumentInput) -> str | None:
+    """Text read straight from a Word or text file; None for files only a model can read."""
+    if document.mime_type in TEXT_TYPES: return _text_of(decode(document))
+    if document.mime_type == DOCX: return docx_text(decode(document))
+    return None
+
+
 def transcribe(document: DocumentInput) -> str:
+    local = local_text(document)
+    if local is not None: return "\n".join(line.rstrip() for line in local.splitlines()).strip()[:MAX_TEXT]
     if not api_key(): raise DocumentUnreadable("provider_unconfigured")
     instruction = (
         "Transcribe the text of this document for a personal planning assistant. Keep every date, deadline, time, "

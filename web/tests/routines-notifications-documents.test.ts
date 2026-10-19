@@ -7,6 +7,7 @@ import { NotificationsForm, reason, sentLine, type Settings } from "../src/app/n
 import { settingsBody } from "../src/app/notifications/settings-body";
 import { documentMessage, workMessage } from "../src/app/work-composer";
 import { POST as DOCUMENT } from "../src/app/api/documents/route";
+import { DOCX, fileType } from "../src/lib/files";
 import { POST as ROUTINE_POST } from "../src/app/api/routines/[[...path]]/route";
 import { POST as NOTIFY_POST } from "../src/app/api/notifications/[[...path]]/route";
 import manifest from "../src/app/manifest";
@@ -94,9 +95,24 @@ describe("documents and install", () => {
     const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
     expect(body).toMatchObject({ request_key: key, filename: "silabus.pdf", mime_type: "application/pdf" });
     expect(Buffer.from(body.data, "base64").toString()).toBe("%PDF-1.7 hello");
-    expect((await send(new File(["x"], "notes.txt", { type: "text/plain" }))).status).toBe(415);
+    // Word and Markdown are read too; a .md with no type from the browser is named by its extension.
+    expect((await send(new File(["# Tugas 2"], "tugas.md", { type: "" }))).status).toBe(202);
+    expect(JSON.parse(vi.mocked(fetch).mock.calls.at(-1)![1]!.body as string).mime_type).toBe("text/markdown");
+    expect((await send(new File(["PK"], "tugas.docx", { type: DOCX }))).status).toBe(202);
+    expect((await send(new File(["MZ"], "setup.exe", { type: "application/x-msdownload" }))).status).toBe(415);
+    // A specific, different type is not overridden by a friendly name.
+    expect((await send(new File(["MZ"], "tugas.md", { type: "application/x-msdownload" }))).status).toBe(415);
     expect((await send(new File([new Uint8Array(3_000_001)], "big.pdf", { type: "application/pdf" }))).status).toBe(413);
     expect((await send(new File(["%PDF"], "a.pdf", { type: "application/pdf" }), { extra: "x" })).status).toBe(400);
+  });
+  it("reads a file's type from its name only when the browser gives none or a generic one", () => {
+    expect(fileType({ name: "brief.pdf", type: "application/pdf" })).toBe("application/pdf");
+    expect(fileType({ name: "TUGAS.MD", type: "" })).toBe("text/markdown");
+    expect(fileType({ name: "tugas.md", type: "text/x-markdown" })).toBe("text/markdown");
+    expect(fileType({ name: "tugas.docx", type: "application/octet-stream" })).toBe(DOCX);
+    expect(fileType({ name: "catatan.txt", type: "text/plain; charset=utf-8" })).toBe("text/plain");
+    expect(fileType({ name: "tugas.doc", type: "application/msword" })).toBeNull();
+    expect(fileType({ name: "photo.png", type: "image/gif" })).toBeNull();
   });
   it("can be installed as an app", () => {
     const value = manifest();
