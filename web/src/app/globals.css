@@ -329,9 +329,38 @@ label { color: var(--ink-2); font-size: 0.9rem; }
 
 /* ---------- The ground ---------- */
 
+/* Full-bleed bands are sized with 100vw, which counts the scrollbar; clip the few pixels it adds so the page never scrolls sideways. */
+.home { overflow-x: clip; }
 .ground { width: var(--page); margin: 0 auto; padding-bottom: 4rem; }
 .ground > section, .ground > div { margin-top: clamp(3rem, 6vw, 5rem); }
 .ground > .composer { margin-top: 1rem; }
+
+/* Separators. Each feature on the ground starts at a contour line, with a short marigold trail blaze where
+   its heading begins: you can see where one part of the day ends and the next starts, without boxing anything.
+   Inside a feature, side-by-side parts and the rows of a form are split by hairlines. */
+.ground > #tasks, .ground > .schedule, .ground > .projects-section, .ground > .notes-section, .ground > .more {
+  position: relative; padding-top: clamp(1.75rem, 3vw, 2.5rem); border-top: 1px solid var(--rule-strong);
+}
+.ground > #tasks::before, .ground > .schedule::before, .ground > .projects-section::before, .ground > .notes-section::before,
+.ground > .more::before, .ground > .review-band::before {
+  content: ""; position: absolute; top: -2px; left: 0; width: 2.75rem; height: 3px; border-radius: 2px; background: var(--sun);
+}
+/* The week is a tinted band across the page; its blaze sits where its heading starts. */
+.ground > .review-band { position: relative; }
+.ground > .review-band::before { top: 0; left: max(1.25rem, calc(50vw - 560px)); border-radius: 0 0 2px 2px; }
+@media (min-width: 861px) {
+  .today > .today-list, .calendar-area > .booked, .notes > .notes-list { padding-right: clamp(1.25rem, 2.5vw, 2.25rem); border-right: 1px solid var(--rule); align-self: stretch; }
+}
+@media (max-width: 860px) {
+  .today > * + *, .calendar-area > * + *, .notes > .note-editor { padding-top: 1.75rem; border-top: 1px solid var(--rule); }
+}
+/* The month view and what FocusOS booked are two parts of Calendar. */
+.schedule > .calendar-area { padding-top: clamp(1.75rem, 3vw, 2.5rem); border-top: 1px solid var(--rule); }
+.projects-actions { padding-bottom: 1.25rem; border-bottom: 1px solid var(--rule); }
+.projects-actions ~ .project-list { border-top: 0; }
+.notes-tools { padding-bottom: 1rem; border-bottom: 1px solid var(--rule); }
+.note-editor .note-project { padding: 0.65rem 0; border-bottom: 1px solid var(--rule); }
+.note-editor .inline-actions { padding-top: 0.9rem; border-top: 1px solid var(--rule); }
 
 /* Composer: writing on the ground, not in a box. */
 .composer { max-width: 54rem; }
