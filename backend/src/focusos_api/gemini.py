@@ -1,4 +1,8 @@
-"""Small Gemini GenerateContent adapter shared by bounded model calls."""
+"""Small GenerateContent adapter shared by bounded model calls.
+
+Callers build GenerateContent payloads and read GenerateContent answers. When Claude is configured (claude.py) the
+call goes to Claude and comes back in the same shape; otherwise it goes to Gemini. Embeddings always use Gemini."""
+import json
 import logging
 import re
 import os
@@ -7,9 +11,11 @@ import time
 
 import httpx
 
-from focusos_api import observability
+from focusos_api import claude, observability
 
-MODEL = "gemini-3.5-flash-lite"
+GEMINI_MODEL = "gemini-3.5-flash-lite"
+# The model answering generation calls; also the extraction cache key, so a provider change re-extracts.
+MODEL = claude.model() if claude.configured() else GEMINI_MODEL
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 logger = logging.getLogger(__name__)
 
@@ -20,20 +26,27 @@ class GeminiResponseError(Exception):
         super().__init__(code)
 
 
-def api_key() -> str:
+def gemini_key() -> str:
     return os.environ.get("GEMINI_API_KEY", "").strip()
 
 
-def url(model: str = MODEL, method: str = "generateContent") -> str:
+def api_key() -> str:
+    """The generation provider's key; empty means generation is not configured."""
+    return claude.api_key() if claude.configured() else gemini_key()
+
+
+def url(model: str = GEMINI_MODEL, method: str = "generateContent") -> str:
     return f"{BASE_URL}/{model}:{method}"
 
 
 def request(payload: dict, timeout: float, max_bytes: int, purpose: str = "generate") -> dict:
     observability.check_budget()
+    if claude.configured():
+        return _claude_request(payload, timeout, max_bytes, purpose)
     started = time.monotonic()
     try:
         response = httpx.post(
-            url(), headers={"x-goog-api-key": api_key()}, json=payload, timeout=timeout
+            url(), headers={"x-goog-api-key": gemini_key()}, json=payload, timeout=timeout
         )
     except httpx.HTTPError as exc:
         observability.record(purpose, "generate", MODEL, started, exc)
@@ -82,6 +95,22 @@ def request(payload: dict, timeout: float, max_bytes: int, purpose: str = "gener
         raise GeminiResponseError("malformed")
     prompt_tokens, output_tokens = usage(data)
     observability.record(purpose, "generate", MODEL, started, prompt_tokens=prompt_tokens, output_tokens=output_tokens)
+    return data
+
+
+def _claude_request(payload: dict, timeout: float, max_bytes: int, purpose: str) -> dict:
+    started = time.monotonic()
+    try:
+        data = claude.generate(payload, timeout)
+    except httpx.HTTPError as exc:
+        status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
+        logger.warning("Claude request failed: http_status=%s error_type=%s model=%s", status, type(exc).__name__, MODEL)
+        observability.record(purpose, "generate", MODEL, started, exc)
+        raise
+    prompt_tokens, output_tokens = usage(data)
+    observability.record(purpose, "generate", MODEL, started, prompt_tokens=prompt_tokens, output_tokens=output_tokens)
+    if len(json.dumps(data, ensure_ascii=False).encode("utf-8")) > max_bytes:
+        raise GeminiResponseError("oversize_response")
     return data
 
 

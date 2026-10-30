@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from focusos_api import observability
 from focusos_api.database import DatabaseUnavailable, scoped_client
-from focusos_api.gemini import api_key, url
+from focusos_api.gemini import gemini_key as api_key, url  # embeddings always use Gemini
 
 EMBED_MODEL = "gemini-embedding-2"
 EMBED_DIM = 256
