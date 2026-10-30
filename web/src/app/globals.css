@@ -742,6 +742,48 @@ label { color: var(--ink-2); font-size: 0.9rem; }
 .concepts li.level-partly { border-left-color: var(--sun); }
 .concepts li.level-not { border-left-color: var(--rose); }
 .concept-name { font-weight: 600; font-size: 1.05rem; }
+
+/* The learning path: foundations at the foot of the mountain, the assignment at its summit. Paths are dashed
+   trail until the concept below is learned, then marigold. The numbered list below is the same path in order. */
+.trail-map { display: block; width: 100%; max-width: 46rem; height: auto; margin: 0.25rem 0 0.5rem; overflow: visible; }
+.trail-mountain { fill: var(--paper-deep); }
+.trail-path { fill: none; stroke: var(--rule-strong); stroke-width: 2; stroke-dasharray: 2 6; stroke-linecap: round; }
+.trail-path.is-lit { stroke: var(--sun); stroke-dasharray: none; stroke-width: 2.5; }
+.trail-to-summit { opacity: 0.7; }
+.trail-summit path { fill: var(--ink); }
+.trail-summit text { fill: var(--ink); font: 650 15px var(--font-ui); }
+.trail-node { outline: none; cursor: pointer; }
+.trail-node circle { fill: var(--paper); stroke: var(--ink-3); stroke-width: 2; transition: stroke-width 160ms ease; }
+.trail-node.is-next circle, .trail-node.is-open circle { stroke: var(--ink); }
+.trail-node.is-scheduled circle { stroke: var(--sun); stroke-width: 3.5; }
+.trail-node.is-known circle { fill: var(--lagoon); stroke: var(--lagoon); }
+.trail-node.is-done circle { fill: var(--sun); stroke: var(--sun); }
+.trail-node.is-locked circle { stroke-dasharray: 3 3; }
+.trail-node.is-locked .trail-label, .trail-node.is-locked .trail-step { fill: var(--ink-3); }
+.trail-node:hover circle { stroke-width: 3.5; }
+.trail-node:focus-visible circle { stroke: var(--lagoon); stroke-width: 4; }
+.trail-check { fill: none; stroke: var(--paper); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.trail-step { fill: var(--ink-2); font: 650 11px var(--font-ui); font-variant-numeric: tabular-nums; }
+.trail-label { fill: var(--ink); font: 550 13px var(--font-ui); }
+.trail-label, .trail-date, .trail-summit text { paint-order: stroke; stroke: var(--paper-deep); stroke-width: 5px; stroke-linejoin: round; }
+.trail-summit text { stroke: var(--paper); }
+.trail-node.is-foundation .trail-label { font-style: italic; fill: var(--ink-2); }
+.trail-date { fill: var(--ink-2); font: 500 11px var(--font-ui); font-variant-numeric: tabular-nums; }
+.learning-order > li { scroll-margin-top: 6rem; }
+.learning-order > li:target { background: linear-gradient(90deg, var(--sun-soft), transparent 70%); }
+.concepts li.is-done { border-left-color: var(--sun); }
+.concepts li.is-known { border-left-color: var(--lagoon); }
+.concepts li.is-locked { border-left-style: dashed; }
+.concept-kind { margin-left: 0.5rem; padding: 0.05rem 0.45rem; border-radius: 999px; background: var(--lagoon-soft); color: var(--lagoon); font-size: 0.75rem; font-weight: 600; vertical-align: 0.1em; }
+.concept-needs { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.9rem; color: var(--ink-2); font-size: 0.88rem; }
+.concept-need { color: var(--ink); }
+.concept-unlink { min-height: 0; margin-left: 0.2rem; padding: 0 0.2rem; font-size: 0.8rem; }
+.concept-state { color: var(--ink-2); font-size: 0.88rem; font-weight: 600; }
+/* On a phone the map would be too small to read: the list becomes the tree, indented by level. */
+@media (max-width: 640px) {
+  .trail-map { display: none; }
+  .learning-order > li { margin-left: calc(var(--level, 0) * 1rem); }
+}
 .choices button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 .plan-preview { display: grid; gap: 0.8rem; max-width: 46rem; }
 .preview-list { display: grid; gap: 0.3rem; }

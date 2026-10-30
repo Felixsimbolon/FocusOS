@@ -411,7 +411,10 @@ def schedule_finished(token: str, job: dict, run, step: Step) -> Step:
     tasks = run.checkpoint.get("intent_tasks", run.checkpoint.get("task_override", []))
     extra = {key: result[key] for key in SCHEDULE_KEYS if key in result and key != "message"}
     if step.status == "succeeded":
+        booked = [block["end"] for block in result.get("blocks", [])[cp.get("blocks_before", 0):] if isinstance(block, dict) and block.get("end")]
+        ends = {**cp.get("part_ends", {}), **({str(index): max(booked, key=datetime.fromisoformat)} if booked else {})}
         cp, result = _record_schedule(cp, result, _schedule_label(intent.schedules[index], tasks), "scheduled", extra=extra)
+        cp["part_ends"] = ends
     else:
         cp, result = _record_schedule(cp, result, _schedule_label(intent.schedules[index], tasks), "failed", step.error,
                                       result.get("message") or "Could not schedule this request.", extra)
@@ -448,6 +451,14 @@ def _prepare_schedule(token: str, run, intent: WorkIntent, cp: dict, result: dic
         return _next_part(token, run, intent, new_cp, new_result, index + 1)
     if schedule.selection.status == "needs_clarification":
         return skip("request_ambiguous", schedule.selection.questions[0])
+    # An ordered request (an assignment's learning path) books a part only after the parts it builds on.
+    after = run.checkpoint.get("schedule_after", {}).get(str(index), [])
+    ends = cp.get("part_ends", {})
+    waiting = [intent.schedules[part] for part in after if str(part) not in ends]
+    if waiting:
+        names = ", ".join(_schedule_label(part, intent_tasks) for part in waiting[:3])
+        return skip("prerequisite_unscheduled", f"Waiting for {names}: book those first, then this one.")
+    not_before = max((datetime.fromisoformat(ends[str(part)]) for part in after), default=None)
     profile = read_profile(token)
     if profile is None: return skip("profile_required", "Set your working hours in Preferences before scheduling.")
     selection = schedule.selection.model_dump()
@@ -488,6 +499,7 @@ def _prepare_schedule(token: str, run, intent: WorkIntent, cp: dict, result: dic
                 selection["duration_minutes"] = adjustment["booked_minutes"]
                 result["estimate_adjustments"] = [*result.get("estimate_adjustments", []), adjustment][-3:]
     prepared = {"timezone": profile.timezone, "duration_minutes": None, "allow_split": False, "auto_calendar": True,
+                **({"not_before": not_before.isoformat()} if not_before else {}),
                 "task_override": tasks, "standalone_title": standalone, "planning_selection": selection,
                 "constraint_text": run.checkpoint.get("constraint_override")
                                    or constraint_text(intent, schedule, run.command, "conversation" in run.checkpoint)}

@@ -40,7 +40,7 @@ export async function POST(request: NextRequest, context: Context) {
     body = JSON.stringify({ request_key: key, filename: file.name.slice(0, 120) || "assignment", mime_type: type,
       data: Buffer.from(await file.arrayBuffer()).toString("base64") });
   } else {
-    if (path.length !== 2 || !UUID_PATTERN.test(path[0]) || !["analyze", "understanding", "plan"].includes(path[1]))
+    if (path.length !== 2 || !UUID_PATTERN.test(path[0]) || !["analyze", "understanding", "plan", "graph"].includes(path[1]))
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     target = `/assignments/${path[0]}/${path[1]}`;
     if (path[1] === "understanding") {
@@ -50,6 +50,12 @@ export async function POST(request: NextRequest, context: Context) {
         || Object.entries(answers).some(([index, level]) => !/^[0-9]$/.test(index) || !LEVELS.includes(level as string)))
         return NextResponse.json({ error: "Invalid answers." }, { status: 400 });
       body = JSON.stringify({ expected_version: value.expected_version, answers });
+    } else if (path[1] === "graph") {
+      const value = await jsonBody(request, ["expected_version", "concept", "remove_prerequisite"]);
+      const index = (item: unknown) => Number.isInteger(item) && (item as number) >= 0 && (item as number) < 10;
+      if (!value || !Number.isInteger(value.expected_version) || !index(value.concept) || !index(value.remove_prerequisite))
+        return NextResponse.json({ error: "Invalid change." }, { status: 400 });
+      body = JSON.stringify({ expected_version: value.expected_version, concept: value.concept, remove_prerequisite: value.remove_prerequisite });
     } else if (path[1] === "plan") {
       const value = await jsonBody(request, ["expected_version", "request_key", "project_id", "project_name"]);
       if (!value || !Number.isInteger(value.expected_version) || typeof value.request_key !== "string" || !UUID_PATTERN.test(value.request_key)

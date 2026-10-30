@@ -160,6 +160,9 @@ def compile_plan(raw: object, tasks: list[dict], checkpoint: dict, profile: Prof
     earliest = current.astimezone(timezone.utc) + timedelta(minutes=START_BUFFER_MINUTES)
     if earliest.second or earliest.microsecond:
         earliest = earliest.replace(second=0, microsecond=0) + timedelta(minutes=1)
+    if checkpoint.get("not_before"):
+        # A part of an ordered request starts after the parts it builds on end.
+        earliest = max(earliest, datetime.fromisoformat(checkpoint["not_before"]))
     start = max(start, earliest)
     deadlines = {}
     for ref in refs:
@@ -298,6 +301,9 @@ def _compile_sessions(intent, tasks, checkpoint, profile, sources, *, now=None):
     earliest = current.astimezone(timezone.utc) + timedelta(minutes=START_BUFFER_MINUTES)
     if earliest.second or earliest.microsecond:
         earliest = earliest.replace(second=0, microsecond=0) + timedelta(minutes=1)
+    if checkpoint.get("not_before"):
+        # A part of an ordered request starts after the parts it builds on end.
+        earliest = max(earliest, datetime.fromisoformat(checkpoint["not_before"]))
     events = tuple({"id": item["id"], "summary": "Busy", "start": {"dateTime": item["start"]}, "end": {"dateTime": item["end"]}} for item in snapshot["events"])
     slots, intervals, available = [], [], 0
     previous_day = None

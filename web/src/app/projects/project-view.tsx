@@ -302,6 +302,7 @@ export function ProjectView({ id, initial, timezone }: { id: string; initial: Pr
         {tab === "files" && <Files detail={detail} onChanged={load} />}
       </div>
     </div>
-    {assignment && <div className="ground"><AssignmentFlow key={assignment.id} initial={assignment} projects={[{ id: detail.id, name: detail.name }]} onClose={() => setAssignment(null)} onChanged={load} /></div>}
+    {assignment && <div className="ground"><AssignmentFlow key={assignment.id} initial={assignment} projects={[{ id: detail.id, name: detail.name }]} onClose={() => setAssignment(null)} onChanged={load}
+      tasks={detail.tasks} blocks={[...detail.past, ...detail.upcoming]} /></div>}
   </>;
 }
