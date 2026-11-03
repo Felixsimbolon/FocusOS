@@ -749,7 +749,21 @@ label { color: var(--ink-2); font-size: 0.9rem; }
 
 /* The learning path: foundations at the foot of the mountain, the assignment at its summit. Paths are dashed
    trail until the concept below is learned, then marigold. The numbered list below is the same path in order. */
-.trail-map { display: block; width: 100%; max-width: 46rem; height: auto; margin: 0.25rem 0 0.5rem; overflow: visible; }
+/* The whole map, root to summit, is always drawn: a wide one scrolls sideways rather than shrinking past reading size. */
+.trail-graph { display: grid; gap: 0.35rem; margin: 0.25rem 0 0.75rem; }
+.trail-scroll { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; padding-bottom: 0.25rem; }
+.trail-map { display: block; width: 100%; height: auto; overflow: visible; }
+.trail-caption { min-height: 1.5em; color: var(--ink-2); font: 400 1rem/1.45 var(--font-prose); }
+/* Pointing at a concept: it and everything it builds on stay lit, with the paths between them; the rest dims. */
+.trail-mountain, .trail-path, .trail-node, .trail-summit { transition: opacity 180ms ease; }
+.trail-graph.is-focusing .trail-path:not(.is-on), .trail-graph.is-focusing .trail-node:not(.is-on), .trail-graph.is-focusing .trail-summit { opacity: 0.16; }
+.trail-graph.is-focusing .trail-mountain { opacity: 0.55; }
+.trail-graph.is-focusing .trail-path.is-on { stroke: var(--ink); stroke-dasharray: none; stroke-width: 2.5; }
+.trail-graph.is-focusing .trail-path.is-on.is-lit { stroke: var(--sun); }
+.trail-node.is-target circle { stroke-width: 4; r: 15; }
+.learning-order > li { transition: opacity 180ms ease; }
+.learning-order > li.is-off-path { opacity: 0.35; }
+@media (prefers-reduced-motion: reduce) { .trail-mountain, .trail-path, .trail-node, .trail-summit, .learning-order > li { transition: none; } }
 .trail-mountain { fill: var(--paper-deep); }
 .trail-path { fill: none; stroke: var(--rule-strong); stroke-width: 2; stroke-dasharray: 2 6; stroke-linecap: round; }
 .trail-path.is-lit { stroke: var(--sun); stroke-dasharray: none; stroke-width: 2.5; }
@@ -783,9 +797,8 @@ label { color: var(--ink-2); font-size: 0.9rem; }
 .concept-need { color: var(--ink); }
 .concept-unlink { min-height: 0; margin-left: 0.2rem; padding: 0 0.2rem; font-size: 0.8rem; }
 .concept-state { color: var(--ink-2); font-size: 0.88rem; font-weight: 600; }
-/* On a phone the map would be too small to read: the list becomes the tree, indented by level. */
+/* On a phone the map keeps a readable size and scrolls sideways; the list below is also indented by level as a tree. */
 @media (max-width: 640px) {
-  .trail-map { display: none; }
   .learning-order > li { margin-left: calc(var(--level, 0) * 1rem); }
 }
 .choices button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }

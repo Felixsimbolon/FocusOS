@@ -2,7 +2,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { LearningTrail, trailAncestors, trailLayout, trailLevels, trailStates, type TrailConcept } from "../src/app/projects/learning-trail";
+import { focusSentence, labelLines, LearningTrail, trailAncestors, trailFocus, trailLayout, trailLevels, trailStates, type TrailConcept } from "../src/app/projects/learning-trail";
 import { answersFor, studyFinder, type Analysis } from "../src/app/projects/assignment-flow";
 import { POST as ASSIGNMENT_POST } from "../src/app/api/assignments/[[...path]]/route";
 import { getServerAccessToken } from "../src/server/auth/session";
@@ -54,6 +54,41 @@ describe("learning trail", () => {
     expect(html).toContain("Tugas 2");
     // Three prerequisite paths, and two concepts lead straight to the summit.
     expect(html.match(/class="trail-path/g)).toHaveLength(5);
+  });
+});
+
+describe("seeing the whole path", () => {
+  it("shows whole names on up to three lines instead of cutting them", () => {
+    expect(labelLines("Uji asumsi klasik regresi linear berganda")).toEqual(["Uji asumsi klasik", "regresi linear", "berganda"]);
+    expect(labelLines("Korelasi")).toEqual(["Korelasi"]);
+    const long = labelLines("satu dua tiga empat lima enam tujuh delapan sembilan sepuluh sebelas duabelas", 12);
+    expect(long).toHaveLength(3);
+    expect(long[2].endsWith("…")).toBe(true);
+  });
+  it("widens a crowded row instead of piling names on each other, and leaves room for long names", () => {
+    const wide: TrailConcept[] = Array.from({ length: 8 }, (_, index) => ({ name: `Dasar ${index}` }));
+    const { nodes, width } = trailLayout(wide);
+    expect(width).toBeGreaterThanOrEqual(8 * 160);
+    const xs = nodes.map(node => node.x).sort((a, b) => a - b);
+    expect(Math.min(...xs.slice(1).map((x, index) => x - xs[index]))).toBeGreaterThanOrEqual(150);
+    const short = trailLayout(path), tall = trailLayout(path.map(item => ({ ...item, name: `${item.name} untuk analisis data penjualan` })));
+    expect(tall.height).toBeGreaterThan(short.height);
+  });
+  it("pointing at a concept lights it and everything it builds on, directly or through others", () => {
+    expect(trailFocus(path, 2)).toEqual(new Set([2, 1, 0]));
+    expect(trailFocus(path, 0)).toEqual(new Set([0]));
+    expect(trailFocus(path, null)).toBeNull();
+    expect(focusSentence(path, ["known", "next", "locked", "next"], 2)).toBe("Sebelum Regresi: Statistik deskriptif → Korelasi. 1 dari 2 masih perlu dipelajari.");
+    expect(focusSentence(path, ["known", "next", "locked", "next"], 0)).toBe("Statistik deskriptif tidak butuh prasyarat: bisa langsung dipelajari.");
+    expect(focusSentence(path, ["known", "done", "next", "next"], 2)).toContain("Semuanya sudah dikuasai.");
+  });
+  it("draws the map at every width, with whole names and the caption", () => {
+    const html = renderToStaticMarkup(React.createElement(LearningTrail, { concepts: [{ name: "Uji asumsi klasik regresi linear berganda" }],
+      states: ["next"], summit: "Tugas 2", anchor: (index: number) => `concept-${index}` }));
+    expect(html).toContain("<tspan");
+    expect(html).toContain("berganda");
+    expect(html).toContain('class="trail-caption"');
+    expect(html).toContain("Arahkan ke satu materi");
   });
 });
 

@@ -88,6 +88,7 @@ export function AssignmentFlow({ initial, projects, onClose, onChanged, tasks = 
   const [assignment, setAssignment] = useState<Assignment | null>(initial);
   const [stage, setStage] = useState<Stage>(stageOf(initial));
   const [error, setError] = useState("");
+  const [trailFocus, setTrailFocus] = useState<Set<number> | null>(null);
   const [projectChoice, setProjectChoice] = useState<string>(initial?.project_id ?? "new");
   const [projectName, setProjectName] = useState(initial?.analysis?.project_name ?? "");
   const [result, setResult] = useState("");
@@ -182,12 +183,12 @@ export function AssignmentFlow({ initial, projects, onClose, onChanged, tasks = 
     {analysis && (stage === "questions" || stage === "plan" || stage === "done") && <div className="concepts">
       <p className="concepts-lead">{planned ? "Jalur belajarnya: dari dasar di kaki gunung sampai tugasnya di puncak." :
         "Ini jalur belajar untuk tugas ini, dari dasar sampai puncak. Sudah paham bagian mana? Kalau kamu paham satu konsep, prasyaratnya ikut ditandai."}</p>
-      <LearningTrail concepts={analysis.concepts} states={states} summit={analysis.title} anchor={anchor}
+      <LearningTrail concepts={analysis.concepts} states={states} summit={analysis.title} anchor={anchor} onFocusChange={setTrailFocus}
         dates={analysis.concepts.map((_, index) => study(index)?.scheduled ?? null)} />
       <ol className="learning-order" aria-label="Urutan belajar">{analysis.concepts.map((concept, index) => {
         const chosen = assignment!.understanding[String(index)];
         const before = (concept.prerequisites ?? []).filter(p => p < analysis.concepts.length);
-        return <li key={index} id={anchor(index)} className={`is-${states[index]}${chosen ? ` is-answered level-${chosen}` : ""}`}
+        return <li key={index} id={anchor(index)} className={`is-${states[index]}${chosen ? ` is-answered level-${chosen}` : ""}${trailFocus ? trailFocus.has(index) ? " is-on-path" : " is-off-path" : ""}`}
           style={{ ["--level" as string]: levels[index] - 1 }}>
           <p className="concept-name">{concept.name}{concept.kind === "foundation" && <span className="concept-kind">dasar</span>}</p>
           <p className="quiet-line">{concept.why}</p>

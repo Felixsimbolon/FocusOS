@@ -1069,3 +1069,10 @@ Verification: tests written (`test_database.py` session cache, `test_claude_prov
 - **Questions.** A composer question about making a deadline ("aman ga deadline minggu ini?", "keburu ga…", "will I make it") adds forecast references (`F`) to the answer, cited as "Forecast" with the chance and deadline.
 
 Verification: tests written (`test_forecast.py`, `web/tests/forecast-panel.test.ts`), not run, per the user's instruction. Not verified: forecasts on real Calendar data.
+
+## 2026-11-03 — The whole learning path, and a concept's prerequisites on hover
+
+- **Whole map.** Concept names wrap onto up to three lines instead of being cut at 24 characters, and rows grow to fit them; the summit name takes two. A row is at least 160px per concept, so a crowded level widens the map and it scrolls sideways (never shrunk below 70% of its drawn size). Phones now see the map too, above the list that is still indented as a tree.
+- **Focus.** Pointing at a concept (mouse, or keyboard focus) keeps it and every prerequisite, direct or through others, lit with the paths between them solid; everything else, including the summit paths, dims. The numbered learning order dims the same way. A caption under the map says it in words, in learning order: "Sebelum Regresi: Statistik deskriptif → Korelasi. 1 dari 2 masih perlu dipelajari."
+
+Verification: tests written (`web/tests/learning-trail.test.ts`), not run, per the user's instruction.
