@@ -2,7 +2,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { focusSentence, labelLines, LearningTrail, trailAncestors, trailFocus, trailLayout, trailLevels, trailStates, type TrailConcept } from "../src/app/projects/learning-trail";
+import { focusSentence, labelLines, summitLines, LearningTrail, trailAncestors, trailFocus, trailLayout, trailLevels, trailStates, type TrailConcept } from "../src/app/projects/learning-trail";
 import { answersFor, studyFinder, type Analysis } from "../src/app/projects/assignment-flow";
 import { POST as ASSIGNMENT_POST } from "../src/app/api/assignments/[[...path]]/route";
 import { getServerAccessToken } from "../src/server/auth/session";
@@ -81,6 +81,27 @@ describe("seeing the whole path", () => {
     expect(focusSentence(path, ["known", "next", "locked", "next"], 2)).toBe("Sebelum Regresi: Statistik deskriptif → Korelasi. 1 dari 2 masih perlu dipelajari.");
     expect(focusSentence(path, ["known", "next", "locked", "next"], 0)).toBe("Statistik deskriptif tidak butuh prasyarat: bisa langsung dipelajari.");
     expect(focusSentence(path, ["known", "done", "next", "next"], 2)).toContain("Semuanya sudah dikuasai.");
+  });
+  it("lays the same path out left to right when switched to horizontal", () => {
+    const { nodes, summit, width } = trailLayout(path, "Tugas 2", "horizontal");
+    const x = (index: number) => nodes.find(node => node.index === index)!.x;
+    expect(x(0)).toBeLessThan(x(1));
+    expect(x(1)).toBeLessThan(x(2));
+    expect(x(1)).toBe(x(3));
+    expect(summit.x).toBeGreaterThan(x(2));
+    expect(summit.x).toBeLessThan(width);
+    // Concepts sharing a level are stacked in their column, apart enough for their names.
+    const y = (index: number) => nodes.find(node => node.index === index)!.y;
+    expect(Math.abs(y(1) - y(3))).toBeGreaterThanOrEqual(90);
+    expect(summitLines("Tugas 2 Statistika: regresi linear berganda", "horizontal").every(line => line.length <= 19)).toBe(true);
+  });
+  it("offers both views, vertical first, as pressed toggle buttons", () => {
+    const html = renderToStaticMarkup(React.createElement(LearningTrail, { concepts: path, states: ["known", "next", "locked", "next"],
+      summit: "Tugas 2", anchor: (index: number) => `concept-${index}` }));
+    expect(html).toContain('aria-label="Arah peta"');
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Vertikal</);
+    expect(html).toMatch(/aria-pressed="false"[^>]*>Horizontal</);
+    expect(html).toContain("trail-graph is-vertical");
   });
   it("draws the map at every width, with whole names and the caption", () => {
     const html = renderToStaticMarkup(React.createElement(LearningTrail, { concepts: [{ name: "Uji asumsi klasik regresi linear berganda" }],

@@ -753,6 +753,9 @@ label { color: var(--ink-2); font-size: 0.9rem; }
 .trail-graph { display: grid; gap: 0.35rem; margin: 0.25rem 0 0.75rem; }
 .trail-scroll { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; padding-bottom: 0.25rem; }
 .trail-map { display: block; width: 100%; height: auto; overflow: visible; }
+.trail-view { display: inline-flex; justify-self: end; gap: 0.15rem; padding: 0.15rem; border: 1px solid var(--rule); border-radius: 999px; }
+.trail-view button { min-height: 0; padding: 0.25rem 0.8rem; border-radius: 999px; font-size: 0.85rem; text-decoration: none; }
+.trail-view button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 .trail-caption { min-height: 1.5em; color: var(--ink-2); font: 400 1rem/1.45 var(--font-prose); }
 /* Pointing at a concept: it and everything it builds on stay lit, with the paths between them; the rest dims. */
 .trail-mountain, .trail-path, .trail-node, .trail-summit { transition: opacity 180ms ease; }
