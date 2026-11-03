@@ -1,4 +1,5 @@
-﻿import { createClient } from "../../lib/supabase/server";
+﻿import { cache } from "react";
+import { createClient } from "../../lib/supabase/server";
 
 export type ServerUser = {
   id: string;
@@ -12,8 +13,9 @@ function isTransient(error: { name?: string; status?: number }): boolean {
   return error.name === "AuthRetryableFetchError" || (typeof error.status === "number" && error.status >= 500);
 }
 
-/** Return only identity fields after Supabase verifies the current session. */
-export async function getServerUser(): Promise<ServerUser | null> {
+/** Return only identity fields after Supabase verifies the current session.
+ *  Memoized per server render: Home's identity, profile and data reads verify once, not once each. */
+export const getServerUser = cache(async (): Promise<ServerUser | null> => {
   try {
     const supabase = await createClient();
     let { data, error } = await supabase.auth.getUser();
@@ -34,11 +36,11 @@ export async function getServerUser(): Promise<ServerUser | null> {
   } catch {
     return null;
   }
-}
+});
 
 
-/** Return the verified user's current Supabase access token for a server-to-server API call. */
-export async function getServerAccessToken(): Promise<string | null> {
+/** Return the verified user's current Supabase access token for a server-to-server API call (memoized per render). */
+export const getServerAccessToken = cache(async (): Promise<string | null> => {
   try {
     const supabase = await createClient();
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -53,4 +55,4 @@ export async function getServerAccessToken(): Promise<string | null> {
   } catch {
     return null;
   }
-}
+});

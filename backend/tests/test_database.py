@@ -1,14 +1,29 @@
+import base64
+import json
 import os
+import time
 import unittest
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from focusos_api.database import DatabaseUnavailable, InvalidSession, check_database_identity, service_client
+from focusos_api import database
+from focusos_api.database import DatabaseUnavailable, InvalidSession, check_database_identity, scoped_client, service_client
 from focusos_api.main import app
 
 
+SETTINGS = {"FOCUSOS_SUPABASE_URL": "https://example.supabase.co", "FOCUSOS_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_test"}
+
+
+def jwt(exp: float) -> str:
+    claims = base64.urlsafe_b64encode(json.dumps({"sub": "user-123", "exp": exp}).encode()).decode().rstrip("=")
+    return f"header.{claims}.signature"
+
+
 class DatabaseIdentityTests(unittest.TestCase):
+    def setUp(self):
+        database.forget_verified_sessions()
+
     def test_user_jwt_is_scoped_to_the_postgrest_request(self):
         token = "user-access-token"
         settings = {
@@ -64,6 +79,65 @@ class DatabaseIdentityTests(unittest.TestCase):
     def test_missing_token_is_rejected(self):
         with self.assertRaises(InvalidSession):
             check_database_identity("")
+
+
+class VerifiedSessionCacheTests(unittest.TestCase):
+    def setUp(self):
+        database.forget_verified_sessions()
+
+    def tearDown(self):
+        database.forget_verified_sessions()
+
+    def operations(self, *tokens):
+        with patch.dict(os.environ, SETTINGS), patch("focusos_api.database.httpx.Client"),                 patch("focusos_api.database.create_client") as create_client:
+            client = create_client.return_value
+            client.auth.get_user.return_value.user.id = "user-123"
+            owners = []
+            for token in tokens:
+                with scoped_client(token) as (owner, _):
+                    owners.append(owner)
+            return owners, client
+
+    def test_one_session_is_verified_once_for_many_operations(self):
+        token = jwt(time.time() + 3600)
+        owners, client = self.operations(token, token, token)
+        self.assertEqual(owners, ["user-123"] * 3)
+        client.auth.get_user.assert_called_once_with(token)
+        # Every operation still carries the caller's JWT to PostgREST, which checks it itself.
+        self.assertEqual(client.postgrest.auth.call_count, 3)
+
+    def test_each_session_is_verified_on_its_own(self):
+        first, second = jwt(time.time() + 3600), jwt(time.time() + 3601)
+        _, client = self.operations(first, second)
+        self.assertEqual([call.args[0] for call in client.auth.get_user.call_args_list], [first, second])
+
+    def test_a_verification_is_forgotten_after_the_ttl_or_the_tokens_own_expiry(self):
+        token = jwt(time.time() + 3600)
+        self.operations(token)
+        with patch("focusos_api.database.time.time", return_value=time.time() + database.SESSION_TTL_SECONDS + 1):
+            self.assertIsNone(database._verified_user(token))
+        nearly_expired = jwt(time.time() + 5)
+        self.operations(nearly_expired)
+        with patch("focusos_api.database.time.time", return_value=time.time() + 6):
+            self.assertIsNone(database._verified_user(nearly_expired))
+        expired = jwt(time.time() - 1)
+        _, client = self.operations(expired, expired)
+        self.assertEqual(client.auth.get_user.call_count, 2)
+
+    def test_a_rejected_session_is_never_remembered(self):
+        with patch.dict(os.environ, SETTINGS), patch("focusos_api.database.httpx.Client"),                 patch("focusos_api.database.create_client") as create_client:
+            create_client.return_value.auth.get_user.return_value.user = None
+            for _ in range(2):
+                with self.assertRaises(InvalidSession):
+                    with scoped_client("bad-token"):
+                        pass
+            self.assertEqual(create_client.return_value.auth.get_user.call_count, 2)
+        self.assertIsNone(database._verified_user("bad-token"))
+
+    def test_tokens_are_kept_only_as_hashes(self):
+        token = jwt(time.time() + 3600)
+        self.operations(token)
+        self.assertNotIn(token, database._verified)
 
 
 class DatabaseHealthRouteTests(unittest.TestCase):

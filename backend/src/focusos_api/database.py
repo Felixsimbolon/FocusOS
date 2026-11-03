@@ -1,6 +1,11 @@
 """User-scoped Supabase access for the FocusOS API."""
 
+import base64
+import hashlib
+import json
 import os
+import threading
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -29,6 +34,55 @@ def _settings() -> tuple[str, str]:
     return url, publishable_key
 
 
+# One request makes many database operations (and a job step its retries); Supabase Auth is asked once per session per
+# minute instead of once per operation. PostgREST still checks every JWT's signature and expiry itself.
+SESSION_TTL_SECONDS = 60
+MAX_VERIFIED_SESSIONS = 512
+_verified: dict[str, tuple[str, float]] = {}  # sha256(token) -> (user id, wall-clock expiry)
+_verified_lock = threading.Lock()
+
+
+def _token_key(access_token: str) -> str:
+    return hashlib.sha256(access_token.encode()).hexdigest()
+
+
+def _token_expiry(access_token: str) -> float | None:
+    """The JWT's own exp claim, read only to cap how long its verification is remembered (never trusted as proof)."""
+    try:
+        payload = access_token.split(".")[1]
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+        return float(claims["exp"]) if isinstance(claims, dict) and isinstance(claims.get("exp"), (int, float)) else None
+    except (IndexError, ValueError, KeyError, TypeError):
+        return None
+
+
+def _verified_user(access_token: str) -> str | None:
+    key, now = _token_key(access_token), time.time()
+    with _verified_lock:
+        entry = _verified.get(key)
+        if entry and entry[1] > now:
+            return entry[0]
+        _verified.pop(key, None)
+    return None
+
+
+def _remember(access_token: str, user_id: str) -> None:
+    now = time.time()
+    expiry = min(now + SESSION_TTL_SECONDS, _token_expiry(access_token) or now + SESSION_TTL_SECONDS)
+    if expiry <= now:
+        return
+    with _verified_lock:
+        if len(_verified) >= MAX_VERIFIED_SESSIONS:
+            for key in [key for key, (_, until) in _verified.items() if until <= now] or list(_verified)[: MAX_VERIFIED_SESSIONS // 4]:
+                _verified.pop(key, None)
+        _verified[_token_key(access_token)] = (user_id, expiry)
+
+
+def forget_verified_sessions() -> None:
+    with _verified_lock:
+        _verified.clear()
+
+
 @contextmanager
 def scoped_client(access_token: str) -> Iterator[tuple[str, Client]]:
     """Verify Auth and use the caller's JWT for one PostgREST operation."""
@@ -48,12 +102,16 @@ def scoped_client(access_token: str) -> Iterator[tuple[str, Client]]:
                     persist_session=False,
                 ),
             )
-            user = supabase.auth.get_user(access_token).user
-            if user is None:
-                raise InvalidSession()
+            user_id = _verified_user(access_token)
+            if user_id is None:
+                user = supabase.auth.get_user(access_token).user
+                if user is None:
+                    raise InvalidSession()
+                user_id = str(user.id)
+                _remember(access_token, user_id)
 
             supabase.postgrest.auth(access_token)
-            yield str(user.id), supabase
+            yield user_id, supabase
     except AuthError as exc:
         raise InvalidSession() from exc
     except (APIError, httpx.HTTPError) as exc:

@@ -21,6 +21,7 @@ import { GraphPanel } from "./knowledge/graph-panel";
 import { ReviewPanel } from "./review/review-panel";
 import { Ridges } from "./art/ridges";
 import { Sunrise } from "./art/spots";
+import { Drawer } from "./drawer";
 
 export const dynamic = "force-dynamic";
 
@@ -84,11 +85,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
           </section>
           <section className="more" aria-labelledby="more-heading">
             <h2 id="more-heading">Everything else</h2>
-            <details id="routines" className="drawer"><summary><span>Routines</span><small>Recurring activities booked a week ahead</small></summary><div className="drawer-body"><RoutinesPanel /></div></details>
-            <details id="notifications" className="drawer"><summary><span>Email notifications</span><small>Morning brief and reminders, from you to you</small></summary><div className="drawer-body"><NotificationsPanel /></div></details>
-            <details id="email" className="drawer"><summary><span>Email priorities</span><small>Messages you labeled FocusOS in Gmail</small></summary><div className="drawer-body"><TriagePanel /></div></details>
-            <details id="knowledge" className="drawer"><summary><span>Knowledge graph</span><small>How your notes connect to each other</small></summary><div className="drawer-body"><GraphPanel /></div></details>
-            <details id="usage" className="drawer"><summary><span>AI usage</span><small>The last seven days</small></summary><div className="drawer-body"><UsagePanel /></div></details>
+            <Drawer id="routines" title="Routines" hint="Recurring activities booked a week ahead"><RoutinesPanel /></Drawer>
+            <Drawer id="notifications" title="Email notifications" hint="Morning brief and reminders, from you to you"><NotificationsPanel /></Drawer>
+            <Drawer id="email" title="Email priorities" hint="Messages you labeled FocusOS in Gmail"><TriagePanel /></Drawer>
+            <Drawer id="knowledge" title="Knowledge graph" hint="How your notes connect to each other"><GraphPanel /></Drawer>
+            <Drawer id="usage" title="AI usage" hint="The last seven days"><UsagePanel /></Drawer>
             <Preferences profile={me.data.profile} saved={params.saved} error={params.error} />
           </section>
         </>}

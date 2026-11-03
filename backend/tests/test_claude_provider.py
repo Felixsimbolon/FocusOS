@@ -21,9 +21,14 @@ def block(kind, **fields):
     return value
 
 
-def message(*content, stop="end_turn"):
+def message(*content, stop="end_turn", read=0, written=0):
     return SimpleNamespace(content=list(content), stop_reason=stop, model="claude-sonnet-5-5",
-                           usage=SimpleNamespace(input_tokens=120, output_tokens=40))
+                           usage=SimpleNamespace(input_tokens=120, output_tokens=40, cache_read_input_tokens=read,
+                                                 cache_creation_input_tokens=written))
+
+
+def system_text(request):
+    return "".join(item["text"] for item in request["system"])
 
 
 class FakeClient:
@@ -54,7 +59,8 @@ class BuildTests(unittest.TestCase):
                   "items": {"type": "array", "minItems": 1, "items": {"type": "object", "properties": {"x": {"type": "string"}}}}},
                   "required": ["title"]}
         request = claude.build(structured_payload("Extract.", "tugas besok", schema, 2400))
-        self.assertEqual((request["model"], request["system"], request["max_tokens"]), ("claude-sonnet-5-5", "Extract.", 2400 + claude.THINKING_HEADROOM))
+        self.assertEqual((request["model"], request["system"], request["max_tokens"]),
+                         ("claude-sonnet-5-5", [{"type": "text", "text": "Extract."}], 2400 + claude.THINKING_HEADROOM))
         self.assertEqual(request["messages"], [{"role": "user", "content": [{"type": "text", "text": "tugas besok"}]}])
         sent = request["output_config"]["format"]["schema"]
         self.assertEqual(request["output_config"]["effort"], "low")
@@ -80,7 +86,16 @@ class BuildTests(unittest.TestCase):
                                 "toolConfig": {"functionCallingConfig": {"mode": "ANY"}}, "generationConfig": {"maxOutputTokens": 600}})
         self.assertEqual(request["tool_choice"], {"type": "auto", "disable_parallel_tool_use": True})
         self.assertTrue(request["tools"][0]["strict"]); self.assertFalse(request["tools"][0]["input_schema"]["additionalProperties"])
-        self.assertIn("calling tasks_list", request["system"])
+        self.assertIn("calling tasks_list", system_text(request))
+
+    def test_only_a_long_system_prompt_is_marked_for_caching(self):
+        short = claude.build(structured_payload("Extract.", "u", {"type": "object"}, 100))
+        self.assertNotIn("cache_control", short["system"][0])
+        rules = "Rule. " * (claude.CACHE_MIN_SYSTEM_CHARS // 6 + 1)
+        long = claude.build(structured_payload(rules, "u", {"type": "object"}, 100))
+        self.assertEqual(long["system"], [{"type": "text", "text": rules, "cache_control": {"type": "ephemeral"}}])
+        # The user's text (dates, sources) stays after the breakpoint, so the cached prefix is the same every call.
+        self.assertNotIn("cache_control", long["messages"][0]["content"][0])
 
     def test_foundry_resource_comes_from_the_url_and_other_urls_are_base_urls(self):
         claude._client.cache_clear()
@@ -113,6 +128,14 @@ class GenerateTests(unittest.TestCase):
         self.assertEqual(gemini.usage(data), (120, 40))
         self.assertEqual(record.call_args.kwargs["prompt_tokens"], 120)
 
+    def test_cached_prompt_tokens_still_count_toward_the_budget(self):
+        fake, patched = self.run_with(message(block("text", text="{}"), read=900, written=100))
+        with patched, patch.object(gemini.observability, "record") as record:
+            data = gemini.request(structured_payload("s", "u", {}, 100), 20, 65536)
+        self.assertEqual(gemini.usage(data), (120 + 900 + 100, 40))
+        self.assertEqual(data["usageMetadata"]["cachedContentTokenCount"], 900)
+        self.assertEqual(record.call_args.kwargs["prompt_tokens"], 1120)
+
     def test_refusals_truncation_and_oversize_answers_are_reported_as_before(self):
         for stop, code in (("refusal", "refused"), ("max_tokens", "incomplete")):
             fake, patched = self.run_with(message(block("text", text="{}"), stop=stop))
@@ -136,7 +159,7 @@ class GenerateTests(unittest.TestCase):
         self.assertEqual((json.loads(first), json.loads(second)), ({"big": "ok"}, {"big": "again"}))
         self.assertIn("format", fake.requests[0]["output_config"])
         for retried in fake.requests[1:]:
-            self.assertNotIn("format", retried["output_config"]); self.assertIn("JSON Schema", retried["system"])
+            self.assertNotIn("format", retried["output_config"]); self.assertIn("JSON Schema", system_text(retried))
         claude._PROMPTED_SCHEMAS.clear()
 
     def test_provider_errors_become_the_httpx_errors_callers_handle(self):

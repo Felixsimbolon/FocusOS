@@ -115,12 +115,12 @@ def index_memories(token: str, memory_ids: list[str]) -> int:
         refs = {f"m{index + 1}": row for index, row in enumerate(rows)}
         graphs = extract([{"ref": ref, "text": row["text"]} for ref, row in refs.items()])
         indexed = 0
-        for ref, row in refs.items():
-            entities, relations = grounded(graphs[ref], row["text"] + " " + row["evidence_quote"]) if ref in graphs else ([], [])
-            with scoped_client(token) as (_, client):
+        with scoped_client(token) as (_, client):
+            for ref, row in refs.items():
+                entities, relations = grounded(graphs[ref], row["text"] + " " + row["evidence_quote"]) if ref in graphs else ([], [])
                 client.rpc("focusos_save_memory_graph", {"p_memory_id": row["id"], "p_entities": entities,
                                                          "p_relations": relations}).execute()
-            indexed += 1
+                indexed += 1
         return indexed
     except DatabaseUnavailable:
         logger.warning("Memory graph indexing skipped")

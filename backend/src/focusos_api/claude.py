@@ -24,6 +24,10 @@ import httpx
 
 # Thinking shares the output budget; callers size max tokens for the answer alone.
 THINKING_HEADROOM = 4096
+# System prompts are fixed per purpose (dates and user data travel in the message), so a long one is cached: repeated
+# calls (Gmail batches, extraction repairs, agent turns) read it at a tenth of the input price. ~4 characters per token;
+# below the model's minimum the marker is ignored at no cost.
+CACHE_MIN_SYSTEM_CHARS = 2000
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 UNSUPPORTED_SCHEMA_KEYS = ("minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "minLength",
                            "maxLength", "pattern", "minItems", "maxItems", "uniqueItems", "minProperties", "maxProperties",
@@ -178,7 +182,10 @@ def build(payload: dict, prompted: bool = False) -> dict:
             if mode == "ANY":
                 names = ", ".join(item["name"] for item in declarations)
                 system = f"{system}\n\nAnswer only by calling {names}; write no text." if system else f"Answer only by calling {names}."
-    if system: request["system"] = system
+    if system:
+        block = {"type": "text", "text": system}
+        if len(system) >= CACHE_MIN_SYSTEM_CHARS: block["cache_control"] = {"type": "ephemeral"}
+        request["system"] = [block]
     return request
 
 
@@ -219,6 +226,11 @@ def generate(payload: dict, timeout: float) -> dict:
     if fenced: text = fenced.group(1)
     parts = [*calls, {"thought": True, "claude_content": [block.to_dict() for block in response.content]}] if calls \
         else [{"text": text}]
+    usage = response.usage
+    cached = (getattr(usage, "cache_read_input_tokens", None) or 0)
+    # input_tokens excludes cached tokens; the daily budget counts every token the prompt used.
+    prompt = usage.input_tokens + cached + (getattr(usage, "cache_creation_input_tokens", None) or 0)
     return {"candidates": [{"finishReason": finish, "content": {"role": "model", "parts": parts}}],
-            "usageMetadata": {"promptTokenCount": response.usage.input_tokens, "candidatesTokenCount": response.usage.output_tokens},
+            "usageMetadata": {"promptTokenCount": prompt, "candidatesTokenCount": usage.output_tokens,
+                              "cachedContentTokenCount": cached},
             "modelVersion": response.model}
