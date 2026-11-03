@@ -89,7 +89,7 @@ class VerifiedSessionCacheTests(unittest.TestCase):
         database.forget_verified_sessions()
 
     def operations(self, *tokens):
-        with patch.dict(os.environ, SETTINGS), patch("focusos_api.database.httpx.Client"),                 patch("focusos_api.database.create_client") as create_client:
+        with patch.dict(os.environ, SETTINGS), patch("focusos_api.database.httpx.Client"), patch("focusos_api.database.create_client") as create_client:
             client = create_client.return_value
             client.auth.get_user.return_value.user.id = "user-123"
             owners = []
@@ -125,7 +125,7 @@ class VerifiedSessionCacheTests(unittest.TestCase):
         self.assertEqual(client.auth.get_user.call_count, 2)
 
     def test_a_rejected_session_is_never_remembered(self):
-        with patch.dict(os.environ, SETTINGS), patch("focusos_api.database.httpx.Client"),                 patch("focusos_api.database.create_client") as create_client:
+        with patch.dict(os.environ, SETTINGS), patch("focusos_api.database.httpx.Client"), patch("focusos_api.database.create_client") as create_client:
             create_client.return_value.auth.get_user.return_value.user = None
             for _ in range(2):
                 with self.assertRaises(InvalidSession):

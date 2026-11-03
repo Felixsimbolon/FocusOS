@@ -14,7 +14,7 @@ from focusos_api.token_crypto import TokenCipher, TokenCipherError
 from focusos_api.extractor import MODEL
 from focusos_api.memory_embeddings import EMBED_MODEL, EMBED_DIM
 from focusos_api.profiles import read_profile
-from focusos_api import estimates, email_triage, knowledge_graph, weekly_review
+from focusos_api import estimates, email_triage, forecast, knowledge_graph, weekly_review
 from focusos_api.calendar_conflicts import find_conflicts
 from focusos_api.calendar_fetch import CalendarFetchError
 from focusos_api.google_calendar import CalendarReconnectRequired
@@ -57,6 +57,7 @@ def protected(fn,*args):
  except CheckInRejected as exc: raise HTTPException(409,"This block is not open for check-in") from exc
  except ItemNotFound as exc: raise HTTPException(404,"Not found") from exc
  except CalendarReconnectRequired as exc: raise HTTPException(409,"Reconnect Google Calendar to check for conflicts") from exc
+ except forecast.ForecastUnavailable as exc: raise HTTPException(409,"Save your timezone and working hours first") from exc
  except CalendarFetchError as exc: raise HTTPException(503,"Calendar is unavailable") from exc
  except DatabaseUnavailable as exc: raise HTTPException(503,"Product data unavailable") from exc
 
@@ -196,6 +197,8 @@ def calendar_month(token: str,month: str) -> dict:
 
 @router.get("/calendar/{month}")
 def calendar_month_route(month: str=Path(pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),token: str=Depends(access)): return protected(calendar_month,token,month)
+@router.get("/forecast")
+def forecast_route(token: str=Depends(access)): return protected(forecast.forecast,token)
 @router.get("/conflicts")
 def conflicts(token: str=Depends(access)): return protected(find_conflicts,token)
 @router.get("/check-ins")

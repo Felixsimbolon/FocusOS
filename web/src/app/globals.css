@@ -29,6 +29,8 @@
   --rose: #b03a55;
   --rose-soft: rgba(176, 58, 85, 0.09);
   --low: #8a979c;
+  /* Forecast status: validated for colour-blind separation and 3:1 contrast on paper; always shown with a word. */
+  --fc-safe: #2a6fb0; --fc-tight: #b8740f; --fc-risk: #b03a55;
 
   /* Sky, set by phase below. */
   --sky-top: #8ec1e3;
@@ -70,6 +72,7 @@
     --rose: #e27a92;
     --rose-soft: rgba(226, 122, 146, 0.12);
     --low: #7b878d;
+    --fc-safe: #4f90d6; --fc-tight: #c98420; --fc-risk: #d65a78;
     color-scheme: dark;
   }
 :root[data-theme="dark"][data-phase="day"] { --sky-top: #3d6f93; --sky-bottom: #8fb3c8; --sky-glow: #c9c19f; --dither-strength: 0.2; --ridge-far: #5d7c8a; --ridge-mid: #2f4d55; }
@@ -90,6 +93,7 @@
     --rose: #e27a92;
     --rose-soft: rgba(226, 122, 146, 0.12);
     --low: #7b878d;
+    --fc-safe: #4f90d6; --fc-tight: #c98420; --fc-risk: #d65a78;
     color-scheme: dark;
   }
   :root:not([data-theme="light"])[data-phase="day"] { --sky-top: #3d6f93; --sky-bottom: #8fb3c8; --sky-glow: #c9c19f; --dither-strength: 0.2; --ridge-far: #5d7c8a; --ridge-mid: #2f4d55; }
@@ -338,10 +342,10 @@ label { color: var(--ink-2); font-size: 0.9rem; }
 /* Separators. Each feature on the ground starts at a contour line, with a short marigold trail blaze where
    its heading begins: you can see where one part of the day ends and the next starts, without boxing anything.
    Inside a feature, side-by-side parts and the rows of a form are split by hairlines. */
-.ground > #tasks, .ground > .schedule, .ground > .projects-section, .ground > .notes-section, .ground > .more {
+.ground > #tasks, .ground > .forecast-section, .ground > .schedule, .ground > .projects-section, .ground > .notes-section, .ground > .more {
   position: relative; padding-top: clamp(1.75rem, 3vw, 2.5rem); border-top: 1px solid var(--rule-strong);
 }
-.ground > #tasks::before, .ground > .schedule::before, .ground > .projects-section::before, .ground > .notes-section::before,
+.ground > #tasks::before, .ground > .forecast-section::before, .ground > .schedule::before, .ground > .projects-section::before, .ground > .notes-section::before,
 .ground > .more::before, .ground > .review-band::before {
   content: ""; position: absolute; top: -2px; left: 0; width: 2.75rem; height: 3px; border-radius: 2px; background: var(--sun);
 }
@@ -983,4 +987,49 @@ button.file-name:hover:not(:disabled) { background: transparent; text-decoration
   .arc-block { opacity: 1; }
   .plume { animation: none; }
   .stars circle, .dew-glint { animation: none; }
+}
+
+/* ---------- Deadline forecast ---------- */
+/* One shared now-to-two-weeks scale per row: the bar is when the work is likely finished (half the runs to four in
+   five), the tick is the deadline. A bar left of its tick is on time; a bar across it is the risk. */
+.forecast { display: grid; gap: 1rem; margin-top: 1.25rem; }
+.forecast-summary { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; color: var(--ink-2); }
+.forecast-summary strong { font-size: 1.6rem; font-weight: 650; color: var(--ink); margin-right: 0.25rem; font-variant-numeric: tabular-nums; }
+.forecast-summary [data-status] { display: inline-flex; align-items: baseline; gap: 0.15rem; padding-left: 0.6rem; border-left: 3px solid var(--fc-status); }
+[data-status="safe"] { --fc-status: var(--fc-safe); }
+[data-status="tight"] { --fc-status: var(--fc-tight); }
+[data-status="at_risk"] { --fc-status: var(--fc-risk); }
+.forecast-axis { position: relative; height: 1.1rem; margin: 0.5rem 0 -0.4rem; color: var(--ink-3); font-size: 0.8rem; }
+.forecast-axis span { position: absolute; translate: -50% 0; white-space: nowrap; }
+.forecast-axis span:first-child { translate: 0 0; }
+.forecast-axis span:last-child { translate: -100% 0; }
+.forecast-list { display: grid; }
+.forecast-row { display: grid; gap: 0.45rem; padding: 0.95rem 0; border-top: 1px solid var(--rule); }
+.forecast-row:last-child { border-bottom: 1px solid var(--rule); }
+.forecast-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.25rem 1rem; }
+.forecast-title { font-weight: 600; font-size: 1.08rem; }
+.forecast-chance { color: var(--ink-2); font-size: 0.95rem; }
+.forecast-chance strong { color: var(--ink); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.forecast-status { display: inline-flex; align-items: center; gap: 0.35rem; margin-left: 0.6rem; color: var(--ink); font-weight: 600; }
+.forecast-status i { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--fc-status); }
+.forecast-strip { position: relative; height: 14px; border-radius: 4px; background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.forecast-range { position: absolute; top: 2px; bottom: 2px; min-width: 6px; border-radius: 4px; background: var(--fc-status); }
+.forecast-range.is-open { border-radius: 4px 0 0 4px; mask-image: linear-gradient(90deg, #000 60%, transparent); }
+.forecast-due { position: absolute; top: -4px; bottom: -4px; width: 2px; translate: -1px 0; border-radius: 1px; background: var(--ink); box-shadow: 0 0 0 2px var(--paper); }
+.forecast-meta { color: var(--ink-3); font-size: 0.9rem; }
+.forecast-suggestions { display: grid; gap: 0.4rem; margin-top: 0.15rem; }
+.forecast-suggestions li { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.9rem; padding-left: 0.75rem; border-left: 2px solid var(--rule-strong);
+  color: var(--ink-2); font: 400 1rem/1.45 var(--font-prose); }
+.forecast-suggestions li span { flex: 1 1 18rem; }
+.forecast-suggestions li[data-kind="book"], .forecast-suggestions li[data-kind="renegotiate"] { border-left-color: var(--fc-status); }
+.forecast-suggestions button { font-family: var(--font-ui); }
+.forecast-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; color: var(--ink-3); font-size: 0.82rem; }
+.forecast-key-range { width: 1.4rem; height: 8px; border-radius: 4px; background: var(--ink-3); }
+.forecast-key-due { width: 2px; height: 14px; margin-left: 0.8rem; background: var(--ink); }
+.forecast-note, .forecast-overdue { padding-left: 0.85rem; border-left: 3px solid var(--fc-tight); color: var(--ink-2); }
+.forecast-overdue { border-left-color: var(--fc-risk); }
+.forecast-basis { max-width: var(--measure); color: var(--ink-3); font: 400 0.95rem/1.5 var(--font-prose); }
+@media (forced-colors: active) {
+  .forecast-range { background: Highlight; }
+  .forecast-due { background: CanvasText; }
 }

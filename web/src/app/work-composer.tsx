@@ -7,7 +7,7 @@ import { type Job } from "./jobs/client";
 import { activeOrganization, followOrganization } from "./organization";
 
 type CalendarBlock = { title: string; start: string; end: string; timezone: string; link: string | null };
-type Reference = { kind: "task" | "memory" | "event" | "note"; title: string; detail?: string };
+type Reference = { kind: "task" | "memory" | "event" | "note" | "forecast"; title: string; detail?: string };
 export type Answer = { question: string; status: "answered" | "no_reference" | "unavailable"; answer: string | null; references: Reference[] };
 type ScheduleOutcome = { title: string; status: "scheduled" | "failed" | "clarify"; message?: string };
 type EstimateAdjustment = { title: string; estimate_minutes: number; booked_minutes: number; factor: number; sessions: number };
@@ -17,7 +17,9 @@ export function adjustmentNotes(result: Record<string, unknown>): string[] {
   return items.map(item => `Booked ${item.booked_minutes} min for ${item.title} instead of the ${item.estimate_minutes}-min estimate: your check-ins usually run about ${item.factor.toFixed(1)}× the plan (${item.sessions} check-ins). Write a duration to override this.`);
 }
 export const NO_REFERENCE_NOTE = "No reference found in your saved tasks, memories, or scheduled work.";
-const REFERENCE_LABEL = { task: "Task", memory: "Memory", event: "Calendar", note: "Note" } as const;
+const REFERENCE_LABEL = { task: "Task", memory: "Memory", event: "Calendar", note: "Note", forecast: "Forecast" } as const;
+/** Other panels hand the composer a prepared request (e.g. the forecast's "book it"); the user still reads and sends it. */
+export const COMPOSE_EVENT = "focusos:compose";
 
 /** Problems with single parts of a request that otherwise completed. */
 export function partIssues(result: Record<string, unknown>): string[] {
@@ -109,6 +111,19 @@ export function WorkComposer() {
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const controller = useRef<AbortController | null>(null);
   const pending = useRef<{ text: string; key: string; replyTo: string | null } | null>(null);
+  useEffect(() => {
+    const listener = (event: Event) => {
+      const prepared = (event as CustomEvent<{ text?: unknown }>).detail?.text;
+      if (typeof prepared !== "string" || busy) return;
+      setThread(null);
+      setText(prepared.slice(0, 1000));
+      const field = document.getElementById("work-request");
+      field?.scrollIntoView({ behavior: "smooth", block: "center" });
+      field?.focus({ preventScroll: true });
+    };
+    window.addEventListener(COMPOSE_EVENT, listener);
+    return () => window.removeEventListener(COMPOSE_EVENT, listener);
+  }, [busy]);
   const observe = useCallback(async (job: Job, signal: AbortSignal, request = "") => {
     setBusy(true);
     try {

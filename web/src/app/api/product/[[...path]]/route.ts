@@ -44,7 +44,7 @@ async function proxy(
   const valid =
     method === "GET"
       ? review || month || path.length === 1 &&
-        ["diagnostics", "history", "export", "focus-blocks", "usage", "estimates", "check-ins", "conflicts", "triage", "graph"].includes(path[0])
+        ["diagnostics", "history", "export", "focus-blocks", "usage", "estimates", "check-ins", "conflicts", "triage", "graph", "forecast"].includes(path[0])
       : review || (path.length === 3 &&
           path[0] === "focus-blocks" &&
           UUID.test(path[1]) &&
@@ -97,7 +97,9 @@ async function proxy(
             r.status === 401
               ? "Sign in again."
               : r.status === 409
-                ? ["conflicts", "calendar"].includes(path[0])
+                ? path[0] === "forecast"
+                  ? "Save your timezone and working hours first."
+                  : ["conflicts", "calendar"].includes(path[0])
                   ? "Reconnect Google Calendar to check for conflicts."
                   : path[2] === "check-in"
                   ? "This block is not open for check-in."

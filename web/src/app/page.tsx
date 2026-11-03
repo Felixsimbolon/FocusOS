@@ -22,6 +22,7 @@ import { ReviewPanel } from "./review/review-panel";
 import { Ridges } from "./art/ridges";
 import { Sunrise } from "./art/spots";
 import { Drawer } from "./drawer";
+import { ForecastPanel } from "./forecast/forecast-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ a
         <WorkComposer />
         {me.kind === "ok" && <>
           <div id="tasks"><TaskBoard initial={initialTasks} /></div>
+          <section id="forecast" className="forecast-section" aria-labelledby="forecast-heading">
+            <h2 id="forecast-heading">Will it fit?</h2>
+            <p className="section-lede">Each deadline in the next two weeks, simulated against your free Calendar time, the blocks you booked and how your check-ins usually go.</p>
+            <ForecastPanel />
+          </section>
           <section id="schedule" className="schedule" aria-labelledby="schedule-heading">
             <h2 id="schedule-heading">Calendar</h2>
             <p className="section-lede">Your whole Google Calendar, month by month. Focus blocks FocusOS booked are marked in marigold.</p>
