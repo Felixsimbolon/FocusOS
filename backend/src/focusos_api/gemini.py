@@ -114,7 +114,15 @@ def _claude_request(payload: dict, timeout: float, max_bytes: int, purpose: str)
     return data
 
 
-def parts(data: dict) -> list[dict]:
+def cut_off(data: dict) -> bool:
+    """Whether the answer stopped at the output limit rather than finishing."""
+    candidates = data.get("candidates")
+    return isinstance(candidates, list) and len(candidates) == 1 and isinstance(candidates[0], dict) \
+        and candidates[0].get("finishReason") == "MAX_TOKENS"
+
+
+def parts(data: dict, allow_cut_off: bool = False) -> list[dict]:
+    """allow_cut_off: accept an answer that stopped at the output limit (a transcription keeps what it has)."""
     candidates = data.get("candidates")
     if not isinstance(candidates, list) or len(candidates) != 1 or not isinstance(candidates[0], dict):
         feedback = data.get("promptFeedback")
@@ -125,7 +133,7 @@ def parts(data: dict) -> list[dict]:
     reason = candidate.get("finishReason")
     if reason in ("SAFETY", "PROHIBITED_CONTENT", "SPII", "BLOCKLIST", "MODEL_ARMOR"):
         raise GeminiResponseError("refused")
-    if reason != "STOP":
+    if reason != "STOP" and not (allow_cut_off and reason == "MAX_TOKENS"):
         raise GeminiResponseError("incomplete")
     content = candidate.get("content")
     result = content.get("parts") if isinstance(content, dict) else None
@@ -134,8 +142,8 @@ def parts(data: dict) -> list[dict]:
     return result
 
 
-def output_text(data: dict) -> str:
-    text_parts = [part["text"] for part in parts(data) if isinstance(part.get("text"), str)]
+def output_text(data: dict, allow_cut_off: bool = False) -> str:
+    text_parts = [part["text"] for part in parts(data, allow_cut_off) if isinstance(part.get("text"), str)]
     if len(text_parts) != 1:
         raise GeminiResponseError("malformed")
     return text_parts[0]

@@ -135,6 +135,32 @@ class DocumentTests(unittest.TestCase):
         self.assertEqual(call.call_args.kwargs["purpose"], "document")
         self.assertTrue(text.startswith("UTS: 28 Oktober"))
 
+    def test_a_long_pdf_that_fills_the_output_limit_keeps_what_was_transcribed(self):
+        # Production, 12 Nov: a ~106k-token PDF stopped at max_tokens after ~59 s and the upload failed with 503.
+        cut = {"candidates": [{"finishReason": "MAX_TOKENS", "content": {"parts": [{"text": "Minggu 1: Pengantar\nMinggu 2: Regresi"}]}}]}
+        with patch.object(documents, "api_key", return_value="k"), patch.object(documents, "gemini_request", return_value=cut) as call:
+            text = documents.transcribe(document())
+        self.assertTrue(text.startswith("Minggu 1: Pengantar\nMinggu 2: Regresi"))
+        self.assertTrue(text.endswith(documents.PARTIAL_NOTE))
+        self.assertEqual(call.call_args.kwargs["timeout"], documents.TRANSCRIBE_TIMEOUT)
+
+    def test_an_overlong_transcription_is_trimmed_to_the_source_limit_and_marked(self):
+        long = {"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": "a" * (documents.MAX_TEXT + 500)}]}}]}
+        with patch.object(documents, "api_key", return_value="k"), patch.object(documents, "gemini_request", return_value=long):
+            text = documents.transcribe(document())
+        self.assertLessEqual(len(text), documents.MAX_TEXT)
+        self.assertTrue(text.endswith(documents.PARTIAL_NOTE))
+
+    def test_a_refused_or_empty_cut_off_answer_still_fails(self):
+        for reply in ({"candidates": [{"finishReason": "SAFETY", "content": {"parts": [{"text": "x"}]}}]},
+                      {"candidates": [{"finishReason": "OTHER", "content": {"parts": [{"text": "x"}]}}]}):
+            with self.subTest(reply["candidates"][0]["finishReason"]), patch.object(documents, "api_key", return_value="k"), \
+                 patch.object(documents, "gemini_request", return_value=reply), self.assertRaises(documents.DocumentUnreadable):
+                documents.transcribe(document())
+        empty = {"candidates": [{"finishReason": "MAX_TOKENS", "content": {"parts": [{"text": "   "}]}}]}
+        with patch.object(documents, "api_key", return_value="k"), patch.object(documents, "gemini_request", return_value=empty):
+            self.assertEqual(documents.transcribe(document()), "")
+
     def test_text_becomes_a_source_and_a_capture_job(self):
         source = SimpleNamespace(id=uuid4())
         with patch.object(documents, "transcribe", return_value="Tugas 1 deadline 20 Oktober"), \

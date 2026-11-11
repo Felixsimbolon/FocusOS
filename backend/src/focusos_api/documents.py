@@ -17,7 +17,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from focusos_api.gemini import GeminiResponseError, api_key, output_text, request as gemini_request
+from focusos_api.gemini import GeminiResponseError, api_key, cut_off, output_text, request as gemini_request
 from focusos_api.job_routes import access, call
 from focusos_api.jobs import JobInput, enqueue_job
 from focusos_api.sources import ManualSourceInput, create_manual_source
@@ -25,6 +25,8 @@ from focusos_api.sources import ManualSourceInput, create_manual_source
 router = APIRouter()
 MAX_BYTES = 3_000_000  # The web route and Vercel's request limit allow about this much.
 MAX_TEXT = 25_000      # A source body's limit.
+TRANSCRIBE_TIMEOUT = 75  # The web routes give up at 90 s; a long PDF has taken about 59 s.
+PARTIAL_NOTE = "\n\n[Transcription stops here: the document is longer than FocusOS reads at once.]"
 DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 TEXT_TYPES = ("text/markdown", "text/plain")
 MimeType = Literal["application/pdf", "image/png", "image/jpeg", "image/webp", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -138,10 +140,15 @@ def transcribe(document: DocumentInput) -> str:
         "generationConfig": {"maxOutputTokens": 8000},
     }
     try:
-        text = output_text(gemini_request(payload, timeout=60, max_bytes=262144, purpose="document"))
+        # A long PDF can fill the output limit (and take nearly a minute) before its transcription ends. Only the first
+        # MAX_TEXT characters are kept anyway, so a cut-off transcription is used, marked as partial, not thrown away.
+        answer = gemini_request(payload, timeout=TRANSCRIBE_TIMEOUT, max_bytes=262144, purpose="document")
+        text = output_text(answer, allow_cut_off=True).strip()
     except (httpx.HTTPError, GeminiResponseError, ValueError) as exc:
         raise DocumentUnreadable("document_unavailable") from exc
-    return text.strip()[:MAX_TEXT]
+    if text and (cut_off(answer) or len(text) > MAX_TEXT):
+        return text[:MAX_TEXT - len(PARTIAL_NOTE)].rstrip() + PARTIAL_NOTE
+    return text
 
 
 def ingest(token: str, document: DocumentInput) -> dict:

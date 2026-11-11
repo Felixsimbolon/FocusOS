@@ -1077,3 +1077,10 @@ Verification: tests written (`test_forecast.py`, `web/tests/forecast-panel.test.
 
 Verification: tests written (`web/tests/learning-trail.test.ts`), not run, per the user's instruction.
 - **Orientation.** A Vertikal / Horizontal switch above the map. Horizontal lays the same levels out as columns, foundations on the left and the assignment at the right, with names below the circles and paths from the right of one circle to the left of the next; focus and dimming work the same. The choice is remembered on the device (`localStorage`, read after mount so the server render matches); vertical is the default.
+
+## 2026-11-12 — Long PDFs no longer fail to attach
+
+- **Cause (production).** A ~106k-token PDF was transcribed until Claude hit the output limit (12,096 tokens, about 59 s). Any answer that did not end with STOP counted as "incomplete", so the upload answered 503 "Could not read this document right now", twice in a row.
+- **Fix.** Transcription accepts an answer cut off at the output limit (only the document path; every other call stays strict), keeps the first 25,000 characters as before and ends them with a note that the document continues. Its timeout is 75 s instead of 60 s, inside the web routes' 90 s.
+
+Verification: diagnosed from `llm_calls` (status, output tokens, latency). Tests written (`test_notifications_documents.py`), not run, per the user's instruction.
